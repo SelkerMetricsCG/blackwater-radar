@@ -13,3 +13,5 @@ __pycache__/
 *.tmp
 .claude/
 frames.js
+.wrangler/
+node_modules/
