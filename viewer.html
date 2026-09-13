@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="radar-base" content="">
+<title>Overnight Radar Playback</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #14171c; color: #e6e8ec; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; height: 100vh; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 14px; background: #1c2027; border-bottom: 1px solid #2b313b; }
+  header h1 { font-size: 15px; margin: 0 10px 0 0; font-weight: 600; }
+  header .muted { color: #8b93a1; font-size: 12px; }
+  select, button { background: #2a303a; color: #e6e8ec; border: 1px solid #3a4250; border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer; }
+  button:hover, select:hover { background: #343b47; }
+  button.primary { background: #2d6cdf; border-color: #2d6cdf; min-width: 78px; }
+  button.primary:hover { background: #3a79ea; }
+  main { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px; }
+  #stage { position: relative; width: 100%; height: 100%; overflow: hidden; background: #0d0f12; border-radius: 4px; cursor: grab; user-select: none; }
+  #stage.dragging { cursor: grabbing; }
+  #stage img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; will-change: transform; }
+  #stage .zoomhint { position: absolute; right: 10px; bottom: 8px; color: #8b93a1; font-size: 12px; background: rgba(20,23,28,.7); padding: 2px 8px; border-radius: 4px; pointer-events: none; }
+  #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  footer { padding: 10px 14px 12px; background: #1c2027; border-top: 1px solid #2b313b; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .label { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; min-width: 220px; }
+  input[type=range] { flex: 1; min-width: 200px; accent-color: #2d6cdf; }
+  .empty { color: #8b93a1; text-align: center; max-width: 480px; }
+  kbd { background: #2a303a; border: 1px solid #3a4250; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Overnight radar</h1>
+  <select id="source"></select>
+  <label class="muted">Speed
+    <select id="speed">
+      <option value="900">slow</option>
+      <option value="450" selected>normal</option>
+      <option value="200">fast</option>
+    </select>
+  </label>
+  <label class="muted"><input type="checkbox" id="dwell" checked> pause on last frame</label>
+  <button id="reload" title="Re-read frames.js to pick up new captures">Reload frames</button>
+  <span class="muted" id="updated"></span>
+</header>
+<main>
+  <div id="stage">
+    <img id="img" alt="" draggable="false">
+    <div id="empty" class="empty" hidden></div>
+    <div class="zoomhint" id="zoomhint">scroll to zoom · drag to pan · double-click to reset</div>
+  </div>
+</main>
+<footer>
+  <div class="row">
+    <button id="first" title="First (Home)">|&lt;</button>
+    <button id="prev" title="Previous (←)">&lt;</button>
+    <button id="play" class="primary" title="Play / pause (space)">Play</button>
+    <button id="next" title="Next (→)">&gt;</button>
+    <button id="last" title="Last (End)">&gt;|</button>
+    <input type="range" id="slider" min="0" max="0" value="0">
+    <span class="label" id="label"></span>
+    <span class="muted" id="count"></span>
+    <span id="windows" class="row" hidden></span>
+    <span style="margin-left:auto" class="row">
+      <button id="zoomout" title="Zoom out (-)">&minus;</button>
+      <button id="zoomin" title="Zoom in (+)">+</button>
+      <button id="zoomfit" title="Fit to window (0)">Fit</button>
+      <span class="muted" id="zoomlvl">1.0x</span>
+    </span>
+  </div>
+  <div class="muted" style="margin-top:6px">Keys: <kbd>space</kbd> play/pause &nbsp; <kbd>←</kbd> <kbd>→</kbd> step &nbsp; <kbd>Home</kbd> <kbd>End</kbd> jump</div>
+</footer>
+
+<script>
+  // Load the frame list with a fresh timestamp so no cache (browser or CDN) can serve a stale copy.
+  (function () {
+    var b = (document.querySelector('meta[name="radar-base"]') || {}).content || '';
+    document.write('<script src="' + b + 'frames.js?t=' + Date.now() + '"><\/script>');
+  })();
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const BASE = (document.querySelector('meta[name="radar-base"]') || {}).content || '';   // '' locally, R2 URL on the web
+  const img = $('img'), slider = $('slider'), label = $('label'), count = $('count'),
+        playBtn = $('play'), sourceSel = $('source'), speedSel = $('speed'), empty = $('empty');
+  let data = window.RADAR_FRAMES || {}, key = null, frames = [], i = 0, timer = null;
+
+  function fillSources() {
+    sourceSel.innerHTML = '';
+    for (const k of Object.keys(data)) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = data[k].title + ' (' + data[k].frames.length + ')';
+      sourceSel.appendChild(o);
+    }
+    if (!key || !data[key]) key = Object.keys(data)[0] || null;
+    if (key) sourceSel.value = key;
+    $('updated').textContent = window.RADAR_UPDATED ? 'manifest updated ' + window.RADAR_UPDATED : '';
+  }
+
+  function load() {
+    frames = key && data[key] ? data[key].frames : [];
+    slider.max = Math.max(0, frames.length - 1);
+    i = Math.min(i, Math.max(0, frames.length - 1));
+    if (!frames.length) {
+      empty.hidden = false; img.hidden = true;
+      empty.textContent = 'No frames yet. The capture script writes one every 15 minutes; click "Reload frames" later.';
+      label.textContent = ''; count.textContent = '';
+      return;
+    }
+    empty.hidden = true; img.hidden = false;
+    for (const f of frames) { const p = new Image(); p.src = BASE + f.file; }   // preload
+    // accumulation source: quick window buttons instead of a time loop
+    const isAccum = key === 'accum', win = $('windows');
+    win.hidden = !isAccum; slider.hidden = isAccum;
+    for (const id of ['play', 'first', 'last']) $(id).hidden = isAccum;
+    win.innerHTML = '';
+    if (isAccum) {
+      frames.forEach((f, n) => {
+        const b = document.createElement('button');
+        b.textContent = f.short || f.label; b.dataset.n = n;
+        b.onclick = () => { pause(); show(n); };
+        win.appendChild(b);
+      });
+    }
+    show(i);
+  }
+
+  function show(n) {
+    if (!frames.length) return;
+    i = (n + frames.length) % frames.length;
+    img.src = BASE + frames[i].file;
+    slider.value = i;
+    label.textContent = frames[i].label;
+    count.textContent = (i + 1) + ' / ' + frames.length;
+    for (const b of $('windows').querySelectorAll('button')) b.classList.toggle('primary', +b.dataset.n === i);
+  }
+
+  // ---- zoom & pan -------------------------------------------------------------
+  const stage = $('stage');
+  let view = { fit: 1, scale: 1, tx: 0, ty: 0 }, natural = { w: 0, h: 0 }, needFit = true;
+
+  function applyView() {
+    img.style.transform = 'translate(' + view.tx + 'px,' + view.ty + 'px) scale(' + view.scale + ')';
+    $('zoomlvl').textContent = (view.scale / view.fit).toFixed(1) + 'x';
+  }
+  function fitView() {
+    if (!natural.w) return;
+    const sw = stage.clientWidth, sh = stage.clientHeight;
+    view.fit = Math.min(sw / natural.w, sh / natural.h);
+    view.scale = view.fit;
+    view.tx = (sw - natural.w * view.scale) / 2;
+    view.ty = (sh - natural.h * view.scale) / 2;
+    needFit = false;
+    applyView();
+  }
+  function clampPan() {
+    const sw = stage.clientWidth, sh = stage.clientHeight, w = natural.w * view.scale, h = natural.h * view.scale;
+    view.tx = w <= sw ? (sw - w) / 2 : Math.min(0, Math.max(sw - w, view.tx));
+    view.ty = h <= sh ? (sh - h) / 2 : Math.min(0, Math.max(sh - h, view.ty));
+  }
+  function zoomAt(factor, cx, cy) {            // cx, cy in stage pixels
+    const target = Math.min(view.fit * 12, Math.max(view.fit, view.scale * factor));
+    const k = target / view.scale;
+    view.tx = cx - (cx - view.tx) * k;
+    view.ty = cy - (cy - view.ty) * k;
+    view.scale = target;
+    clampPan(); applyView();
+  }
+  img.addEventListener('load', () => {
+    const changed = img.naturalWidth !== natural.w || img.naturalHeight !== natural.h;
+    natural = { w: img.naturalWidth, h: img.naturalHeight };
+    if (needFit || changed) fitView();
+  });
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = stage.getBoundingClientRect();
+    zoomAt(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  let drag = null;
+  stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+    stage.classList.add('dragging'); stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!drag) return;
+    view.tx = drag.tx + (e.clientX - drag.x); view.ty = drag.ty + (e.clientY - drag.y);
+    clampPan(); applyView();
+  });
+  const endDrag = () => { drag = null; stage.classList.remove('dragging'); };
+  stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+  stage.addEventListener('dblclick', fitView);
+  window.addEventListener('resize', () => { if (view.scale === view.fit) fitView(); else { clampPan(); applyView(); } });
+  const center = () => [stage.clientWidth / 2, stage.clientHeight / 2];
+  $('zoomin').onclick = () => zoomAt(1.5, ...center());
+  $('zoomout').onclick = () => zoomAt(1 / 1.5, ...center());
+  $('zoomfit').onclick = fitView;
+
+  function tick() {
+    if (i === frames.length - 1 && $('dwell').checked) {
+      timer = setTimeout(() => { show(0); tick(); }, 1500);
+    } else {
+      timer = setTimeout(() => { show(i + 1); tick(); }, +speedSel.value);
+    }
+  }
+  function play() { if (timer || !frames.length) return; playBtn.textContent = 'Pause'; tick(); }
+  function pause() { clearTimeout(timer); timer = null; playBtn.textContent = 'Play'; }
+  function toggle() { timer ? pause() : play(); }
+
+  playBtn.onclick = toggle;
+  $('prev').onclick = () => { pause(); show(i - 1); };
+  $('next').onclick = () => { pause(); show(i + 1); };
+  $('first').onclick = () => { pause(); show(0); };
+  $('last').onclick = () => { pause(); show(frames.length - 1); };
+  slider.oninput = () => { pause(); show(+slider.value); };
+  sourceSel.onchange = () => { pause(); key = sourceSel.value; i = 0; load(); if (key !== 'accum' && frames.length > 1) play(); };
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'SELECT') return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowLeft') { pause(); show(i - 1); }
+    else if (e.key === 'ArrowRight') { pause(); show(i + 1); }
+    else if (e.key === 'Home') { pause(); show(0); }
+    else if (e.key === 'End') { pause(); show(frames.length - 1); }
+  });
+
+  $('reload').onclick = () => {
+    const wasPlaying = !!timer; pause();
+    const s = document.createElement('script');
+    s.src = BASE + 'frames.js?' + Date.now();
+    s.onload = () => { data = window.RADAR_FRAMES || {}; fillSources(); load(); if (wasPlaying) play(); };
+    s.onerror = () => alert('Could not reload frames.js');
+    document.body.appendChild(s);
+  };
+
+  fillSources(); load();
+  if (frames.length > 1) play();
+})();
+</script>
+</body>
+</html>

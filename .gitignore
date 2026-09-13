@@ -1,0 +1,15 @@
+# secrets and local state never go to GitHub
+r2.env
+r2_uploaded.json
+capture.log
+STOP
+frames/
+data/
+web/
+__pycache__/
+*.pyc
+*.jpg
+*.png
+*.tmp
+.claude/
+frames.js

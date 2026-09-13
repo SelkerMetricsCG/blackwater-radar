@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="radar-base" content="">
+<meta name="theme-color" content="#1c2027">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Radar">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Blackwater Radar</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  :root { --panel:#1c2027; --panel2:#242a33; --line:#323a46; --text:#e6e8ec; --muted:#8b93a1; --accent:#2d6cdf; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body { background:#0f1216; color:var(--text); font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; }
+  #map { position:absolute; inset:0 0 88px 0; background:#0f1216; }
+  .leaflet-container { font:inherit; }
+  .leaflet-control-attribution { background:rgba(20,23,28,.75)!important; color:#aab; font-size:10px; }
+  .leaflet-control-attribution a { color:#9cf; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:#fff; color:#111; opacity:1; }
+  .leaflet-popup-content { margin:10px 12px; }
+
+  #panel { position:absolute; top:12px; left:12px; width:300px; max-height:calc(100% - 112px); overflow:auto; background:rgba(28,32,39,.94); border:1px solid var(--line); border-radius:12px; z-index:1000; backdrop-filter:blur(6px); }
+  #panel h1 { font-size:15px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #panel h1 small { color:var(--muted); font-weight:400; font-size:11px; }
+  .sec { padding:10px 14px; border-bottom:1px solid var(--line); }
+  .sec:last-child { border-bottom:0; }
+  .sec h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  .baserow { display:flex; gap:6px; }
+  .baserow .chip { flex:1; text-align:center; padding:4px 0; }
+  .grph { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; margin-bottom:6px !important; }
+  .grph .chev { width:7px; height:7px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); transform:rotate(45deg); transition:transform .15s; margin:0 2px 3px 0; }
+  .grp.closed .grph .chev { transform:rotate(-45deg); margin-bottom:0; }
+  .grp.closed .body { display:none; }
+  .grp.closed .grph { margin-bottom:0 !important; }
+  .grph .n { margin-left:auto; font-size:10px; letter-spacing:0; text-transform:none; background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:1px 7px; color:var(--text); min-width:22px; text-align:center; }
+  .grph .n.on { background:var(--accent); border-color:var(--accent); }
+  .grph .n:empty { display:none; }
+  .opt { display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer; white-space:nowrap; }
+  .opt input { accent-color:var(--accent); margin:0; flex:none; }
+  .opt select { margin-left:auto; max-width:148px; flex:none; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font:inherit; font-size:12px; }
+  .opt select[hidden] { display:none; }
+  .sub { padding:4px 0 4px 24px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .sub input[type=range] { width:100%; accent-color:var(--accent); }
+  .sub .muted { font-size:12px; color:var(--muted); }
+  .subwrap { display:none; padding-bottom:6px; }
+  .subwrap.open { display:block; }
+  .chip { display:inline-block; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; }
+  .chip.on { background:var(--accent); border-color:var(--accent); }
+  .chip:hover { border-color:#5b7fd0; }
+  .legend { display:flex; gap:2px; margin-top:6px; width:100%; }
+  .legend div { flex:1; height:10px; position:relative; }
+  .legend div span { position:absolute; top:12px; left:0; font-size:10px; color:var(--muted); }
+  .note { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.35; }
+  #toggle { position:absolute; top:12px; left:12px; z-index:1001; display:none; }
+  .stlabel { background:rgba(255,255,255,.92); border:1px solid #999; color:#111; font-weight:600; font-size:11px; padding:1px 4px; border-radius:3px; box-shadow:none; }
+  .stlabel::before { display:none; }
+  .fzlabel { background:#1b2a6b; color:#fff; border-color:#fff; font-size:12px; padding:1px 5px; transform:translate(-50%,-50%); white-space:nowrap; }
+
+  #bar { position:absolute; left:0; right:0; bottom:0; height:88px; background:var(--panel); border-top:1px solid var(--line); padding:10px 14px; z-index:1000; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #bar button { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 10px; font:inherit; cursor:pointer; }
+  #bar button.primary { background:var(--accent); border-color:var(--accent); min-width:74px; }
+  #slider { flex:1; min-width:160px; accent-color:var(--accent); }
+  #label { font-weight:600; font-variant-numeric:tabular-nums; min-width:200px; }
+  #bar select { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font:inherit; }
+  .muted { color:var(--muted); }
+  kbd { background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:0 5px; font-size:11px; }
+  #status { font-size:12px; color:var(--muted); margin-top:6px; display:flex; gap:14px; flex-wrap:wrap; }
+  #status b { color:#e0b04b; font-weight:600; }
+  .pt table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  .pt td { padding:1px 8px 1px 0; }
+  .pt td:last-child { text-align:right; font-weight:600; }
+
+  #grab { display:none; }
+  body.nobar #panel { max-height:calc(100% - 24px); }
+  @media (max-width: 720px) {
+    #panel { display:none; top:auto; bottom:126px; left:8px; right:8px; width:auto; max-height:none; height:55vh; overflow:hidden; flex-direction:column; }
+    body.nobar #panel { bottom:8px; }
+    #panel.open { display:flex; }
+    #panel h1 { flex:none; }
+    #panel .sec { flex:none; }
+    #panel > .sec:last-of-type { padding-bottom:20px; }
+    #panelBody { flex:1; overflow:auto; }
+    #grab { display:flex; justify-content:center; padding:10px 0 4px; cursor:ns-resize; touch-action:none; flex:none; }
+    #grab span { width:44px; height:5px; border-radius:3px; background:#5b6572; }
+    #toggle { display:block; font-size:15px; font-weight:600; padding:9px 16px; border-radius:10px; background:rgba(28,32,39,.95); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.45); }
+    #label { min-width:0; font-size:13px; }
+    #map { inset:0 0 118px 0; }
+    #bar { height:118px; padding-bottom:max(10px, env(safe-area-inset-bottom)); }
+    #bar button { padding:8px 12px; }
+    #status span:last-child { display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<button id="toggle" class="chip">Layers</button>
+
+<aside id="panel">
+  <div id="grab" title="drag to resize"><span></span></div>
+  <h1>Blackwater Radar <small id="updated"></small><button class="chip" id="closePanel" style="display:none">close</button></h1>
+
+  <div class="sec">
+    <h2>Basemap</h2>
+    <div class="baserow">
+      <label class="chip on"><input type="radio" name="base" value="topo" checked hidden>Topo</label>
+      <label class="chip"><input type="radio" name="base" value="sat" hidden>Satellite</label>
+      <label class="chip"><input type="radio" name="base" value="terrain" hidden>Terrain</label>
+      <label class="chip"><input type="radio" name="base" value="streets" hidden>Streets</label>
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="now">
+    <h2 class="grph"><span class="chev"></span>Now &amp; forecast <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyRadar" checked> Radar loop</label>
+    <div class="subwrap" data-for="lyRadar">
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="radarOpacity" min="0.2" max="1" step="0.05" value="0.8"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lySat"> Satellite loop (GOES)</label>
+    <div class="subwrap" data-for="lySat">
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="satOpacity" min="0.2" max="1" step="0.05" value="0.85"></div>
+      <div class="sub" id="satInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyStations"> Weather stations
+      <select id="stModeSel" hidden><option value="precip">Precipitation</option><option value="snow">New snow</option><option value="swe">New snow water</option><option value="temp">Temperature</option><option value="wind">Wind</option><option value="swe_pct">Snowpack, % of median</option><option value="wy_pct">Water-year precip, % of median</option></select></label>
+    <div class="subwrap" data-for="lyStations">
+      <div class="sub" id="stWins"></div>
+      <div class="sub" id="stInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyCams"> Webcams</label>
+    <div class="subwrap" data-for="lyCams">
+      <div class="sub" id="camInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyFz"> Freezing level (HRRR)</label>
+    <div class="subwrap" data-for="lyFz">
+      <div class="sub" id="fzHours"></div>
+      <div class="sub"><label class="opt" style="padding:0"><input type="checkbox" id="fzBands"> shaded bands</label></div>
+      <div class="sub" id="fzInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyFcst"> NWS forecast
+      <select id="fcSel" hidden>
+        <option value="qpf_24">Rain 24 h</option><option value="qpf_48">Rain 48 h</option>
+        <option value="snow_24">Snow 24 h</option><option value="snow_48">Snow 48 h</option>
+        <option value="gust_24">Peak gust 24 h</option><option value="maxt">High temp</option><option value="mint">Low temp</option>
+      </select></label>
+    <div class="subwrap" data-for="lyFcst">
+      <div class="sub" id="fcInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lyAvy"> NWAC avalanche forecast</label>
+    <div class="subwrap" data-for="lyAvy">
+      <div class="sub" id="avyInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="totals">
+    <h2 class="grph"><span class="chev"></span>Totals <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyAccum"> Rain / snow totals
+      <select id="accumSrc" hidden>
+        <option value="stations">Rain: station interpolation</option>
+        <option value="mrms">Rain: NOAA radar+gauges</option>
+        <option value="snow">New snow: station interpolation</option>
+        <option value="radar">Rain: radar estimate</option>
+      </select></label>
+    <div class="subwrap" data-for="lyAccum">
+      <div class="sub" id="accumWins"></div>
+      <div class="sub" id="accumInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="snow">
+    <h2 class="grph"><span class="chev"></span>Snow <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lySnodas"> Modeled snow (SNODAS)
+      <select id="snodasSel" hidden><option value="depth">Snow depth</option><option value="swe">Snow water equivalent</option></select></label>
+    <div class="subwrap" data-for="lySnodas">
+      <div class="sub" id="snodasInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyBasins"> Snowpack by basin
+      <select id="basinSel" hidden><option value="swe">Snow water, % of median</option><option value="prec">Water-year precip, % of median</option></select></label>
+    <div class="subwrap" data-for="lyBasins">
+      <div class="sub" id="basinInfo" style="display:block"></div>
+    </div>
+
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="water">
+    <h2 class="grph"><span class="chev"></span>Water <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyRivers"> Rivers
+      <select id="rvModeSel" hidden><option value="pctmed">% of normal</option><option value="chg24">24 h change</option></select></label>
+    <div class="subwrap" data-for="lyRivers">
+      <div class="sub" id="rvInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="hazards">
+    <h2 class="grph"><span class="chev"></span>Hazards <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyAlerts"> NWS watches &amp; warnings</label>
+    </div>
+  </div>
+</aside>
+
+<div id="bar">
+  <div class="row">
+    <button id="first" title="First (Home)">|&lt;</button>
+    <button id="prev" title="Previous (←)">&lt;</button>
+    <button id="play" class="primary" title="Play / pause (space)">Play</button>
+    <button id="next" title="Next (→)">&gt;</button>
+    <button id="last" title="Latest (End)">&gt;|</button>
+    <input type="range" id="slider" min="0" max="0" value="0">
+    <span id="label"></span>
+    <select id="speed" title="Playback speed">
+      <option value="700">slow</option>
+      <option value="350" selected>normal</option>
+      <option value="150">fast</option>
+    </select>
+    <select id="span" title="How much history to loop">
+      <option value="3">last 3 h</option>
+      <option value="6">last 6 h</option>
+      <option value="12">last 12 h</option>
+      <option value="24" selected>last 24 h</option>
+      <option value="0">everything</option>
+    </select>
+  </div>
+  <div id="status"><span id="count"></span><span id="latest"></span><span>Keys: <kbd>space</kbd> play <kbd>←</kbd><kbd>→</kbd> step <kbd>End</kbd> latest · click the map for totals at a point</span></div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+  (function () {
+    var b = (document.querySelector('meta[name="radar-base"]') || {}).content || '';
+    document.write('<script src="' + b + 'frames.js?t=' + Date.now() + '"><\/script>');
+  })();
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const BASE = (document.querySelector('meta[name="radar-base"]') || {}).content || '';
+  const LVN = [47.596, -120.661];
+  const RAIN_BINS = [[0.01, '#b9f0b9'], [0.10, '#50c850'], [0.25, '#fff000'], [0.50, '#ffaa00'], [0.75, '#ff5a00'], [1.00, '#dc0000'], [1.50, '#c800c8'], [2.00, '#7800b4'], [3.00, '#46006e']];
+  const SNOW_BINS = [[0.1, '#7fbfe8'], [1, '#3f96d6'], [3, '#1f6fbf'], [6, '#0b4a99'], [12, '#5b2fa3'], [24, '#3a1370']];
+  function fmt(v) { return v == null ? '–' : (Math.abs(v) < 0.005 ? '0' : (v >= 10 ? v.toFixed(1) : v.toFixed(2)).replace(/^(-?)0\./, '$1.')); }
+  function legendHtml(bins, f) { return '<div class="legend">' + bins.map(([lo, c]) => '<div style="background:' + c + '"><span>' + (f || fmt)(lo) + '</span></div>').join('') + '</div>'; }
+  function loadScript(path, onload, onerror) {
+    const s = document.createElement('script'); s.src = BASE + path + (path.includes('?') ? '&' : '?') + 't=' + Date.now();
+    s.onload = onload; s.onerror = onerror || (() => {}); document.body.appendChild(s);
+  }
+
+  // ---------- map & basemaps ----------
+  const map = L.map('map', { zoomControl: true, minZoom: 5, maxZoom: 17, worldCopyJump: false }).setView(LVN, 9);
+  map.zoomControl.setPosition('topright');
+  const esri = p => 'https://server.arcgisonline.com/ArcGIS/rest/services/' + p + '/MapServer/tile/{z}/{y}/{x}';
+  const esriAttr = 'Tiles &copy; Esri';
+  const bases = {
+    topo:    L.tileLayer(esri('World_Topo_Map'), { maxZoom: 17, attribution: esriAttr }),
+    streets: L.tileLayer(esri('World_Street_Map'), { maxZoom: 17, attribution: esriAttr }),
+    terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 16, subdomains: 'abc', attribution: '&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap' }),
+    sat:     L.layerGroup([
+               L.tileLayer(esri('World_Imagery'), { maxZoom: 17, attribution: esriAttr }),
+               L.tileLayer(esri('Reference/World_Boundaries_and_Places'), { maxZoom: 17 }),
+               L.tileLayer(esri('Reference/World_Transportation'), { maxZoom: 17 }),
+             ]),
+  };
+  let currentBase = bases.topo.addTo(map);
+  document.querySelectorAll('input[name=base]').forEach(r => r.addEventListener('change', () => {
+    map.removeLayer(currentBase); currentBase = bases[r.value].addTo(map);
+    document.querySelectorAll('.baserow .chip').forEach(c => c.classList.toggle('on', c.querySelector('input').checked));
+  }));
+
+  // ---------- grouped sections: fold/unfold, remember, count active layers ----------
+  (function () {
+    let closed = [];
+    try { closed = JSON.parse(localStorage.getItem('radar.closedGroups') || '[]'); } catch (e) { closed = []; }
+    document.querySelectorAll('.grp').forEach(g => {
+      if (closed.includes(g.dataset.grp)) g.classList.add('closed');
+      g.querySelector('.grph').addEventListener('click', () => {
+        g.classList.toggle('closed');
+        const now = Array.from(document.querySelectorAll('.grp.closed')).map(x => x.dataset.grp);
+        try { localStorage.setItem('radar.closedGroups', JSON.stringify(now)); } catch (e) { /* private mode */ }
+      });
+    });
+    window.updateGroupCounts = () => document.querySelectorAll('.grp').forEach(g => {
+      const n = g.querySelectorAll('.body > .opt > input:checked').length, b = g.querySelector('.n');
+      b.textContent = n ? String(n) : ''; b.classList.toggle('on', n > 0);
+    });
+    document.querySelectorAll('.grp .body > .opt > input').forEach(cb => cb.addEventListener('change', window.updateGroupCounts));
+    window.updateGroupCounts();
+  })();
+
+  // ---------- panel behaviour: sub-controls and dropdowns only while a layer is on ----------
+  document.querySelectorAll('.subwrap').forEach(w => {
+    const cb = $(w.dataset.for);
+    const sel = cb.parentElement.querySelector('select');
+    const sync = () => { w.classList.toggle('open', cb.checked); if (sel) sel.hidden = !cb.checked; };
+    cb.addEventListener('change', sync); sync();
+  });
+  document.querySelectorAll('.opt select').forEach(s => s.addEventListener('click', e => e.stopPropagation()));
+
+  // ---------- data ----------
+  let data = window.RADAR_DATA || { bounds: [[43, -127], [52.5, -112]], radar: [], sat: [], accum: [], legend: [] };
+  const bounds = () => L.latLngBounds(data.bounds[0], data.bounds[1]);
+
+  // ---------- radar loop (+ satellite following it) ----------
+  const radar = L.imageOverlay('', bounds(), { opacity: +$('radarOpacity').value, interactive: false, zIndex: 400 });
+  const satOv = L.imageOverlay('', bounds(), { opacity: +$('satOpacity').value, interactive: false, zIndex: 380 });
+  let frames = [], i = 0, timer = null;
+  const cache = {};
+  function preload(f) { if (f && !cache[f.file]) { const im = new Image(); im.src = BASE + f.file; cache[f.file] = im; } }
+  function selectFrames() {
+    const hours = +$('span').value, all = data.radar || [];
+    if (!all.length) return [];
+    const end = all[all.length - 1].t;
+    return hours ? all.filter(f => f.t > end - hours * 3600) : all.slice();
+  }
+  function nearestSat(t) {
+    const s = data.sat || []; if (!s.length) return null;
+    let best = s[0]; for (const f of s) if (Math.abs(f.t - t) < Math.abs(best.t - t)) best = f;
+    return Math.abs(best.t - t) < 3600 * 1.5 ? best : null;
+  }
+  function loadFrames(keepIndexFromEnd) {
+    const fromEnd = keepIndexFromEnd && frames.length ? Math.max(0, frames.length - 1 - i) : 0;
+    frames = selectFrames();
+    $('slider').max = Math.max(0, frames.length - 1);
+    i = Math.max(0, frames.length - 1 - fromEnd);
+    frames.forEach(preload);
+    $('count').textContent = frames.length ? frames.length + ' scans in loop' : 'no scans yet';
+    const rl = data.radar || [], last = rl[rl.length - 1];
+    $('latest').innerHTML = last ? 'latest scan <b>' + last.label + '</b>' : '';
+    $('updated').textContent = data.updated ? 'updated ' + data.updated : '';
+    const sats = data.sat || [], sl = sats[sats.length - 1];
+    $('satInfo').innerHTML = '<div class="muted">' + (sl ? (sats.length + ' frames · latest ' + sl.label + ' · follows the radar timeline') : 'no satellite frames yet') + '</div>';
+    show(i);
+  }
+  function show(n) {
+    if (!frames.length) { $('label').textContent = 'waiting for radar…'; return; }
+    i = (n + frames.length) % frames.length;
+    radar.setUrl(BASE + frames[i].file);
+    if (map.hasLayer(satOv)) { const sf = nearestSat(frames[i].t); if (sf) satOv.setUrl(BASE + sf.file); }
+    $('slider').value = i;
+    $('label').textContent = frames[i].label + (i === frames.length - 1 ? '  (latest)' : '');
+    preload(frames[i + 1]); preload(frames[i + 2]);
+  }
+  function tick() { timer = setTimeout(() => { show(i + 1); tick(); }, i === frames.length - 1 ? 1600 : +$('speed').value); }
+  function play() { if (timer || frames.length < 2) return; if (i >= frames.length - 1) show(0); $('play').textContent = 'Pause'; tick(); }   // from the latest frame, play restarts at the oldest
+  function pause() { clearTimeout(timer); timer = null; $('play').textContent = 'Play'; }
+  function toggle() { timer ? pause() : play(); }
+  $('play').onclick = toggle;
+  $('prev').onclick = () => { pause(); show(i - 1); };
+  $('next').onclick = () => { pause(); show(i + 1); };
+  $('first').onclick = () => { pause(); show(0); };
+  $('last').onclick = () => { pause(); show(frames.length - 1); };
+  $('slider').oninput = () => { pause(); show(+$('slider').value); };
+  $('span').onchange = () => { pause(); loadFrames(false); show(frames.length - 1); };
+  $('radarOpacity').oninput = e => radar.setOpacity(+e.target.value);
+  $('satOpacity').oninput = e => satOv.setOpacity(+e.target.value);
+  // the timeline bar only exists while a loop is on
+  function syncBar() {
+    const on = $('lyRadar').checked || $('lySat').checked;
+    $('bar').style.display = on ? '' : 'none';
+    $('map').style.bottom = on ? '' : '0';
+    document.body.classList.toggle('nobar', !on);
+    if (!on) pause();
+    setTimeout(() => map.invalidateSize(), 50);
+  }
+  $('lyRadar').onchange = e => { if (e.target.checked) { radar.addTo(map); show(frames.length - 1); } else map.removeLayer(radar); syncBar(); };
+  $('lySat').onchange = e => { if (e.target.checked) { satOv.addTo(map); (data.sat || []).forEach(preload); show(i); } else map.removeLayer(satOv); syncBar(); };
+  document.addEventListener('keydown', e => {
+    if (['SELECT', 'INPUT'].includes(e.target.tagName)) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowLeft') { pause(); show(i - 1); }
+    else if (e.key === 'ArrowRight') { pause(); show(i + 1); }
+    else if (e.key === 'Home') { pause(); show(0); }
+    else if (e.key === 'End') { pause(); show(frames.length - 1); }
+  });
+
+  // ---------- rain totals: MRMS (NOAA) or radar estimate ----------
+  const accum = L.imageOverlay('', bounds(), { opacity: .7, interactive: false, zIndex: 390 });
+  let accumKey = '24h', mrms = null;
+  function accumList() {
+    const src = $('accumSrc').value;
+    if (src === 'mrms' && mrms) return Object.values(mrms.windows).map(w => ({ key: w.hours + 'h', file: w.file, start: '', end: 'valid ' + new Date(w.valid_utc + 'Z').toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }));
+    if ((src === 'stations' || src === 'snow') && stData && stData.interp) {
+      const set = stData.interp[src === 'snow' ? 'snow' : 'precip'] || {};
+      return Object.entries(set).map(([w, e]) => ({ key: w + 'h', file: e.file, start: '', end: e.n + ' stations, updated ' + (stData.updated || '') })).sort((a, b) => parseInt(a.key) - parseInt(b.key));
+    }
+    if (src === 'radar') return data.accum || [];
+    return [];
+  }
+  function renderAccumUI() {
+    const wins = $('accumWins'); wins.innerHTML = '';
+    const list = accumList();
+    if (!list.some(a => a.key === accumKey)) accumKey = list.length ? list[list.length - 1].key : null;
+    list.forEach(a => {
+      const b = document.createElement('button'); b.className = 'chip' + (a.key === accumKey ? ' on' : ''); b.textContent = a.key === 'all' ? 'all' : a.key;
+      b.onclick = () => { accumKey = a.key; renderAccumUI(); showAccum(); }; wins.appendChild(b);
+    });
+    const a = list.find(x => x.key === accumKey);
+    const srcKey = $('accumSrc').value;
+    const src = { mrms: 'NOAA MRMS: radar corrected by gauges, 1 km, US only', stations: 'gauges only, elevation-aware interpolation; fades where sparse', snow: 'snow-depth change at SNOTEL and snow sites, elevation-aware; fades where sparse', radar: 'radar only; reads low in mountain valleys' }[srcKey];
+    $('accumInfo').innerHTML = (a ? '<div class="muted">' + (a.start ? a.start + ' – ' : '') + a.end + '</div>' : '<div class="muted">not available' + (srcKey === 'snow' ? ' (no snow reports in this window)' : '') + '</div>') + legendHtml(srcKey === 'snow' ? SNOW_BINS : RAIN_BINS) + '<div class="note" style="margin-top:18px">inches · ' + src + '</div>';
+  }
+  function showAccum() { const a = accumList().find(x => x.key === accumKey); if (a) { accum.setUrl(BASE + a.file); if (!map.hasLayer(accum) && $('lyAccum').checked) accum.addTo(map); } else if (map.hasLayer(accum)) map.removeLayer(accum); }
+  function loadMrms(then) { loadScript('data/mrms.js', () => { mrms = window.MRMS || mrms; if (then) then(); }, then); }
+  function ensureStations(then) { if (stData) then(); else loadScript('data/stations.js', () => { stData = window.STATIONS || stData; then(); }, then); }
+  function accumRefresh() {
+    const v = $('accumSrc').value;
+    const go = () => { renderAccumUI(); showAccum(); };
+    if (v === 'stations' || v === 'snow') ensureStations(go);
+    else if (v === 'mrms' && !mrms) loadMrms(go);
+    else go();
+  }
+  $('lyAccum').onchange = e => { if (e.target.checked) accumRefresh(); else map.removeLayer(accum); };
+  $('accumSrc').onchange = accumRefresh;
+  setInterval(() => { if (map.hasLayer(accum)) loadMrms(() => { renderAccumUI(); showAccum(); }); }, 15 * 60 * 1000);
+
+  // ---------- weather stations ----------
+  const stLayer = L.layerGroup();
+  let stData = null, stMode = 'precip', stWin = '24';
+  function binColor(v, bins) { let c = '#9aa4b1'; for (const [lo, col] of bins) if (v >= lo) c = col; return c; }
+  function stationLink(s) {
+    if (s.src === 'SNOTEL') { const m = /^(\d+):/.exec(s.id); return m ? 'https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=' + m[1] : null; }
+    if (s.src === 'HADS') return 'https://water.noaa.gov/gauges/' + s.id;
+    if (s.src === 'CoCoRaHS') return 'https://www.cocorahs.org/ViewData/StationPrecipSummary.aspx?station=' + s.id;
+    if (s.src === 'NWS') return 'https://forecast.weather.gov/data/obhistory/' + s.id + '.html';
+    return null;
+  }
+  const TEMP_BINS = [[-20, '#313695'], [0, '#4575b4'], [10, '#74add1'], [20, '#abd9e9'], [32, '#e0f3f8'], [40, '#ffffbf'], [50, '#fee090'], [60, '#fdae61'], [70, '#f46d43'], [80, '#d73027'], [90, '#a50026'], [100, '#6e001e']];
+  const WIND_BINS = [[0, '#c7e9c0'], [10, '#fff7bc'], [20, '#fec44f'], [30, '#fe9929'], [40, '#ec7014'], [50, '#cc4c02'], [65, '#8c2d04']];
+  function tempSpark(arr) {
+    const v = (arr || []).filter(x => x != null); if (v.length < 3) return '';
+    const lo = Math.min(...v), hi = Math.max(...v), w = 220, h = 44;
+    const pts = v.map((x, i) => [(i / (v.length - 1)) * (w - 4) + 2, h - 4 - ((x - lo) / ((hi - lo) || 1)) * (h - 10)]);
+    return '<svg width="' + w + '" height="' + h + '" style="display:block;margin:6px 0"><polyline fill="none" stroke="#f46d43" stroke-width="2" points="' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"/></svg><div style="font-size:11px;color:#666">last 24 h: ' + lo + '° to ' + hi + '°</div>';
+  }
+  const windIcon = (dir, color) => L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10],
+    html: '<div style="width:22px;height:22px;transform:rotate(' + ((dir || 0) + 180) + 'deg)"><svg viewBox="0 0 22 22" width="22" height="22"><circle cx="11" cy="11" r="6" fill="' + color + '" stroke="#111" stroke-width="1"/><path d="M11 0 L16 8 L11 6 L6 8 Z" fill="#111"/></svg></div>' });
+  function renderStations() {
+    stLayer.clearLayers();
+    if (!stData) return;
+    const pctMode = stMode === 'swe_pct' || stMode === 'wy_pct', tempMode = stMode === 'temp', windMode = stMode === 'wind';
+    const bins = pctMode ? BASIN_BINS.slice().reverse() : tempMode ? TEMP_BINS : windMode ? WIND_BINS : (stMode === 'snow' ? SNOW_BINS : RAIN_BINS);
+    const showLabels = map.getZoom() >= 9;
+    let n = 0;
+    for (const s of stData.stations) {
+      let v;
+      if (pctMode) v = s[stMode];
+      else if (tempMode) v = s.temp ? s.temp.now : null;
+      else if (windMode) v = s.wind ? (s.wind.gust != null ? s.wind.gust : s.wind.spd) : null;
+      else v = ((s[stMode] || {})[stWin]);
+      if (v == null) continue;
+      n++;
+      const mag = Math.max(0, v);
+      let m;
+      if (windMode && s.wind.dir != null) m = L.marker([s.lat, s.lon], { icon: windIcon(s.wind.dir, binColor(mag, WIND_BINS)) });
+      else {
+        const r = pctMode || tempMode || windMode ? 7 : (stMode === 'snow' ? 4 + Math.min(12, Math.sqrt(mag) * 3) : 4 + Math.min(12, Math.sqrt(mag) * 9));
+        const fill = pctMode ? basinColor(v) : (tempMode || windMode) ? binColor(v, bins) : (v <= 0 ? '#8891a0' : binColor(mag, bins));
+        m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#111', weight: 1, fillColor: fill, fillOpacity: .9 });
+      }
+      const rows = (stData.windows || []).map(w => '<td style="padding:1px 6px;text-align:right">' + fmt((s[stMode] || {})[w]) + '</td>').join('');
+      const head = (stData.windows || []).map(w => '<th style="padding:1px 6px;font-weight:600">' + w + 'h</th>').join('');
+      let extra = '';
+      if (s.temp) extra += '<div>Temperature: <b>' + s.temp.now + '°F</b>' + (s.temp.max != null ? ' <span style="color:#666">(24 h ' + s.temp.min + '° to ' + s.temp.max + '°)</span>' : '') + '</div>' + tempSpark(s.temp.spark);
+      if (s.wind) extra += '<div>Wind: <b>' + (s.wind.spd != null ? s.wind.spd + ' mph' : '–') + '</b>' + (s.wind.gust != null ? ', gusting ' + s.wind.gust : '') + (s.wind.dir != null ? ', from ' + Math.round(s.wind.dir) + '°' : '') + (s.wind.max_gust != null ? ' <span style="color:#666">(24 h max gust ' + s.wind.max_gust + ')</span>' : '') + '</div>';
+      if (s.rh != null) extra += '<div>Humidity: ' + s.rh + '%</div>';
+      if (s.depth != null) extra += '<div>Snow depth: <b>' + fmt(s.depth) + ' in</b></div>';
+      if (s.swe_total != null) extra += '<div>Snowpack: <b>' + fmt(s.swe_total) + ' in</b> water equivalent' + (s.swe_pct != null ? ', <b>' + s.swe_pct + '%</b> of median' : (s.swe_median === 0 ? ', no snow normally on this date' : '')) + '</div>';
+      if (s.wy_pct != null) extra += '<div>Water-year precip: ' + fmt(s.wy_total) + ' in, ' + s.wy_pct + '% of median</div>';
+      if (s.elev) extra += '<div class="muted">' + Math.round(s.elev) + ' ft</div>';
+      const link = stationLink(s);
+      const tableMode = ['precip', 'snow', 'swe'].includes(stMode) && Object.keys(s[stMode] || {}).length;
+      m.bindPopup('<div style="font:13px system-ui;min-width:220px"><b>' + s.name + '</b> <span style="color:#666">' + s.src + '</span>' +
+        (tableMode ? '<div style="margin:6px 0 2px">' + ({ precip: 'Precipitation', snow: 'Snow depth change', swe: 'Snow water gain' })[stMode] + ' (in)</div>' +
+        '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums"><tr>' + head + '</tr><tr>' + rows + '</tr></table>' : '<div style="margin:4px 0"></div>') + extra +
+        '<div style="color:#666;margin-top:4px">' + (s.last ? 'last report ' + s.last : '') + (link ? (s.last ? ' · ' : '') + '<a href="' + link + '" target="_blank" rel="noopener">station page</a>' : '') + '</div></div>', { maxWidth: 300 });
+      const lbl = pctMode ? v + '%' : tempMode ? v + '°' : windMode ? (!s.wind.spd && !s.wind.gust ? 'calm' : (s.wind.spd != null ? s.wind.spd : '') + (s.wind.gust ? 'g' + s.wind.gust : '')) : fmt(v);
+      m.bindTooltip(String(lbl), { permanent: showLabels, direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+      stLayer.addLayer(m);
+    }
+    const winsEl = $('stWins'); winsEl.innerHTML = '';
+    if (!pctMode && !tempMode && !windMode) (stData.windows || []).forEach(w => {
+      const b = document.createElement('button'); b.className = 'chip' + (String(w) === stWin ? ' on' : ''); b.textContent = w + 'h';
+      b.onclick = () => { stWin = String(w); renderStations(); }; winsEl.appendChild(b);
+    });
+    const legFmt = pctMode ? (x => x === 0 ? '<50' : x + '%') : (tempMode || windMode) ? (x => String(x)) : fmt;
+    const note = pctMode ? 'SNOTEL only, percent of 1991–2020 median for yesterday' : tempMode ? '°F now; SNOTEL everywhere, NWS network near Leavenworth' : windMode ? 'mph, gust if reported; arrows point downwind' : 'inches';
+    $('stInfo').innerHTML = '<div class="muted">' + n + ' stations · updated ' + (stData.updated || '') + '</div>' + legendHtml(bins, legFmt) + '<div class="note" style="margin-top:18px">' + note + '</div>';
+    if ($('lyAccum').checked && ['stations', 'snow'].includes($('accumSrc').value)) { renderAccumUI(); showAccum(); }
+  }
+  function loadStations() { loadScript('data/stations.js', () => { stData = window.STATIONS || stData; renderStations(); }, () => { $('stInfo').innerHTML = '<div class="muted">station data not available yet</div>'; }); }
+  $('stModeSel').onchange = e => { stMode = e.target.value; renderStations(); };
+  $('lyStations').onchange = e => { if (e.target.checked) { stLayer.addTo(map); if (!stData) loadStations(); else renderStations(); } else map.removeLayer(stLayer); };
+  setInterval(() => { if (map.hasLayer(stLayer)) loadStations(); }, 15 * 60 * 1000);
+
+  // ---------- SNODAS modeled snow ----------
+  const snodasOv = L.imageOverlay('', bounds(), { opacity: .7, interactive: false, zIndex: 388 });
+  let snodasData = null;
+  function renderSnodas() {
+    if (!snodasData) return;
+    const k = $('snodasSel').value, l = (snodasData.layers || {})[k];
+    if (!l) return;
+    snodasOv.setUrl(BASE + l.file);
+    $('snodasInfo').innerHTML = '<div class="muted">analysis for ' + snodasData.date + ' · max ' + l.max_in + ' in in window</div>' +
+      legendHtml(l.legend.map(x => [x.min, x.color]), x => String(x)) + '<div class="note" style="margin-top:18px">inches · NOAA National Snow Analysis, 1 km, updated daily, US only. A model: good between SNOTEL sites, rough below treeline in spring.</div>';
+  }
+  function loadSnodas() { loadScript('data/snodas.js', () => { snodasData = window.SNODAS || snodasData; renderSnodas(); }, () => { $('snodasInfo').innerHTML = '<div class="muted">snow analysis not available yet</div>'; }); }
+  $('snodasSel').onchange = renderSnodas;
+  $('lySnodas').onchange = e => { if (e.target.checked) { snodasOv.addTo(map); if (!snodasData) loadSnodas(); else renderSnodas(); } else map.removeLayer(snodasOv); };
+
+  // ---------- snowpack by basin (NRCS) ----------
+  const BASIN_BINS = [[150, '#1d2f9e'], [130, '#3d8bd6'], [110, '#7fd3f5'], [90, '#4caf50'], [70, '#f2d33a'], [50, '#f08c1e'], [0, '#d32f2f']];
+  function basinColor(p) { if (p == null) return '#9e9e9e'; for (const [lo, c] of BASIN_BINS) if (p >= lo) return c; return '#d32f2f'; }
+  let basinData = null;
+  const basinLayer = L.geoJSON(null, {
+    style: f => { const v = f.properties[$('basinSel').value + '_pct']; return { color: '#333', weight: 1, fillColor: basinColor(v), fillOpacity: v == null ? .12 : .45 }; },
+    onEachFeature: (f, l) => {
+      const p = f.properties, k = $('basinSel').value, v = p[k + '_pct'];
+      l.bindTooltip(p.name + ': ' + (v == null ? 'no value' : v + '%'), { sticky: true });
+      l.bindPopup('<div style="font:13px system-ui;min-width:200px"><b>' + p.name + '</b> <span style="color:#666">basin ' + p.huc6 + '</span>' +
+        '<div style="margin:4px 0">Snow water equivalent: ' + (p.swe_pct == null ? (p.swe_n ? 'no snow on this date normally' : 'no sites') : '<b>' + p.swe_pct + '% of median</b>' + (p.swe_in != null ? ' (' + p.swe_in + ' in avg)' : '')) + (p.swe_n ? ', ' + p.swe_n + ' sites' : '') + '</div>' +
+        '<div>Water-year precipitation: ' + (p.prec_pct == null ? 'no value' : '<b>' + p.prec_pct + '% of median</b>') + '</div>' +
+        '<div style="color:#666;font-size:12px;margin-top:4px">NRCS SNOTEL, ' + (basinData ? basinData.date : '') + ' · <a href="https://nwcc-apps.sc.egov.usda.gov/imap/" target="_blank" rel="noopener">NRCS map</a></div></div>');
+    }
+  });
+  function renderBasins() {
+    if (!basinData) return;
+    basinLayer.clearLayers(); basinLayer.addData(basinData);
+    const k = $('basinSel').value;
+    const n = basinData.features.filter(f => f.properties[k + '_pct'] != null).length;
+    $('basinInfo').innerHTML = '<div class="muted">' + (n ? n + ' basins with values' : 'no values yet this season') + ' · as of ' + (basinData.date || '') + '</div>' +
+      legendHtml(BASIN_BINS.slice().reverse(), x => x === 0 ? '<50' : x + '%') + '<div class="note" style="margin-top:18px">percent of 1991–2020 median, HUC6 basins, US only</div>';
+  }
+  function loadBasins() { loadScript('data/basins.js', () => { basinData = window.BASINS || basinData; renderBasins(); }, () => { $('basinInfo').innerHTML = '<div class="muted">basin data not available yet</div>'; }); }
+  $('basinSel').onchange = renderBasins;
+  $('lyBasins').onchange = e => { if (e.target.checked) { basinLayer.addTo(map); if (!basinData) loadBasins(); else renderBasins(); } else map.removeLayer(basinLayer); };
+
+  // ---------- rivers ----------
+  const rvLayer = L.layerGroup();
+  let rvData = null, rvMode = 'pctmed';
+  function rvColor(s) {
+    if (rvMode === 'pctmed') {
+      const p = s.pctmed; if (p == null) return '#8891a0';
+      return p < 50 ? '#b45309' : p < 90 ? '#d6a44a' : p < 110 ? '#6b7280' : p < 150 ? '#38bdf8' : p < 250 ? '#2563eb' : p < 500 ? '#7c3aed' : '#dc2626';
+    }
+    const c = s.chg24; if (c == null) return '#8891a0';
+    return c < -10 ? '#b45309' : c < 10 ? '#6b7280' : c < 50 ? '#38bdf8' : c < 150 ? '#2563eb' : c < 300 ? '#7c3aed' : '#dc2626';
+  }
+  function chart(s) {
+    const obs = (s.spark || []).map((v, k) => v == null ? null : [k - 24, v]).filter(Boolean);   // hours relative to now
+    const fc = (s.fc && s.fc.series || []).map(p => p[1] == null ? null : [(new Date(p[0]) - Date.now()) / 3.6e6, p[1]]).filter(p => p && p[0] > 0 && p[0] <= 72);
+    const pts = obs.concat(fc); if (pts.length < 2) return '';
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), w = 240, h = 60;
+    const X = x => ((x - x0) / ((x1 - x0) || 1)) * (w - 4) + 2, Y = y => h - 4 - ((y - lo) / ((hi - lo) || 1)) * (h - 10);
+    const line = (arr, c, dash) => arr.length > 1 ? '<polyline fill="none" stroke="' + c + '" stroke-width="2"' + (dash ? ' stroke-dasharray="4 3"' : '') + ' points="' + arr.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ') + '"/>' : '';
+    const nowX = X(0);
+    return '<svg width="' + w + '" height="' + h + '" style="display:block;margin:6px 0"><line x1="' + nowX + '" y1="2" x2="' + nowX + '" y2="' + (h - 2) + '" stroke="#bbb"/>' + line(obs, '#2563eb') + line(fc.length ? [obs[obs.length - 1]].concat(fc) : [], '#dc2626', true) + '</svg>' +
+      '<div style="font-size:11px;color:#666">blue: last 24 h · ' + (fc.length ? 'red dashed: NWS forecast next ' + Math.round(fc[fc.length - 1][0]) + ' h' : 'no NWS forecast for this gauge') + '</div>';
+  }
+  function renderRivers() {
+    rvLayer.clearLayers();
+    if (!rvData) return;
+    const showLabels = map.getZoom() >= 9;
+    let n = 0;
+    for (const s of rvData.sites) {
+      if (s.flow == null && s.stage == null) continue;
+      n++;
+      const r = s.flow == null ? 4 : 4 + Math.min(10, Math.log10(Math.max(1, s.flow)) * 2);
+      const m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#0b1220', weight: 1, fillColor: rvColor(s), fillOpacity: .9 });
+      const f = s.flow == null ? '–' : s.flow.toLocaleString() + ' cfs';
+      let html = '<div style="font:13px system-ui;min-width:240px"><b>' + s.name + '</b><div style="margin:4px 0">Flow: <b>' + f + '</b>' +
+        (s.chg24 != null ? ' <span style="color:' + (s.chg24 > 0 ? '#2563eb' : '#b45309') + '">' + (s.chg24 > 0 ? '+' : '') + s.chg24 + '% / 24 h</span>' : '') + '</div>';
+      if (s.pctmed != null) html += '<div>' + s.pctmed + '% of median for this date (' + s.median.toLocaleString() + ' cfs)</div>';
+      if (s.stage != null) html += '<div>Stage: ' + s.stage.toFixed(2) + ' ft' + (s.stage24 != null ? ' (' + (s.stage24 > 0 ? '+' : '') + s.stage24.toFixed(2) + ' ft / 24 h)' : '') + '</div>';
+      if (s.fc && s.fc.crest_flow != null) html += '<div style="color:#dc2626">NWS forecast crest: <b>' + s.fc.crest_flow.toLocaleString() + ' cfs</b>' + (s.fc.crest_stage != null && s.fc.crest_stage > -900 ? ' / ' + s.fc.crest_stage.toFixed(1) + ' ft' : '') + ' at ' + s.fc.crest_t + '</div>';
+      html += chart(s);
+      html += '<div style="color:#666;font-size:12px">as of ' + (s.t || '') + ' · <a href="https://waterdata.usgs.gov/monitoring-location/' + s.id + '/" target="_blank" rel="noopener">USGS ' + s.id + '</a>' +
+        (s.fc ? ' · <a href="https://www.nwrfc.noaa.gov/river/station/flowplot/flowplot.cgi?lid=' + s.fc.lid + '" target="_blank" rel="noopener">NWRFC forecast plot</a> · <a href="https://water.noaa.gov/gauges/' + s.fc.lid + '" target="_blank" rel="noopener">NWS gauge page</a>' : '') + '</div></div>';
+      m.bindPopup(html, { maxWidth: 300 });
+      if (showLabels && s.flow != null) m.bindTooltip(s.flow.toLocaleString(), { permanent: true, direction: 'top', offset: [0, -r], className: 'stlabel', opacity: .95 });
+      else m.bindTooltip(s.name.replace(/, (WA|OR|ID|MT)$/, '') + (s.flow != null ? ': ' + s.flow.toLocaleString() + ' cfs' : ''), { direction: 'top', offset: [0, -r] });
+      rvLayer.addLayer(m);
+    }
+    const leg = rvMode === 'pctmed'
+      ? legendHtml([['<50%', '#b45309'], ['<90', '#d6a44a'], ['normal', '#6b7280'], ['>110', '#38bdf8'], ['>150', '#2563eb'], ['>250', '#7c3aed'], ['>500', '#dc2626']], x => x)
+      : legendHtml([['falling', '#b45309'], ['steady', '#6b7280'], ['+10%', '#38bdf8'], ['+50%', '#2563eb'], ['+150%', '#7c3aed'], ['+300%', '#dc2626']], x => x);
+    $('rvInfo').innerHTML = '<div class="muted">' + n + ' gauges · updated ' + (rvData.updated || '') + '</div>' + leg + '<div class="note" style="margin-top:18px">cfs; click a gauge for the trace and NWS forecast</div>';
+  }
+  function loadRivers() { loadScript('data/rivers.js', () => { rvData = window.RIVERS || rvData; renderRivers(); }, () => { $('rvInfo').innerHTML = '<div class="muted">river data not available yet</div>'; }); }
+  $('rvModeSel').onchange = e => { rvMode = e.target.value; renderRivers(); };
+  $('lyRivers').onchange = e => { if (e.target.checked) { rvLayer.addTo(map); if (!rvData) loadRivers(); else renderRivers(); } else map.removeLayer(rvLayer); };
+  setInterval(() => { if (map.hasLayer(rvLayer)) loadRivers(); }, 15 * 60 * 1000);
+  map.on('zoomend', () => { if (map.hasLayer(stLayer)) renderStations(); if (map.hasLayer(rvLayer)) renderRivers(); });
+
+  // ---------- webcams ----------
+  const camLayer = L.featureGroup(), wedgeLayer = L.layerGroup();
+  let camData = null, camPopupOpen = false;
+  camLayer.on('popupopen', () => { camPopupOpen = true; });
+  camLayer.on('popupclose', () => { camPopupOpen = false; });
+  const roadIcon = L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border-radius:4px;background:#f59e0b;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -10] });
+  const fireIcon = pan => L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12],
+    html: '<div style="width:26px;height:26px;transform:rotate(' + (pan || 0) + 'deg)"><svg viewBox="0 0 26 26" width="26" height="26"><circle cx="13" cy="13" r="7" fill="#0ea5e9" stroke="#fff" stroke-width="2"/><path d="M13 1 L19 10 L13 8 L7 10 Z" fill="#fff" stroke="#0369a1" stroke-width="1"/></svg></div>' });
+  function wedge(c, km) {
+    const pts = [[c.lat, c.lon]], half = (c.fov || 45) / 2, R = 6371;
+    for (let a = -half; a <= half; a += 3) {
+      const br = ((c.pan || 0) + a) * Math.PI / 180, lat1 = c.lat * Math.PI / 180, lon1 = c.lon * Math.PI / 180, dr = km / R;
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dr) + Math.cos(lat1) * Math.sin(dr) * Math.cos(br));
+      const lon2 = lon1 + Math.atan2(Math.sin(br) * Math.sin(dr) * Math.cos(lat1), Math.cos(dr) - Math.sin(lat1) * Math.sin(lat2));
+      pts.push([lat2 * 180 / Math.PI, lon2 * 180 / Math.PI]);
+    }
+    return L.polygon(pts, { color: '#0ea5e9', weight: 1, fillOpacity: .18, interactive: false });
+  }
+  function renderCams() {
+    if (camPopupOpen) return;
+    camLayer.clearLayers(); wedgeLayer.clearLayers();
+    if (!camData) return;
+    const z = map.getZoom(), b = map.getBounds().pad(0.3);
+    let n = 0;
+    for (const c of camData.cams) {
+      if (!b.contains([c.lat, c.lon])) continue;
+      if (z < 9 && c.kind === 'road') continue;
+      n++;
+      const m = L.marker([c.lat, c.lon], { icon: c.kind === 'fire' ? fireIcon(c.pan) : roadIcon });
+      m.bindTooltip(c.name + (c.kind === 'fire' && c.pan != null ? ' · facing ' + Math.round(c.pan) + '°' : ''), { direction: 'top', offset: [0, -12] });
+      if (c.kind === 'fire' && c.pan != null) {
+        let w = null;
+        m.on('mouseover', () => { w = wedge(c, 12).addTo(wedgeLayer); });
+        m.on('mouseout', () => { if (w) { wedgeLayer.removeLayer(w); w = null; } });
+      }
+      m.bindPopup(() => {
+        const src = c.img + '?t=' + Date.now();
+        const age = c.ts ? Math.round((Date.now() / 1000 - c.ts) / 60) : null;
+        return '<div style="font:13px system-ui;width:min(80vw,440px)"><b>' + c.name + '</b> <span style="color:#666">' + (c.kind === 'road' ? 'road camera' : 'fire camera') + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '') + '</span>' +
+          '<div style="margin:6px 0"><a href="' + src + '" target="_blank" rel="noopener"><img src="' + src + '" alt="' + c.name + '" style="width:100%;border-radius:6px;background:#eee"></a></div>' +
+          '<div style="color:#666;font-size:12px">' + (c.src || '') + ' via <a href="' + (c.link || '#') + '" target="_blank" rel="noopener">AlertWest</a>' + (age != null ? ' · image ' + age + ' min old at last refresh' : '') + '</div></div>';
+      }, { maxWidth: 480 });
+      camLayer.addLayer(m);
+    }
+    $('camInfo').innerHTML = '<div class="muted">' + n + ' in view · arrows are fire cameras (hover for the view cone), squares are road cameras (zoom in)</div>';
+  }
+  map.on('moveend', () => { if (map.hasLayer(camLayer)) renderCams(); });
+  function loadCams() { loadScript('data/webcams.js', () => { camData = window.WEBCAMS || camData; renderCams(); }, () => { $('camInfo').innerHTML = '<div class="muted">camera list not available yet</div>'; }); }
+  $('lyCams').onchange = e => { if (e.target.checked) { camLayer.addTo(map); wedgeLayer.addTo(map); if (!camData) loadCams(); else renderCams(); } else { map.removeLayer(camLayer); map.removeLayer(wedgeLayer); } };
+  setInterval(() => { if (map.hasLayer(camLayer)) loadCams(); }, 15 * 60 * 1000);
+
+  // ---------- NWAC avalanche forecast ----------
+  const avyLayer = L.geoJSON(null, {
+    style: f => ({ color: f.properties.color || '#888', weight: 1.5, fillColor: f.properties.color || '#888', fillOpacity: (f.properties.danger_level > 0 ? .28 : .10) }),
+    onEachFeature: (f, l) => {
+      const p = f.properties;
+      l.bindTooltip(p.name + ': ' + (p.danger || 'no rating'), { sticky: true });
+      l.bindPopup('<div style="font:13px system-ui;max-width:320px"><b>' + p.name + '</b><div style="margin:4px 0"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + (p.color || '#888') + ';vertical-align:middle"></span> ' +
+        (p.danger || 'no rating') + (p.warning ? ' · <b style="color:#dc2626">' + p.warning + '</b>' : '') + '</div>' +
+        (p.travel_advice ? '<div style="font-size:12px;margin:4px 0">' + p.travel_advice + '</div>' : '') +
+        (p.start_date ? '<div style="color:#666;font-size:12px">valid ' + p.start_date.slice(0, 10) + ' to ' + (p.end_date || '').slice(0, 10) + '</div>' : '') +
+        (p.link ? '<div style="margin-top:6px"><a href="' + p.link + '" target="_blank" rel="noopener">Full NWAC forecast →</a></div>' : '') + '</div>');
+    }
+  });
+  function loadAvy() {
+    loadScript('data/avalanche.js', () => {
+      const g = window.AVALANCHE; if (!g) return;
+      avyLayer.clearLayers(); avyLayer.addData(g);
+      const off = g.features.every(f => f.properties.off_season || f.properties.danger_level < 0);
+      $('avyInfo').innerHTML = '<div class="muted">' + (off ? 'off season: no ratings issued' : 'danger by zone; click a zone') + ' · <a href="https://nwac.us/" target="_blank" rel="noopener" style="color:#9cf">nwac.us</a></div>';
+    }, () => { $('avyInfo').innerHTML = '<div class="muted">forecast not available yet</div>'; });
+  }
+  $('lyAvy').onchange = e => { if (e.target.checked) { avyLayer.addTo(map); loadAvy(); } else map.removeLayer(avyLayer); };
+
+  // ---------- freezing level (HRRR 0°C height) ----------
+  const FZ_STOPS = [[0, [68, 1, 84]], [2000, [72, 40, 120]], [3000, [62, 74, 137]], [4000, [49, 104, 142]], [5000, [38, 130, 142]], [6000, [31, 158, 137]], [7000, [53, 183, 121]], [8000, [109, 205, 89]], [9000, [180, 222, 44]], [10000, [253, 231, 37]], [12000, [253, 174, 60]], [14000, [230, 80, 40]]];
+  function fzColor(ft) {
+    for (let k = 0; k < FZ_STOPS.length - 1; k++) {
+      const [a, ca] = FZ_STOPS[k], [b, cb] = FZ_STOPS[k + 1];
+      if (ft <= b) { const t = Math.max(0, (ft - a) / (b - a)); return 'rgb(' + ca.map((c, i) => Math.round(c + (cb[i] - c) * t)).join(',') + ')'; }
+    }
+    return 'rgb(165,0,38)';
+  }
+  const fzBands = L.imageOverlay('', bounds(), { opacity: .6, interactive: false, zIndex: 385 });
+  const fzLines = L.layerGroup();
+  let fzData = null, fzHour = 0;
+  function fzHourLabel(h) { return h.h === 0 ? 'now' : '+' + h.h + 'h'; }
+  function fzValidLabel(h) { return new Date(h.valid_utc + 'Z').toLocaleString([], { weekday: 'short', hour: 'numeric' }); }
+  function renderFz() {
+    if (!fzData) return;
+    const hours = fzData.hours || [];
+    if (!hours.some(h => h.h === fzHour)) fzHour = hours.length ? hours[0].h : 0;
+    const el = $('fzHours'); el.innerHTML = '';
+    hours.forEach(h => { const b = document.createElement('button'); b.className = 'chip' + (h.h === fzHour ? ' on' : ''); b.textContent = fzHourLabel(h); b.title = fzValidLabel(h); b.onclick = () => { fzHour = h.h; renderFz(); }; el.appendChild(b); });
+    const h = hours.find(x => x.h === fzHour); if (!h) return;
+    if ($('fzBands').checked) { fzBands.setUrl(BASE + h.file); if (!map.hasLayer(fzBands)) fzBands.addTo(map); } else if (map.hasLayer(fzBands)) map.removeLayer(fzBands);
+    loadScript(h.contours, () => {
+      const g = (window.FZ_CONTOURS || {})[String(h.h)]; if (!g) return;
+      fzLines.clearLayers();
+      const showLabels = map.getZoom() >= 7;
+      // white halo underneath, navy line on top: readable on every basemap
+      L.geoJSON(g, { style: f => ({ color: '#fff', weight: f.properties.ft % 1000 === 0 ? 5 : 3.5, opacity: .8 }), interactive: false }).addTo(fzLines);
+      L.geoJSON(g, {
+        style: f => ({ color: '#1b2a6b', weight: f.properties.ft % 1000 === 0 ? 2.6 : 1.4, opacity: 1 }),
+        onEachFeature: (f, l) => {
+          l.bindTooltip(f.properties.ft.toLocaleString() + ' ft', { sticky: true, className: 'stlabel' });
+          const c = f.geometry.coordinates;
+          if (showLabels && c.length > 10) {
+            const p = c[Math.floor(c.length / 2)];
+            fzLines.addLayer(L.marker([p[1], p[0]], { interactive: false, icon: L.divIcon({ className: 'stlabel fzlabel', html: f.properties.ft.toLocaleString(), iconSize: null }) }));
+          }
+        }
+      }).addTo(fzLines);
+    });
+    $('fzInfo').innerHTML = '<div class="muted">' + fzValidLabel(h) + ' · HRRR run ' + new Date(fzData.run_utc + 'Z').toLocaleTimeString([], { hour: 'numeric' }) + ' · ' + h.min_ft.toLocaleString() + ' to ' + h.max_ft.toLocaleString() + ' ft in window</div>' +
+      '<div class="legend">' + [2000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000].map(v => '<div style="background:' + fzColor(v) + '"><span>' + (v / 1000) + 'k</span></div>').join('') + '</div>' +
+      '<div class="note" style="margin-top:18px">height of the 0 °C level, ft; lines every ' + (fzData.step_ft || 500) + ' ft, bold each 1,000, hover a line for its value. Snow level is typically 500 to 1,000 ft lower.</div>';
+  }
+  function loadFz() { loadScript('data/freezing.js', () => { fzData = window.FREEZING || fzData; renderFz(); }, () => { $('fzInfo').innerHTML = '<div class="muted">freezing level not available yet</div>'; }); }
+  $('fzBands').onchange = renderFz;
+  $('lyFz').onchange = e => { if (e.target.checked) { fzLines.addTo(map); if (!fzData) loadFz(); else renderFz(); } else { map.removeLayer(fzLines); if (map.hasLayer(fzBands)) map.removeLayer(fzBands); } };
+  map.on('zoomend', () => { if (map.hasLayer(fzLines)) renderFz(); });
+  setInterval(() => { if (map.hasLayer(fzLines)) loadFz(); }, 30 * 60 * 1000);
+
+  // ---------- NWS forecast overlays ----------
+  const fcst = L.imageOverlay('', bounds(), { opacity: .75, interactive: false, zIndex: 392 });
+  let fcData = null;
+  function fcBins(key) {
+    if (key.startsWith('snow')) return SNOW_BINS;
+    if (key.startsWith('gust')) return ((fcData || {}).legends || {}).gust ? fcData.legends.gust.map(l => [l.min, l.color]) : [];
+    if (key === 'maxt' || key === 'mint') return ((fcData || {}).legends || {}).temp ? fcData.legends.temp.map(l => [l.min, l.color]) : [];
+    return RAIN_BINS;
+  }
+  function renderForecast() {
+    if (!fcData) return;
+    const key = $('fcSel').value, w = (fcData.windows || {})[key];
+    if (w) fcst.setUrl(BASE + w.file);
+    const unit = w ? w.unit : 'in';
+    $('fcInfo').innerHTML = '<div class="muted">' + (w ? w.label + ' · through ' + new Date(w.valid_to_utc + 'Z').toLocaleString([], { weekday: 'short', hour: 'numeric' }) : 'not available') +
+      (fcData.issued_utc ? ' · issued ' + new Date(fcData.issued_utc + 'Z').toLocaleString([], { weekday: 'short', hour: 'numeric' }) : '') + '</div>' +
+      legendHtml(fcBins(key), unit === 'in' ? fmt : (x => String(x))) + '<div class="note" style="margin-top:18px">' + ({ in: 'inches', mph: 'mph', F: '°F' })[unit] + ' · NWS NDFD, 2.5 km, US only</div>';
+  }
+  function loadForecast() { loadScript('data/forecast.js', () => { fcData = window.FORECAST || fcData; renderForecast(); }, () => { $('fcInfo').innerHTML = '<div class="muted">forecast data not available yet</div>'; }); }
+  $('fcSel').onchange = renderForecast;
+  $('lyFcst').onchange = e => { if (e.target.checked) { fcst.addTo(map); if (!fcData) loadForecast(); else renderForecast(); } else map.removeLayer(fcst); };
+  setInterval(() => { if (map.hasLayer(fcst)) loadForecast(); }, 30 * 60 * 1000);
+
+  // ---------- NWS alerts ----------
+  const alertLayer = L.layerGroup();
+  function alertColor(p) {
+    const e = (p.event || '').toLowerCase();
+    if (/warning/.test(e)) return /flood/.test(e) ? '#00c853' : (/winter|snow|blizzard|ice/.test(e) ? '#ff4fd8' : '#ff3b3b');
+    if (/watch/.test(e)) return /flood/.test(e) ? '#2e7d32' : '#ffb300';
+    return '#8ab4f8';
+  }
+  function loadAlerts() {
+    loadScript('data/alerts.js', () => {
+      const g = window.ALERTS || {}; alertLayer.clearLayers();
+      L.geoJSON({ type: 'FeatureCollection', features: g.features || [] }, {
+        style: f => ({ color: alertColor(f.properties), weight: 2, fillOpacity: .12 }),
+        onEachFeature: (f, l) => {
+          const p = f.properties;
+          l.bindPopup('<div style="font:13px system-ui;max-width:340px"><b>' + p.event + '</b><div style="color:#666">' + (p.senderName || '') + '</div><div style="margin:6px 0">' + (p.headline || '') + '</div>' +
+            '<div style="max-height:200px;overflow:auto;white-space:pre-wrap;font-size:12px">' + (p.description || '') + '</div></div>');
+          l.bindTooltip(p.event, { sticky: true });
+        }
+      }).addTo(alertLayer);
+    });
+  }
+  $('lyAlerts').onchange = e => { if (e.target.checked) { alertLayer.addTo(map); loadAlerts(); } else map.removeLayer(alertLayer); };
+  setInterval(() => { if (map.hasLayer(alertLayer)) loadAlerts(); }, 10 * 60 * 1000);
+
+  // ---------- click anywhere: values at a point ----------
+  const grids = {};   // name -> {t, g}
+  function getGrid(name) {
+    return new Promise(res => {
+      const g = grids[name];
+      if (g && Date.now() - g.t < 10 * 60 * 1000) return res(g.g);
+      loadScript('data/values/' + name + '.js', () => {
+        const v = (window.VALUES || {})[name]; if (!v) return res(null);
+        const arr = v.data.split(',').map(Number); v.arr = arr; delete v.data; grids[name] = { t: Date.now(), g: v }; res(v);
+      }, () => res(null));
+    });
+  }
+  function sample(g, latlng) {
+    if (!g) return null;
+    const b = bounds();
+    const n = 128, Z = 7;
+    const mx = (latlng.lng + 180) / 360 * n, my = (1 - Math.log(Math.tan(latlng.lat * Math.PI / 180) + 1 / Math.cos(latlng.lat * Math.PI / 180)) / Math.PI) / 2 * n;
+    const x0 = (b.getWest() + 180) / 360 * n, y0 = (1 - Math.log(Math.tan(b.getNorth() * Math.PI / 180) + 1 / Math.cos(b.getNorth() * Math.PI / 180)) / Math.PI) / 2 * n;
+    const px = Math.floor((mx - x0) / 5 * g.w), py = Math.floor((my - y0) / 5 * g.h);   // 5 tiles across the window
+    if (px < 0 || py < 0 || px >= g.w || py >= g.h) return null;
+    const v = g.arr[py * g.w + px];
+    return v === g.nodata || v == null ? null : v * g.scale;
+  }
+  // helpers for the point panel
+  function sunTimes(lat, lon, date) {   // NOAA simplified algorithm; returns local Date objects or null (polar)
+    const rad = Math.PI / 180, d = date || new Date();
+    const n = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2000, 0, 1)) / 864e5) + 0.5 - lon / 360;
+    const M = (357.5291 + 0.98560028 * n) % 360, C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+    const L = (M + C + 180 + 102.9372) % 360, Jt = 2451545 + n + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
+    const dec = Math.asin(Math.sin(L * rad) * Math.sin(23.44 * rad));
+    const cosw = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
+    if (cosw < -1 || cosw > 1) return null;
+    const w = Math.acos(cosw) / rad / 360;
+    const toDate = j => new Date((j - 2440587.5) * 864e5);
+    return { rise: toDate(Jt - w), set: toDate(Jt + w) };
+  }
+  function pointInPoly(pt, geom) {   // [lon, lat] in GeoJSON Polygon/MultiPolygon
+    const inRing = (ring) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) inside = !inside; } return inside; };
+    const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+    return polys.some(p => inRing(p[0]) && !p.slice(1).some(inRing));
+  }
+  function distKm(a, b) { const r = Math.PI / 180, x = (b.lon - a.lng) * Math.cos((a.lat + b.lat) / 2 * r), y = b.lat - a.lat; return Math.sqrt(x * x + y * y) * 111.2; }
+  function nearest(list, latlng, pred) { let best = null, bd = 1e9; for (const s of list || []) { if (pred && !pred(s)) continue; const d = distKm(latlng, s); if (d < bd) { bd = d; best = s; } } return best ? { s: best, km: bd } : null; }
+  function meteogram(periods) {
+    const p = periods.slice(0, 48); if (p.length < 6) return '';
+    const w = 300, h = 90, temps = p.map(x => x.temperature), lo = Math.min(...temps), hi = Math.max(...temps);
+    const X = i => 2 + i / (p.length - 1) * (w - 4), Y = t => 14 + (h - 30) * (1 - (t - lo) / ((hi - lo) || 1));
+    const line = '<polyline fill="none" stroke="#f46d43" stroke-width="2" points="' + temps.map((t, i) => X(i).toFixed(1) + ',' + Y(t).toFixed(1)).join(' ') + '"/>';
+    const bars = p.map((x, i) => { const pp = (x.probabilityOfPrecipitation || {}).value || 0; return pp ? '<rect x="' + (X(i) - 2).toFixed(1) + '" y="' + (h - 14 - pp / 100 * 40).toFixed(1) + '" width="4" height="' + (pp / 100 * 40).toFixed(1) + '" fill="#3b82f6" opacity=".5"/>' : ''; }).join('');
+    const ticks = p.map((x, i) => { const d = new Date(x.startTime); return d.getHours() === 0 ? '<line x1="' + X(i).toFixed(1) + '" y1="10" x2="' + X(i).toFixed(1) + '" y2="' + (h - 12) + '" stroke="#ccc"/><text x="' + (X(i) + 2).toFixed(1) + '" y="' + (h - 2) + '" font-size="9" fill="#666">' + d.toLocaleDateString([], { weekday: 'short' }) + '</text>' : ''; }).join('');
+    const labels = '<text x="2" y="10" font-size="9" fill="#f46d43">' + hi + '°</text><text x="2" y="' + (h - 18) + '" font-size="9" fill="#f46d43">' + lo + '°</text>';
+    return '<svg width="' + w + '" height="' + h + '" style="display:block;margin:4px 0">' + ticks + bars + line + labels + '</svg><div style="font-size:11px;color:#666">next 48 h: temperature (orange), chance of precip (blue bars)</div>';
+  }
+  map.on('click', async e => {
+    if (!bounds().contains(e.latlng)) return;
+    const ll = e.latlng, w = stWin;
+    const pop = L.popup({ maxWidth: 340, minWidth: 260 }).setLatLng(ll).setContent('<div class="pt" style="font:13px system-ui">loading…</div>').openOn(map);
+    const sec = [];
+    const render = (extra) => {
+      if (!pop.isOpen()) return;
+      pop.setContent('<div class="pt" style="font:13px system-ui;min-width:250px;max-height:60vh;overflow:auto">' + sec.join('') + (extra || '') + '</div>');
+    };
+    // header: elevation, sun, NWAC zone
+    const elev = sample(await getGrid('elev'), ll);
+    const sun = sunTimes(ll.lat, ll.lng);
+    let head = '<div style="font-weight:600">' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4) + (elev != null ? ' · ' + Math.round(elev).toLocaleString() + ' ft' : '') + '</div>';
+    if (sun) head += '<div style="color:#666;font-size:12px">sunrise ' + sun.rise.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · sunset ' + sun.set.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div>';
+    sec.push(head); render('<div style="color:#666">loading…</div>');
+    // freezing level now and later
+    if (!fzData) await new Promise(res => loadScript('data/freezing.js', () => { fzData = window.FREEZING || null; res(); }, res));
+    if (fzData) {
+      const rows = [];
+      for (const h of fzData.hours.filter(x => [0, 6, 12, 18].includes(x.h))) {
+        const v = sample(await getGrid('fz_' + h.h), ll);
+        if (v != null) rows.push('<td style="padding:0 8px 0 0"><div style="color:#666;font-size:11px">' + (h.h === 0 ? 'now' : fzValidLabel(h)) + '</div><b>' + (Math.round(v / 100) * 100).toLocaleString() + '</b></td>');
+      }
+      if (rows.length) sec.push('<div style="margin-top:6px"><span style="color:#666">Freezing level (ft)</span><table><tr>' + rows.join('') + '</tr></table></div>');
+    }
+    // observed totals and forecast grids
+    const grids = [['mrms_' + w, 'NOAA rain, last ' + w + ' h'], ['interp_precip_' + w, 'station rain, last ' + w + ' h'], ['interp_snow_' + w, 'station new snow, last ' + w + ' h'], ['accum_' + w + 'h', 'radar estimate, last ' + w + ' h']];
+    const fc = [['fc_qpf_24', 'rain next 24 h'], ['fc_snow_24', 'snow next 24 h'], ['fc_qpf_48', 'rain next 48 h'], ['fc_snow_48', 'snow next 48 h'], ['fc_gust_24', 'peak gust next 24 h'], ['fc_maxt', 'high'], ['fc_mint', 'low']];
+    const rowsFor = async list => { const out = []; for (const [n, l] of list) { const g = await getGrid(n); const v = sample(g, ll); if (v == null) continue; const u = g.unit === 'in' ? ' in' : g.unit === 'mph' ? ' mph' : ' °F'; out.push('<tr><td>' + l + '</td><td>' + (g.unit === 'in' ? fmt(v) : Math.round(v)) + u + '</td></tr>'); } return out; };
+    const r1 = await rowsFor(grids); if (r1.length) sec.push('<div style="margin-top:6px;color:#666">Observed</div><table>' + r1.join('') + '</table>');
+    const r0 = await rowsFor([['snodas_depth', 'modeled snow depth'], ['snodas_swe', 'modeled snow water']]); if (r0.length && r0.some(r => !/>0 in</.test(r))) sec.push('<div style="margin-top:6px;color:#666">Snowpack (SNODAS)</div><table>' + r0.join('') + '</table>');
+    const r2 = await rowsFor(fc); if (r2.length) sec.push('<div style="margin-top:6px;color:#666">NWS forecast</div><table>' + r2.join('') + '</table>');
+    render('<div style="color:#666">loading stations…</div>');
+    // nearest stations, gauge, avalanche zone
+    await new Promise(res => stData ? res() : loadScript('data/stations.js', () => { stData = window.STATIONS || stData; res(); }, res));
+    if (stData) {
+      const near = [];
+      const t = nearest(stData.stations, ll, s => s.temp); if (t) near.push('<div>' + t.s.name + ' <span style="color:#666">(' + t.km.toFixed(0) + ' km' + (t.s.elev ? ', ' + Math.round(t.s.elev).toLocaleString() + ' ft' : '') + ')</span>: <b>' + t.s.temp.now + '°F</b>' + (t.s.wind && t.s.wind.spd != null ? ', wind ' + t.s.wind.spd + (t.s.wind.gust ? 'g' + t.s.wind.gust : '') + ' mph' : '') + (t.s.rh != null ? ', RH ' + t.s.rh + '%' : '') + '</div>');
+      const sn = nearest(stData.stations, ll, s => s.src === 'SNOTEL'); if (sn) near.push('<div>SNOTEL ' + sn.s.name + ' <span style="color:#666">(' + sn.km.toFixed(0) + ' km' + (sn.s.elev ? ', ' + Math.round(sn.s.elev).toLocaleString() + ' ft' : '') + ')</span>: ' + (sn.s.depth != null ? 'snow depth <b>' + fmt(sn.s.depth) + ' in</b>' : 'no snow') + (sn.s.snow && sn.s.snow['24'] != null ? ', ' + (sn.s.snow['24'] >= 0 ? '+' : '') + fmt(sn.s.snow['24']) + ' in / 24 h' : '') + (sn.s.precip && sn.s.precip['24'] != null ? ', precip ' + fmt(sn.s.precip['24']) + ' in / 24 h' : '') + (sn.s.swe_pct != null ? ', snowpack ' + sn.s.swe_pct + '% of median' : '') + '</div>');
+      if (near.length) sec.push('<div style="margin-top:6px;color:#666">Nearest stations</div>' + near.join(''));
+    }
+    await new Promise(res => rvData ? res() : loadScript('data/rivers.js', () => { rvData = window.RIVERS || rvData; res(); }, res));
+    if (rvData) { const g = nearest(rvData.sites, ll, s => s.flow != null); if (g && g.km < 40) sec.push('<div style="margin-top:6px;color:#666">Nearest gauge</div><div>' + g.s.name.replace(/, (WA|OR|ID|MT)$/, '') + ' <span style="color:#666">(' + g.km.toFixed(0) + ' km)</span>: <b>' + g.s.flow.toLocaleString() + ' cfs</b>' + (g.s.pctmed != null ? ', ' + g.s.pctmed + '% of normal' : '') + (g.s.chg24 != null ? ', ' + (g.s.chg24 > 0 ? '+' : '') + g.s.chg24 + '% / 24 h' : '') + '</div>'); }
+    await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
+    if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">NWAC</a>' : '') + '</div>'); }
+    render('<div style="color:#666">loading hourly forecast…</div>');
+    // NWS hourly point forecast (US only)
+    try {
+      const pt = await (await fetch('https://api.weather.gov/points/' + ll.lat.toFixed(4) + ',' + ll.lng.toFixed(4))).json();
+      const url = pt.properties && pt.properties.forecastHourly;
+      if (url) {
+        const hf = await (await fetch(url)).json();
+        const periods = (hf.properties || {}).periods || [];
+        if (periods.length) {
+          const now = periods[0];
+          sec.push('<div style="margin-top:6px;color:#666">NWS hourly forecast</div><div>' + now.shortForecast + ', ' + now.temperature + '°F, wind ' + now.windSpeed + ' ' + now.windDirection + '</div>' + meteogram(periods) +
+            '<div style="font-size:11px"><a href="https://forecast.weather.gov/MapClick.php?lat=' + ll.lat.toFixed(4) + '&lon=' + ll.lng.toFixed(4) + '" target="_blank" rel="noopener">full NWS point forecast</a></div>');
+        }
+      }
+    } catch (err) { /* outside NWS coverage or offline */ }
+    sec.push('<div style="color:#666;font-size:11px;margin-top:6px">station windows follow the Weather stations selection (' + w + ' h)</div>');
+    render('');
+  });
+
+  // ---------- refresh ----------
+  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
+  function refresh() {
+    loadScript('frames.js', () => { const wasPlaying = !!timer; pause(); data = window.RADAR_DATA || data; applyData(); if (wasPlaying) play(); });
+  }
+  setInterval(refresh, 5 * 60 * 1000);
+
+  // ---------- mobile panel: bottom sheet with a drag bar ----------
+  const panel = $('panel');
+  // wrap the sections so the header and grab bar stay put while the body scrolls
+  const body = document.createElement('div'); body.id = 'panelBody';
+  Array.from(panel.querySelectorAll(':scope > .sec')).forEach(s => body.appendChild(s));
+  document.querySelectorAll('.baserow .chip').forEach(c => c.classList.toggle('on', c.querySelector('input').checked));
+  panel.appendChild(body);
+  function setPanel(open) { panel.classList.toggle('open', open); $('toggle').style.visibility = open ? 'hidden' : 'visible'; $('closePanel').style.display = open ? '' : 'none'; if (open) panel.style.height = ''; }
+  $('toggle').onclick = () => setPanel(true);
+  $('closePanel').onclick = () => setPanel(false);
+  (function () {
+    const grab = $('grab'); let startY = 0, startH = 0, dragging = false;
+    grab.addEventListener('pointerdown', e => { dragging = true; startY = e.clientY; startH = panel.getBoundingClientRect().height; grab.setPointerCapture(e.pointerId); e.preventDefault(); });
+    grab.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const h = Math.max(60, Math.min(window.innerHeight * 0.85, startH - (e.clientY - startY)));
+      panel.style.height = h + 'px';
+    });
+    const end = () => { if (!dragging) return; dragging = false; if (panel.getBoundingClientRect().height < 110) setPanel(false); };
+    grab.addEventListener('pointerup', end); grab.addEventListener('pointercancel', end);
+  })();
+
+  // ---------- go ----------
+  radar.addTo(map);
+  applyData();          // opens on the latest scan; press Play to run the loop from the oldest
+})();
+</script>
+</body>
+</html>

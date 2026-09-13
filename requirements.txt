@@ -1,0 +1,9 @@
+numpy
+pillow
+scipy
+boto3
+eccodes
+cfgrib
+xarray
+matplotlib
+shapely
