@@ -22,12 +22,15 @@ import urllib.request
 import numpy as np
 from PIL import Image
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
-OUT_DIR = os.path.join(ROOT, "frames", "snodas")
+DATA = region.data_dir()
+OUT_DIR = os.path.join(region.frames_dir(), "snodas")
 OUT = os.path.join(DATA, "snodas.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-Z, X0, X1, Y0, Y1, T = 7, 19, 23, 42, 46, 256
+Z, X0, X1, Y0, Y1 = region.window()
+T = 256
 W = (X1 - X0 + 1) * T
 H = (Y1 - Y0 + 1) * T
 

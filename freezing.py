@@ -23,16 +23,20 @@ from scipy.spatial import cKDTree
 
 warnings.filterwarnings("ignore")
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
-OUT_DIR = os.path.join(ROOT, "frames", "freezing")
+DATA = region.data_dir()
+OUT_DIR = os.path.join(region.frames_dir(), "freezing")
 TMP = os.path.join(OUT_DIR, "_grib")
 OUT = os.path.join(DATA, "freezing.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 
-STEP_FT = 500                       # contour and band interval
+STEP_FT = 500
+BB = region.bbox()                       # contour and band interval
 HOURS = (0, 3, 6, 9, 12, 15, 18)
-Z, X0, X1, Y0, Y1, T = 7, 19, 23, 42, 46, 256
+Z, X0, X1, Y0, Y1 = region.window()
+T = 256
 W = (X1 - X0 + 1) * T
 H = (Y1 - Y0 + 1) * T
 STEP = 2                            # compute at 640x640
@@ -138,8 +142,8 @@ def latest_run():
 
 def url_for(run, fh):
     return ("https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl?file=hrrr.t%02dz.wrfsfcf%02d.grib2"
-            "&var_HGT=on&lev_0C_isotherm=on&subregion=&leftlon=-126.6&rightlon=-112.5&toplat=52.5&bottomlat=43.1&dir=%%2Fhrrr.%s%%2Fconus"
-            % (run.hour, fh, run.strftime("%Y%m%d")))
+            "&var_HGT=on&lev_0C_isotherm=on&subregion=&leftlon=%.2f&rightlon=%.2f&toplat=%.2f&bottomlat=%.2f&dir=%%2Fhrrr.%s%%2Fconus"
+            % (run.hour, fh, BB[2], BB[3], BB[1], BB[0], run.strftime("%Y%m%d")))
 
 
 def build(log=print):

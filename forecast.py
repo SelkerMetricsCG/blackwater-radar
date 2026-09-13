@@ -22,15 +22,18 @@ from scipy.spatial import cKDTree
 
 warnings.filterwarnings("ignore")
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
-OUT_DIR = os.path.join(ROOT, "frames", "forecast")
+DATA = region.data_dir()
+OUT_DIR = os.path.join(region.frames_dir(), "forecast")
 TMP = os.path.join(OUT_DIR, "_grib")
 OUT = os.path.join(DATA, "forecast.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-BASE_URL = "https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndfd/AR.pacnwest/VP.001-003/"
+BASE_URL = "https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndfd/AR.%s/VP.001-003/" % region.cfg()["ndfd"]
 
-Z, X0, X1, Y0, Y1, T = 7, 19, 23, 42, 46, 256
+Z, X0, X1, Y0, Y1 = region.window()
+T = 256
 W = (X1 - X0 + 1) * T
 H = (Y1 - Y0 + 1) * T
 STEP = 2

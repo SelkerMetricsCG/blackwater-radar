@@ -12,7 +12,7 @@ concurrency:
 jobs:
   hourly:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       TZ: America/Los_Angeles
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -28,4 +28,14 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python cloud.py hourly
+      - name: pnw
+        run: REGION=pnw python cloud.py hourly
+      - name: sierra
+        if: always()
+        run: REGION=sierra python cloud.py hourly
+      - name: utco
+        if: always()
+        run: REGION=utco python cloud.py hourly
+      - name: imw
+        if: always()
+        run: REGION=imw python cloud.py hourly

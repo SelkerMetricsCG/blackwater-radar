@@ -28,6 +28,8 @@
 
   #panel { position:absolute; top:12px; left:12px; width:300px; max-height:calc(100% - 112px); overflow:auto; background:rgba(28,32,39,.94); border:1px solid var(--line); border-radius:12px; z-index:1000; backdrop-filter:blur(6px); }
   #panel h1 { font-size:15px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #panel h1 > span { display:flex; flex-direction:column; line-height:1.2; }
+  #regionSel { margin-left:auto; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:3px 6px; font:inherit; font-size:12px; max-width:150px; }
   #panel h1 small { color:var(--muted); font-weight:400; font-size:11px; }
   .sec { padding:10px 14px; border-bottom:1px solid var(--line); }
   .sec:last-child { border-bottom:0; }
@@ -105,7 +107,7 @@
 
 <aside id="panel">
   <div id="grab" title="drag to resize"><span></span></div>
-  <h1>Blackwater Radar <small id="updated"></small><button class="chip" id="closePanel" style="display:none">close</button></h1>
+  <h1><span>Blackwater Radar <small id="updated"></small></span><select id="regionSel" title="Region"></select><button class="chip" id="closePanel" style="display:none">close</button></h1>
 
   <div class="sec">
     <h2>Basemap</h2>
@@ -247,16 +249,25 @@
 
 <script src="vendor/leaflet.js"></script>
 <script>
+  // pick the region before anything loads: ?r= in the link, then last used, then the default
   (function () {
+    var R = window.REGIONS || {};
+    var q = new URLSearchParams(location.search).get('r');
+    var saved = null; try { saved = localStorage.getItem('radar.region'); } catch (e) {}
+    var key = (q && R[q]) ? q : (saved && R[saved]) ? saved : (R.pnw ? 'pnw' : Object.keys(R)[0]);
+    window.REGION = key || '';
     var b = (document.querySelector('meta[name="radar-base"]') || {}).content || '';
-    document.write('<script src="' + b + 'frames.js?t=' + Date.now() + '"><\/script>');
+    window.REGION_BASE = b ? b + (key ? key + '/' : '') : (key ? 'regions/' + key + '/' : '');
+    try { if (key) localStorage.setItem('radar.region', key); } catch (e) {}
+    document.write('<script src="' + window.REGION_BASE + 'frames.js?t=' + Date.now() + '"><\/script>');
   })();
 </script>
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const BASE = (document.querySelector('meta[name="radar-base"]') || {}).content || '';
-  const LVN = [47.596, -120.661];
+  const BASE = window.REGION_BASE || '';
+  const REG = (window.REGIONS || {})[window.REGION] || { name: 'Pacific Northwest', home: [47.6, -120.7, 7] };
+  const LVN = [REG.home[0], REG.home[1]];
   const RAIN_BINS = [[0.01, '#b9f0b9'], [0.10, '#50c850'], [0.25, '#fff000'], [0.50, '#ffaa00'], [0.75, '#ff5a00'], [1.00, '#dc0000'], [1.50, '#c800c8'], [2.00, '#7800b4'], [3.00, '#46006e']];
   const SNOW_BINS = [[0.1, '#7fbfe8'], [1, '#3f96d6'], [3, '#1f6fbf'], [6, '#0b4a99'], [12, '#5b2fa3'], [24, '#3a1370']];
   function fmt(v) { return v == null ? '–' : (Math.abs(v) < 0.005 ? '0' : (v >= 10 ? v.toFixed(1) : v.toFixed(2)).replace(/^(-?)0\./, '$1.')); }
@@ -267,7 +278,7 @@
   }
 
   // ---------- map & basemaps ----------
-  const map = L.map('map', { zoomControl: true, minZoom: 5, maxZoom: 17, worldCopyJump: false }).setView(LVN, 9);
+  const map = L.map('map', { zoomControl: true, minZoom: 5, maxZoom: 17, worldCopyJump: false }).setView(LVN, REG.home[2] || 7);
   map.zoomControl.setPosition('topright');
   const esri = p => 'https://server.arcgisonline.com/ArcGIS/rest/services/' + p + '/MapServer/tile/{z}/{y}/{x}';
   const esriAttr = 'Tiles &copy; Esri';
@@ -305,6 +316,22 @@
     });
     document.querySelectorAll('.grp .body > .opt > input').forEach(cb => cb.addEventListener('change', window.updateGroupCounts));
     window.updateGroupCounts();
+  })();
+
+  // ---------- region picker: switching reloads with ?r= so every layer reads the right folder ----------
+  (function () {
+    const sel = $('regionSel');
+    Object.entries(window.REGIONS || {}).forEach(([k, r]) => { const o = document.createElement('option'); o.value = k; o.textContent = r.name; if (k === window.REGION) o.selected = true; sel.appendChild(o); });
+    sel.onchange = () => { const u = new URL(location.href); u.searchParams.set('r', sel.value); location.href = u.toString(); };
+    // first visit with no saved choice: offer the region the phone is in
+    let saved = null; try { saved = localStorage.getItem('radar.region.chosen'); } catch (e) {}
+    if (!saved && !new URLSearchParams(location.search).get('r') && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(p => {
+        const here = Object.entries(window.REGIONS || {}).find(([k, r]) => p.coords.latitude >= r.bounds[0][0] && p.coords.latitude <= r.bounds[1][0] && p.coords.longitude >= r.bounds[0][1] && p.coords.longitude <= r.bounds[1][1]);
+        try { localStorage.setItem('radar.region.chosen', '1'); } catch (e) {}
+        if (here && here[0] !== window.REGION) { const u = new URL(location.href); u.searchParams.set('r', here[0]); location.href = u.toString(); }
+      }, () => { try { localStorage.setItem('radar.region.chosen', '1'); } catch (e) {} }, { timeout: 5000, maximumAge: 600000 });
+    }
   })();
 
   // ---------- panel behaviour: sub-controls and dropdowns only while a layer is on ----------

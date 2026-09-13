@@ -22,22 +22,21 @@ import time
 import urllib.parse
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "stations.js")
 CACHE = os.path.join(DATA, "station_meta_cache.json")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 
 # map window (same as capture.py)
-LAT0, LAT1, LON0, LON1 = 43.1, 52.5, -126.6, -112.5
+LAT0, LAT1, LON0, LON1 = region.bbox()
 WINDOWS = [1, 3, 6, 12, 24]
-HADS_HSAS = ["SEW", "OTX", "PDT", "PQR"]
-HADS_STATES = ["WA", "OR", "ID"]
-COCORAHS_COUNTIES = ["CH", "DG", "KG", "SN", "OK", "KT", "YK", "GR", "SK", "WT", "PI", "LE", "CL", "SJ", "IS", "MS", "FE", "ST", "SP", "LI", "AD", "BN", "FR", "WW", "CO", "GA", "AS", "WH", "PE", "CR", "TH", "GY", "PA", "JE", "KP", "CZ", "WK", "SM"]
-ASOS = ["KEAT", "KSEA", "KPAE", "KYKM", "KELN", "KGEG", "KPUW", "KALW", "KPDT", "KMWH", "KEPH", "KOMK", "KBFI",
-        "KOLM", "KPDX", "KTTD", "KDLS", "KBLI", "KS52", "KAWO", "KRNT", "KTIW", "KHQM", "KSMP", "KCOE", "KLWS", "KBOI"]
+HADS_STATES = [s for s in region.cfg()["states"] if s != "BC"]
+ASOS = region.cfg()["asos"]
 # NWS observation network (RAWS, WSDOT, airports, citizen stations) is pulled in full only inside this box
-FOCUS = (46.5, 48.9, -122.1, -119.2)      # lat0, lat1, lon0, lon1
+FOCUS = region.cfg()["focus"]      # lat0, lat1, lon0, lon1
 NWS_CACHE = os.path.join(DATA, "nws_stations_cache.json")
 NWS_WORKERS = 8
 
@@ -117,7 +116,7 @@ def snotel(now, log):
     cache = _cache()
     if "snotel" not in cache:
         url = ("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/stations?"
-               "stationTriplets=*:WA:SNTL,*:OR:SNTL,*:ID:SNTL,*:MT:SNTL,*:BC:*&activeOnly=true")
+               "stationTriplets=%s&activeOnly=true" % ",".join(("*:%s:SNTL" % st) if st != "BC" else "*:BC:*" for st in region.cfg()["snotel_states"]))
         st = json.loads(fetch(url))
         cache["snotel"] = [{"id": s["stationTriplet"], "name": s["name"], "lat": s["latitude"], "lon": s["longitude"],
                             "elev": s.get("elevation")} for s in st if in_window(s["latitude"], s["longitude"])]
@@ -244,12 +243,12 @@ def hads(now, log):
         _save_cache(cache)
     meta = cache["hads_meta"]
     series = collections.defaultdict(lambda: collections.defaultdict(list))
-    for hsa in HADS_HSAS:
+    for st in HADS_STATES:
         try:
-            txt = fetch("https://hads.ncep.noaa.gov/nexhads2/servlet/DecodedData?sinceday=1&hsa=%s&state=nil&nesdis_ids=nil&of=1" % hsa,
-                        timeout=120).decode("utf-8", "ignore")
+            txt = fetch("https://hads.ncep.noaa.gov/nexhads2/servlet/DecodedData?sinceday=1&hsa=nil&state=%s&nesdis_ids=nil&of=1" % st,
+                        timeout=240).decode("utf-8", "ignore")
         except Exception as e:  # noqa: BLE001
-            log("hads %s failed: %r" % (hsa, e))
+            log("hads %s failed: %r" % (st, e))
             continue
         for line in txt.splitlines():
             p = line.split("|")
@@ -292,11 +291,11 @@ def cocorahs(now, log):
     out = []
     for day in (now.date(), now.date() - dt.timedelta(days=1)):
         seen = {s["id"] for s in out}
-        for county in COCORAHS_COUNTIES:
-            url = ("https://data.cocorahs.org/export/exportreports.aspx?ReportType=Daily&Format=CSV&State=WA&County=%s"
-                   "&ReportDateType=reportdate&Date=%s&TimesInGMT=False" % (county, day.strftime("%m/%d/%Y")))
+        for state in region.cfg()["cocorahs_states"]:
+            url = ("https://data.cocorahs.org/export/exportreports.aspx?ReportType=Daily&Format=CSV&State=%s"
+                   "&ReportDateType=reportdate&Date=%s&TimesInGMT=False" % (state, day.strftime("%m/%d/%Y")))
             try:
-                txt = fetch(url, timeout=60, tries=1).decode("utf-8", "ignore")
+                txt = fetch(url, timeout=90, tries=1).decode("utf-8", "ignore")
             except Exception:  # noqa: BLE001
                 continue
             for row in csv.DictReader(io.StringIO(txt)):
@@ -317,7 +316,7 @@ def cocorahs(now, log):
                 except ValueError:
                     t = None
                 if t and (now - t).total_seconds() > 30 * 3600:
-                    continue   # older than ~a day: not comparable to the 24 h window
+                    continue
                 rec = {"id": sid, "name": row["StationName"].strip(), "src": "CoCoRaHS", "lat": lat, "lon": lon,
                        "precip": {24: round(amt, 2)}, "snow": {}, "swe": {},
                        "last": t.strftime("%a %I:%M %p").lstrip("0") if t else obs}
@@ -344,7 +343,7 @@ def nws_station_list(log):
     except (OSError, ValueError):
         pass
     stations = {}
-    for st in ("WA", "OR", "ID", "MT"):
+    for st in [x for x in region.cfg()["states"] if x != "BC"]:
         url = "https://api.weather.gov/stations?state=%s&limit=500" % st
         for _ in range(12):
             try:

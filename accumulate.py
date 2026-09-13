@@ -18,8 +18,10 @@ import os
 import numpy as np
 from PIL import Image
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-FRAMES = os.path.join(ROOT, "frames")
+FRAMES = region.frames_dir()
 DBZ_DIR = os.path.join(FRAMES, "dbz")
 OUT_DIR = os.path.join(FRAMES, "accum")
 

@@ -29,8 +29,10 @@ import urllib.request
 
 from PIL import Image
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-FRAMES = os.path.join(ROOT, "frames")
+FRAMES = region.frames_dir()
 RADAR_DIR = os.path.join(FRAMES, "radar")
 DBZ_DIR = os.path.join(FRAMES, "dbz")
 LOG = os.path.join(ROOT, "capture.log")
@@ -38,7 +40,7 @@ STOPFILE = os.path.join(ROOT, "STOP")
 UA = "RadarTracker/1.0 (personal radar archive; chris.gabrielli@gmail.com)"
 
 # --- map window ----------------------------------------------------------------
-Z, X0, X1, Y0, Y1 = 7, 19, 23, 42, 46
+Z, X0, X1, Y0, Y1 = region.window()
 TILE = 512          # display tiles (RainViewer serves 256 or 512)
 DBZ_TILE = 256      # reflectivity tiles
 RV_COLOR, RV_OPTS = 4, "1_1"   # color scheme, smooth=1 snow=1
@@ -166,10 +168,10 @@ def write_manifest(accum_meta):
                               file="frames/accum/%s.webp?v=%d" % (key, int(os.path.getmtime(p)))))
     data = {"bounds": BOUNDS, "radar": radar, "sat": sat, "accum": accum, "legend": accum_meta.get("_legend", []),
             "updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time())}
-    tmp = os.path.join(ROOT, "frames.js.tmp")
+    tmp = os.path.join(region.region_dir(), "frames.js.tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         f.write("window.RADAR_DATA = %s;\n" % json.dumps(data))
-    os.replace(tmp, os.path.join(ROOT, "frames.js"))
+    os.replace(tmp, os.path.join(region.region_dir(), "frames.js"))
     return len(radar)
 
 
@@ -208,7 +210,7 @@ def capture_all():
     except Exception as e:  # noqa: BLE001
         log("alerts FAILED: %r" % e)
     # river gauges and webcams: every half hour, or if missing
-    rv_file = os.path.join(ROOT, "data", "rivers.js")
+    rv_file = os.path.join(region.data_dir(), "rivers.js")
     half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15 or not os.path.exists(rv_file))
     if half_due:
         try:
@@ -217,7 +219,7 @@ def capture_all():
         except Exception as e:  # noqa: BLE001
             log("rivers FAILED: %r" % e)
     # station totals: once an hour (first cycle after the top of the hour), or if missing
-    st_file = os.path.join(ROOT, "data", "stations.js")
+    st_file = os.path.join(region.data_dir(), "stations.js")
     hourly_due = FORCE_HOURLY if FORCE_HOURLY is not None else (dt.datetime.now().minute < 15 or not os.path.exists(st_file))
     if hourly_due:
         try:

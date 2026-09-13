@@ -16,12 +16,14 @@ import time
 import urllib.parse
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "basins.js")
 HUC_FILE = os.path.join(DATA, "huc6.geojson")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-LAT0, LAT1, LON0, LON1 = 43.1, 52.5, -126.6, -112.5
+LAT0, LAT1, LON0, LON1 = region.bbox()
 
 
 def fetch(url, timeout=120):
@@ -60,7 +62,8 @@ def huc6_polygons(log):
                 json.dump(g, f, separators=(",", ":"))
             log("basins: simplified outlines to %d KB" % (os.path.getsize(HUC_FILE) // 1024))
         return g
-    q = urllib.parse.urlencode({"where": "huc6 LIKE '17%' OR huc6 LIKE '16%'", "outFields": "huc6,name", "returnGeometry": "true",
+    q = urllib.parse.urlencode({"where": "1=1", "geometry": "%.3f,%.3f,%.3f,%.3f" % (LON0, LAT0, LON1, LAT1), "geometryType": "esriGeometryEnvelope",
+                                "inSR": "4326", "spatialRel": "esriSpatialRelIntersects", "outFields": "huc6,name", "returnGeometry": "true",
                                 "f": "geojson", "outSR": "4326", "geometryPrecision": "4"})
     g = json.loads(fetch("https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer/3/query?" + q, 300))
     feats = []
@@ -78,7 +81,7 @@ def build(log=print):
     g = huc6_polygons(log)
     # stations with HUC codes (from the station cache written by stations.py, or fresh)
     url = ("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/stations?"
-           "stationTriplets=*:WA:SNTL,*:OR:SNTL,*:ID:SNTL,*:MT:SNTL&activeOnly=true")
+           "stationTriplets=%s&activeOnly=true" % ",".join("*:%s:SNTL" % st for st in region.cfg()["snotel_states"] if st != "BC"))
     st = [s for s in json.loads(fetch(url)) if LAT0 <= s["latitude"] <= LAT1 and LON0 <= s["longitude"] <= LON1 and s.get("huc")]
     huc_of = {s["stationTriplet"]: s["huc"][:6] for s in st}
     day = (dt.datetime.now() - dt.timedelta(days=1)).strftime("%Y-%m-%d")

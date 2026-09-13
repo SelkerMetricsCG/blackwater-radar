@@ -16,9 +16,12 @@ import json
 import os
 import sys
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(ROOT, "r2.env")
-STATE_FILE = os.path.join(ROOT, "r2_uploaded.json")
+STATE_FILE = os.path.join(region.region_dir(), "r2_uploaded.json")
+PREFIX = region.prefix()
 FRAME_DIRS = ("radar", "sat", "dbz", "rainviewer", "nws_pnw", "nws_conus")
 CONTENT_TYPES = {".jpg": "image/jpeg", ".gif": "image/gif", ".png": "image/png", ".webp": "image/webp", ".npy": "application/octet-stream",
                  ".js": "application/javascript", ".json": "application/json", ".geojson": "application/geo+json"}
@@ -111,11 +114,11 @@ def sync(log=print):
 
     # immutable frames: upload once
     for d in FRAME_DIRS:
-        full = os.path.join(ROOT, "frames", d)
+        full = os.path.join(region.frames_dir(), d)
         if not os.path.isdir(full):
             continue
         for fn in sorted(os.listdir(full)):
-            key = "frames/%s/%s" % (d, fn)
+            key = PREFIX + "frames/%s/%s" % (d, fn)
             if key in done or fn.endswith(".tmp") or os.path.getsize(os.path.join(full, fn)) == 0:
                 continue
             put(s3, bucket, key, os.path.join(full, fn), "public, max-age=31536000, immutable")
@@ -126,37 +129,37 @@ def sync(log=print):
 
     # accumulation maps: overwritten each cycle, short cache
     for sub in ("accum", "interp", "forecast", "mrms", "freezing", "snodas"):
-        acc = os.path.join(ROOT, "frames", sub)
+        acc = os.path.join(region.frames_dir(), sub)
         if os.path.isdir(acc):
             for fn in os.listdir(acc):
                 if fn.endswith((".jpg", ".webp")) and ".tmp" not in fn:
-                    put(s3, bucket, "frames/%s/%s" % (sub, fn), os.path.join(acc, fn), "public, max-age=60")
+                    put(s3, bucket, PREFIX + "frames/%s/%s" % (sub, fn), os.path.join(acc, fn), "public, max-age=60")
 
     # click-anywhere value grids: rewritten hourly
-    vdir = os.path.join(ROOT, "data", "values")
+    vdir = os.path.join(region.data_dir(), "values")
     if os.path.isdir(vdir):
         for fn in os.listdir(vdir):
             if fn.endswith(".js"):
-                put(s3, bucket, "data/values/" + fn, os.path.join(vdir, fn), "public, max-age=300")
+                put(s3, bucket, PREFIX + "data/values/" + fn, os.path.join(vdir, fn), "public, max-age=300")
 
     # data files for the map layers
-    data_dir = os.path.join(ROOT, "data")
+    data_dir = region.data_dir()
     if os.path.isdir(data_dir):
         for fn in os.listdir(data_dir):
             if fn.endswith((".tmp", "_cache.json", ".npy", ".geojson")) or os.path.isdir(os.path.join(data_dir, fn)):
                 continue      # caches, terrain and basin outlines are private state, not site data
             if fn.endswith(".js"):     # data files are rewritten often: always push, never cache
-                put(s3, bucket, "data/" + fn, os.path.join(data_dir, fn), "no-cache")
+                put(s3, bucket, PREFIX + "data/" + fn, os.path.join(data_dir, fn), "no-cache")
                 continue
-            key = "data/%s@%d" % (fn, int(os.path.getmtime(os.path.join(data_dir, fn))))
+            key = PREFIX + "data/%s@%d" % (fn, int(os.path.getmtime(os.path.join(data_dir, fn))))
             if key not in done:
-                put(s3, bucket, "data/" + fn, os.path.join(data_dir, fn), "public, max-age=3600")
+                put(s3, bucket, PREFIX + "data/" + fn, os.path.join(data_dir, fn), "public, max-age=3600")
                 done.add(key)
 
     # manifest last, so the site never lists a frame that is not there yet
-    manifest = os.path.join(ROOT, "frames.js")
+    manifest = os.path.join(region.region_dir(), "frames.js")
     if os.path.exists(manifest):
-        put(s3, bucket, "frames.js", manifest, "no-cache")
+        put(s3, bucket, PREFIX + "frames.js", manifest, "no-cache")
 
     _save_state(done)
     return "r2 +%d new, %d total" % (n_new, len(done))

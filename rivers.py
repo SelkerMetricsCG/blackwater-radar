@@ -15,15 +15,18 @@ import os
 import time
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "rivers.js")
 MEDIAN_CACHE = os.path.join(DATA, "usgs_median_cache.json")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 
 # map window split into boxes the USGS service accepts (each well under 25 square degrees)
-LON_EDGES = [-126.6, -119.6, -112.5]
-LAT_EDGES = [43.1, 46.3, 49.5, 52.5]
+_lat0, _lat1, _lon0, _lon1 = region.bbox()
+LON_EDGES = [_lon0, (_lon0 + _lon1) / 2, _lon1]
+LAT_EDGES = [_lat0, _lat0 + (_lat1 - _lat0) / 3, _lat0 + 2 * (_lat1 - _lat0) / 3, _lat1]
 
 
 def fetch(url, timeout=120, tries=2):

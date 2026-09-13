@@ -15,13 +15,14 @@ import re
 import time
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "webcams.js")
 UA = "Mozilla/5.0 (RadarTracker personal weather map; chris.gabrielli@gmail.com)"
 URL = "https://alertwest.live/api/getCameraDataByLoc"
-LAT0, LAT1, LON0, LON1 = 43.1, 52.5, -126.6, -112.5
-STATES = ("WA", "OR", "ID", "MT", "BC")
+LAT0, LAT1, LON0, LON1 = region.bbox()
 
 
 def fetch(url):
@@ -46,7 +47,7 @@ def build(log=print):
     out = []
     for c in d["cams"]["data"]:
         loc = locs.get(c.get("lid"))
-        if not loc or loc.get("st") not in STATES or c.get("off"):
+        if not loc or c.get("off"):
             continue
         try:
             lat, lon = float(loc["lat"]), float(loc["lon"])

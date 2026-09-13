@@ -11,8 +11,10 @@ import os
 
 import numpy as np
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(ROOT, "data", "values")
+OUT_DIR = os.path.join(region.data_dir(), "values")
 N = 256
 
 

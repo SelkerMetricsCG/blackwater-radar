@@ -24,11 +24,13 @@ import time
 
 import r2sync
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-FRAMES = os.path.join(ROOT, "frames")
-DATA = os.path.join(ROOT, "data")
+FRAMES = region.frames_dir()
+DATA = region.data_dir()
 RETAIN_H = 30                      # rolling archive: keep this many hours of scans
-STATE_PREFIX = "state/"
+STATE_PREFIX = region.prefix() + "state/"
 STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
                "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js"]
 STAMP = re.compile(r"[rs](\d{8}_\d{4})\.")
@@ -64,8 +66,8 @@ def main():
     cutoff = now - dt.timedelta(hours=RETAIN_H)
 
     # ---- 1. inventory and prune ----
-    keys = r2sync.list_keys(s3, bucket, "frames/")
-    old = [k for k in keys if k.split("/")[1] in ("radar", "sat", "dbz") and (stamp_of(k) or now) < cutoff]
+    keys = r2sync.list_keys(s3, bucket, region.prefix() + "frames/")
+    old = [k for k in keys if k.split("/")[2] in ("radar", "sat", "dbz") and (stamp_of(k) or now) < cutoff]
     if old:
         r2sync.delete_keys(s3, bucket, old)
         log("pruned %d objects older than %d h" % (len(old), RETAIN_H))
@@ -75,9 +77,9 @@ def main():
     n_ph = n_dl = 0
     for k in keys:
         parts = k.split("/")
-        if len(parts) != 3:
+        if len(parts) != 4:
             continue
-        sub, fn = parts[1], parts[2]
+        sub, fn = parts[2], parts[3]
         if sub in ("radar", "sat"):
             touch(os.path.join(FRAMES, sub, fn))
             n_ph += 1
@@ -117,7 +119,7 @@ def main():
         if os.path.exists(p) and os.path.getmtime(p) >= before - 1:
             r2sync.put(s3, bucket, STATE_PREFIX + fn, p, "private, max-age=0")
             n_up += 1
-    log("done in %.0fs (%d caches pushed, hourly jobs %s)" % (time.time() - t0, n_up, "ran" if due else "skipped"))
+    log("%s: done in %.0fs (%d caches pushed, hourly jobs %s)" % (region.KEY, time.time() - t0, n_up, "ran" if due else "skipped"))
 
 
 if __name__ == "__main__":

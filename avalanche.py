@@ -13,11 +13,13 @@ import os
 import time
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "avalanche.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-URL = "https://api.avalanche.org/v2/public/products/map-layer/NWAC"
+URL = "https://api.avalanche.org/v2/public/products/map-layer"
 KEEP = ("name", "danger", "danger_level", "travel_advice", "start_date", "end_date", "link", "color",
         "fillOpacity", "off_season", "center", "warning")
 
@@ -26,8 +28,19 @@ def build(log=print):
     req = urllib.request.Request(URL, headers={"User-Agent": UA, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=60) as r:
         g = json.load(r)
+    lat0, lat1, lon0, lon1 = region.bbox()
+
+    def touches(geom):
+        def walk(c):
+            if isinstance(c[0], (int, float)):
+                return lon0 <= c[0] <= lon1 and lat0 <= c[1] <= lat1
+            return any(walk(x) for x in c)
+        return bool(geom) and walk(geom["coordinates"])
+
     feats = []
     for f in g.get("features", []):
+        if not touches(f.get("geometry")):
+            continue
         p = f.get("properties", {})
         props = {k: p.get(k) for k in KEEP}
         w = props.get("warning") or {}

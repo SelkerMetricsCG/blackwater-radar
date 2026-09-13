@@ -5,7 +5,7 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
-# both workflows share this group so they never write to R2 at the same time
+# all region runs share this group so only one job writes to R2 at a time
 concurrency:
   group: r2-writes
   cancel-in-progress: false
@@ -13,7 +13,7 @@ concurrency:
 jobs:
   radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     env:
       TZ: America/Los_Angeles
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -29,4 +29,14 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python cloud.py radar
+      - name: pnw
+        run: REGION=pnw python cloud.py radar
+      - name: sierra
+        if: always()
+        run: REGION=sierra python cloud.py radar
+      - name: utco
+        if: always()
+        run: REGION=utco python cloud.py radar
+      - name: imw
+        if: always()
+        run: REGION=imw python cloud.py radar

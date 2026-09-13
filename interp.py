@@ -19,13 +19,16 @@ import numpy as np
 from PIL import Image
 from scipy.spatial import cKDTree
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
-OUT_DIR = os.path.join(ROOT, "frames", "interp")
+DATA = region.data_dir()
+OUT_DIR = os.path.join(region.frames_dir(), "interp")
 DEM_FILE = os.path.join(DATA, "dem_z7.npy")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 
-Z, X0, X1, Y0, Y1, T = 7, 19, 23, 42, 46, 256      # must match capture.py
+Z, X0, X1, Y0, Y1 = region.window()
+T = 256
 W = (X1 - X0 + 1) * T                               # 1280
 H = (Y1 - Y0 + 1) * T
 STEP = 4                                            # compute on a 320x320 grid, upsample

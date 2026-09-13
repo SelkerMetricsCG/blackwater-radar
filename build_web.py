@@ -1,16 +1,15 @@
 """
-Build the public site into web/ for upload to Cloudflare (the radar Worker).
+Build the public site into web/ for the Cloudflare Worker (publish with `npx wrangler deploy`).
 
-  web/index.html        map.html with the R2 public URL baked in
-  web/vendor/           Leaflet (already in place)
-  web/data/             county outline and highways (copied from data/)
+  web/index.html   map.html with the R2 public URL and the region table baked in
 
 Usage:  python build_web.py
 """
+import json
 import os
-import shutil
 
 import r2sync
+import region
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, "web")
@@ -25,9 +24,14 @@ with open(os.path.join(ROOT, "map.html"), encoding="utf-8") as f:
 marker = '<meta name="radar-base" content="">'
 if marker not in html:
     raise SystemExit("map.html is missing the radar-base meta tag")
-html = html.replace(marker, '<meta name="radar-base" content="%s/">' % base)
+regions = {}
+for key, c in region.REGIONS.items():
+    x0, x1, y0, y1 = c["tiles"]
+    regions[key] = {"name": c["name"], "home": c["home"],
+                    "bounds": [[region.tile_lat(y1 + 1), region.tile_lon(x0)], [region.tile_lat(y0), region.tile_lon(x1 + 1)]]}
+html = html.replace(marker, '<meta name="radar-base" content="%s/">\n<script>window.REGIONS = %s;</script>' % (base, json.dumps(regions)))
 
+os.makedirs(OUT, exist_ok=True)
 with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
     f.write(html)
-shutil.rmtree(os.path.join(OUT, "data"), ignore_errors=True)   # all data is served from R2 now
-print("built web/index.html with base", base)
+print("built web/index.html with base", base, "and regions", ", ".join(regions))

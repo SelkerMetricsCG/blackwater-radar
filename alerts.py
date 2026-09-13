@@ -13,12 +13,14 @@ import os
 import time
 import urllib.request
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(ROOT, "data")
+DATA = region.data_dir()
 OUT = os.path.join(DATA, "alerts.js")
 ZONES = os.path.join(DATA, "zone_cache.json")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-URL = "https://api.weather.gov/alerts/active?area=WA,OR,ID,MT&status=actual&message_type=alert,update"
+URL = "https://api.weather.gov/alerts/active?area=%s&status=actual&message_type=alert,update" % ",".join(region.cfg()["states"])
 
 
 def fetch(url, timeout=30, tries=2):

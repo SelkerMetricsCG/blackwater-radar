@@ -15,11 +15,14 @@ import urllib.request
 
 from PIL import Image
 
+import region
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(ROOT, "frames", "sat")
+OUT_DIR = os.path.join(region.frames_dir(), "sat")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 LAYER = "GOES-West_ABI_GeoColor"
-Z, X0, X1, Y0, Y1, T = 7, 19, 23, 42, 46, 256      # must match capture.py
+Z, X0, X1, Y0, Y1 = region.window()
+T = 256
 STEP_MIN = 20
 LOOKBACK_H = 2.5
 
