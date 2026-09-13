@@ -6,20 +6,20 @@ One capture cycle on a fresh machine (GitHub Actions), with all state in R2.
   2. recreate the local layout: empty placeholders for radar/satellite frames (so the
      manifest lists them and nothing is re-downloaded), real copies of the reflectivity
      scans (the accumulation math needs them), and the cache files under state/
-  3. run one capture cycle (capture.capture_all), forcing the hourly jobs if the last
-     hourly run was long enough ago
+  3. run one capture cycle (capture.capture_all); "hourly" mode adds the slow jobs
   4. push changed caches back to state/
 
 Credentials come from environment variables (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL) or from r2.env locally.
 Set TZ=America/Los_Angeles so file names and labels stay in Pacific time.
 
-Usage:  python cloud.py
+Usage:  python cloud.py [radar|hourly]
 """
 import datetime as dt
 import json
 import os
 import re
+import sys
 import time
 
 import r2sync
@@ -99,20 +99,16 @@ def main():
         json.dump(sorted(keys), f)
     log("layout: %d placeholders, %d reflectivity scans fetched" % (n_ph, n_dl))
 
-    # ---- 3. one cycle, with the hourly jobs when due ----
+    # ---- 3. one cycle: "radar" mode is the quick 15-minute pass (radar, satellite, accumulation,
+    #         alerts); "hourly" mode also runs stations, rivers, forecast, MRMS, freezing level,
+    #         SNODAS, webcams, avalanche and basins ----
     import capture
-    last_hourly = 0.0
-    try:
-        last_hourly = float(s3.get_object(Bucket=bucket, Key=STATE_PREFIX + "last_hourly.txt")["Body"].read().decode())
-    except Exception:  # noqa: BLE001
-        pass
-    due = time.time() - last_hourly > 55 * 60
+    mode = (sys.argv[1] if len(sys.argv) > 1 else "radar").lower()
+    due = mode == "hourly"
     capture.FORCE_HOURLY = due
-    capture.FORCE_HALF = due or (time.time() - last_hourly > 25 * 60)
+    capture.FORCE_HALF = due
     before = time.time()
     capture.capture_all()
-    if due:
-        s3.put_object(Bucket=bucket, Key=STATE_PREFIX + "last_hourly.txt", Body=str(time.time()).encode(), ContentType="text/plain")
 
     # ---- 4. push changed caches ----
     n_up = 0

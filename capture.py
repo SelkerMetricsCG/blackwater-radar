@@ -209,8 +209,8 @@ def capture_all():
         log("alerts FAILED: %r" % e)
     # river gauges and webcams: every half hour, or if missing
     rv_file = os.path.join(ROOT, "data", "rivers.js")
-    half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15)
-    if half_due or not os.path.exists(rv_file):
+    half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15 or not os.path.exists(rv_file))
+    if half_due:
         try:
             import rivers
             ok.append("rivers %d" % rivers.build(log))
@@ -218,8 +218,8 @@ def capture_all():
             log("rivers FAILED: %r" % e)
     # station totals: once an hour (first cycle after the top of the hour), or if missing
     st_file = os.path.join(ROOT, "data", "stations.js")
-    hourly_due = FORCE_HOURLY if FORCE_HOURLY is not None else (dt.datetime.now().minute < 15)
-    if hourly_due or not os.path.exists(st_file):
+    hourly_due = FORCE_HOURLY if FORCE_HOURLY is not None else (dt.datetime.now().minute < 15 or not os.path.exists(st_file))
+    if hourly_due:
         try:
             import stations
             ok.append("stations %d" % stations.build(log))
