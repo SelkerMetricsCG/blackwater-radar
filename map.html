@@ -566,17 +566,40 @@
     return c < -10 ? '#b45309' : c < 10 ? '#6b7280' : c < 50 ? '#38bdf8' : c < 150 ? '#2563eb' : c < 300 ? '#7c3aed' : '#dc2626';
   }
   function chart(s) {
-    const obs = (s.spark || []).map((v, k) => v == null ? null : [k - 24, v]).filter(Boolean);   // hours relative to now
-    const fc = (s.fc && s.fc.series || []).map(p => p[1] == null ? null : [(new Date(p[0]) - Date.now()) / 3.6e6, p[1]]).filter(p => p && p[0] > 0 && p[0] <= 72);
+    const obs = (s.spark || []).map((v, k) => v == null ? null : [k - 24, v, 'obs']).filter(Boolean);   // hours relative to now
+    const fc = (s.fc && s.fc.series || []).map(p => p[1] == null ? null : [(new Date(p[0]) - Date.now()) / 3.6e6, p[1], 'fc']).filter(p => p && p[0] > 0 && p[0] <= 72);
     const pts = obs.concat(fc); if (pts.length < 2) return '';
     const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), w = 240, h = 60;
     const X = x => ((x - x0) / ((x1 - x0) || 1)) * (w - 4) + 2, Y = y => h - 4 - ((y - lo) / ((hi - lo) || 1)) * (h - 10);
     const line = (arr, c, dash) => arr.length > 1 ? '<polyline fill="none" stroke="' + c + '" stroke-width="2"' + (dash ? ' stroke-dasharray="4 3"' : '') + ' points="' + arr.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ') + '"/>' : '';
     const nowX = X(0);
-    return '<svg width="' + w + '" height="' + h + '" style="display:block;margin:6px 0"><line x1="' + nowX + '" y1="2" x2="' + nowX + '" y2="' + (h - 2) + '" stroke="#bbb"/>' + line(obs, '#2563eb') + line(fc.length ? [obs[obs.length - 1]].concat(fc) : [], '#dc2626', true) + '</svg>' +
-      '<div style="font-size:11px;color:#666">blue: last 24 h · ' + (fc.length ? 'red dashed: NWS forecast next ' + Math.round(fc[fc.length - 1][0]) + ' h' : 'no NWS forecast for this gauge') + '</div>';
+    const data = pts.map(p => [+X(p[0]).toFixed(1), +Y(p[1]).toFixed(1), Math.round(p[1]), +p[0].toFixed(1), p[2]]);
+    return '<svg class="rvchart" width="' + w + '" height="' + h + '" style="display:block;margin:6px 0;cursor:crosshair;overflow:visible" data-pts=\'' + JSON.stringify(data) + '\'>' +
+      '<line x1="' + nowX + '" y1="2" x2="' + nowX + '" y2="' + (h - 2) + '" stroke="#bbb"/>' + line(obs, '#2563eb') + line(fc.length ? [obs[obs.length - 1]].concat(fc) : [], '#dc2626', true) +
+      '<g class="trk" style="display:none"><line y1="2" y2="' + (h - 2) + '" stroke="#333" stroke-dasharray="2 2"/><circle r="3.5" fill="#fff" stroke="#333" stroke-width="1.5"/><rect rx="3" fill="#111" opacity=".85" height="16"/><text fill="#fff" font-size="11" font-family="system-ui" dy="11.5"></text></g></svg>' +
+      '<div style="font-size:11px;color:#666">blue: last 24 h · ' + (fc.length ? 'red dashed: NWS forecast next ' + Math.round(fc[fc.length - 1][0]) + ' h' : 'no NWS forecast for this gauge') + ' · hover for values</div>';
   }
+  function attachTracker(svg) {
+    const pts = JSON.parse(svg.dataset.pts), g = svg.querySelector('.trk');
+    const [ln, dot, box, txt] = ['line', 'circle', 'rect', 'text'].map(t => g.querySelector(t));
+    const W = svg.width.baseVal.value;
+    svg.addEventListener('mousemove', e => {
+      const r = svg.getBoundingClientRect(), mx = (e.clientX - r.left) * (W / r.width);
+      let best = pts[0]; for (const p of pts) if (Math.abs(p[0] - mx) < Math.abs(best[0] - mx)) best = p;
+      const hrs = best[3], when = hrs === 0 ? 'now' : (Math.abs(hrs) < 1 ? Math.round(Math.abs(hrs) * 60) + ' min' : Math.abs(hrs).toFixed(0) + ' h') + (hrs < 0 ? ' ago' : ' ahead');
+      const label = best[2].toLocaleString() + ' cfs · ' + when + (best[4] === 'fc' ? ' (forecast)' : '');
+      txt.textContent = label;
+      const tw = txt.getComputedTextLength() + 8, bx = Math.min(Math.max(2, best[0] - tw / 2), W - tw - 2);
+      ln.setAttribute('x1', best[0]); ln.setAttribute('x2', best[0]);
+      dot.setAttribute('cx', best[0]); dot.setAttribute('cy', best[1]);
+      box.setAttribute('x', bx); box.setAttribute('y', best[1] < 24 ? best[1] + 8 : best[1] - 24); box.setAttribute('width', tw);
+      txt.setAttribute('x', bx + 4); txt.setAttribute('y', best[1] < 24 ? best[1] + 8 : best[1] - 24);
+      g.style.display = '';
+    });
+    svg.addEventListener('mouseleave', () => { g.style.display = 'none'; });
+  }
+  map.on('popupopen', e => { const el = e.popup.getElement(); if (el) el.querySelectorAll('svg.rvchart').forEach(attachTracker); });
   function renderRivers() {
     rvLayer.clearLayers();
     if (!rvData) return;
