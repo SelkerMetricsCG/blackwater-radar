@@ -15,3 +15,5 @@ __pycache__/
 frames.js
 .wrangler/
 node_modules/
+
+cache/

@@ -3,7 +3,7 @@ BLACKWATER RADAR
 
 What runs where
 ---------------
-capture.py      (this PC, every 15 min)  pulls every new RainViewer scan for the
+capture.py      (GitHub Actions, every 15 min)  pulls every new MRMS composite reflectivity scan (cref.py) for the
                 Northwest window, stores it as a transparent map layer, rebuilds the
                 rainfall accumulation overlays, refreshes station totals hourly,
                 writes frames.js, and uploads everything to Cloudflare R2.
@@ -46,7 +46,8 @@ webcams.py      AlertWest cameras (fire PTZ + DOT) -> data/webcams.js
 values.py       256x256 value grids for click-anywhere sampling -> data/values/
 r2sync.py       uploader (reads r2.env; KEEP r2.env PRIVATE)
 build_web.py    builds web/ from map.html (icons + manifest already in web/)
-rv_palette.json RainViewer color -> dBZ lookup
+cref.py         NOAA MRMS composite reflectivity from the noaa-mrms-pds S3 archive -> radar + dBZ frames
+rv_palette.json RainViewer color -> dBZ lookup (fallback source only)
 viewer.html     legacy viewer for the pre-map frames (frames/rainviewer etc.)
 
 Map window: zoom-7 tiles x 19..23, y 42..46 = lon -126.6..-112.5, lat 43.1..52.5.
@@ -59,6 +60,6 @@ where the beam overshoots, and high in convective cores. Use the station layer
 for real totals. Station snow values only exist where a site measures snow depth
 or snow water (SNOTEL, some NWS sites). BC snow pillows report daily, not hourly.
 
-Data: RainViewer (NWS + Environment Canada radar), NRCS AWDB, NOAA HADS,
+Data: NOAA MRMS composite reflectivity (RainViewer as fallback), NRCS AWDB, NOAA HADS,
 CoCoRaHS, NWS API, Esri and OpenTopoMap basemaps, OpenStreetMap roads,
 US Census county boundary.

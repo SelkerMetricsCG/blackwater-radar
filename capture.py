@@ -2,10 +2,10 @@
 Radar capture, version 2: georeferenced layers for the web map.
 
 Every cycle (aligned to the 15-minute mark) this:
-  * asks RainViewer for its list of recent radar scans (10-minute cadence, ~2 h of history)
-  * for every scan not yet saved, stitches 25 tiles into
+  * pulls NOAA MRMS composite reflectivity (cref.py; 10-minute cadence, backfills 3 h) into
       frames/radar/r<YYYYMMDD_HHMM>.webp   transparent color radar for display
       frames/dbz/r<YYYYMMDD_HHMM>.png      reflectivity (dBZ + 32) for the math
+    (RainViewer tiles are the fallback if the MRMS archive is unreachable)
   * rebuilds the rainfall accumulation overlays (accumulate.py)
   * writes frames.js, the manifest the map reads
   * uploads new files to Cloudflare R2 (r2sync.py) when r2.env exists
@@ -179,12 +179,19 @@ def capture_all():
     tag = dt.datetime.now().strftime("%Y%m%d_%H%M")
     ok = []
     accum_meta = {}
+    # radar: NOAA MRMS composite reflectivity, RainViewer only if MRMS is unreachable
     try:
-        meta = json.loads(fetch("https://api.rainviewer.com/public/weather-maps.json"))
-        new = capture_scans(meta)
-        ok.append("scans +%d%s" % (len(new), (" (latest " + new[-1][10:12] + ":" + new[-1][12:14] + ")") if new else ""))
+        import cref
+        new = cref.capture(log)
+        ok.append("mrms +%d%s" % (len(new), (" (latest " + new[-1][10:12] + ":" + new[-1][12:14] + ")") if new else ""))
     except Exception as e:  # noqa: BLE001
-        log("radar FAILED: %r" % e)
+        log("MRMS radar FAILED: %r -- falling back to RainViewer" % e)
+        try:
+            meta = json.loads(fetch("https://api.rainviewer.com/public/weather-maps.json"))
+            new = capture_scans(meta)
+            ok.append("rainviewer +%d" % len(new))
+        except Exception as e2:  # noqa: BLE001
+            log("radar FAILED: %r" % e2)
     try:
         import satellite
         n = satellite.build(log)
