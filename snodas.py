@@ -61,7 +61,7 @@ def latest_available():
     raise RuntimeError("no recent SNODAS file")
 
 
-def read_product(tar, code):
+def read_product(tar, code, mask_mm=10000):
     names = tar.getnames()
     hdr = gzip.decompress(tar.extractfile([n for n in names if code in n and n.endswith(".txt.gz")][0]).read()).decode("utf-8", "ignore")
     keys = dict((k.strip(), v.strip()) for k, v in (line.split(":", 1) for line in hdr.splitlines() if ":" in line))
@@ -70,7 +70,7 @@ def read_product(tar, code):
     res = float(keys["X-axis resolution"])
     raw = gzip.decompress(tar.extractfile([n for n in names if code in n and n.endswith(".dat.gz")][0]).read())
     a = np.frombuffer(raw, dtype=">i2").reshape(rows, cols).astype(np.float32)
-    a[(a < 0) | (a >= 12000)] = np.nan      # negative = missing; 12 m+ = glacier ice cells, not seasonal snow
+    a[(a < 0) | (a >= mask_mm)] = np.nan      # negative = missing; very deep cells are glacier ice, not seasonal snow
     return a / 1000.0 * 39.3701, (x0, y1, res)      # inches
 
 
@@ -117,8 +117,9 @@ def build(log=print):
         return have
     tar = tarfile.open(fileobj=io.BytesIO(blob))
     meta = {"date": d.isoformat(), "layers": {}}
+    mask_mm = 3000 if 7 <= d.month <= 11 else 10000     # Jul-Nov nothing seasonal is 3 m deep; winter allows 10 m
     for key, code, bins in (("depth", "1036", DEPTH_BINS), ("swe", "1034", SWE_BINS)):
-        a, geo = read_product(tar, code)
+        a, geo = read_product(tar, code, mask_mm)
         g = window_grid(a, geo)
         img = colorize(g, bins)
         fn = key + ".webp"

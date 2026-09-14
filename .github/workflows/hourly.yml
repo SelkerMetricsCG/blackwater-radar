@@ -5,16 +5,21 @@ on:
     - cron: "4 * * * *"
   workflow_dispatch:
 
-concurrency:
-  group: r2-writes
-  cancel-in-progress: false
-
 jobs:
   hourly:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        region: [pnw, sierra, utco, imw]
+    # one hourly job per region at a time; radar runs are independent (they never touch the same files)
+    concurrency:
+      group: hourly-${{ matrix.region }}
+      cancel-in-progress: false
     env:
       TZ: America/Los_Angeles
+      REGION: ${{ matrix.region }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -28,14 +33,5 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: pnw
-        run: REGION=pnw python cloud.py hourly
-      - name: sierra
-        if: always()
-        run: REGION=sierra python cloud.py hourly
-      - name: utco
-        if: always()
-        run: REGION=utco python cloud.py hourly
-      - name: imw
-        if: always()
-        run: REGION=imw python cloud.py hourly
+      - name: ${{ matrix.region }} hourly layers
+        run: python cloud.py hourly

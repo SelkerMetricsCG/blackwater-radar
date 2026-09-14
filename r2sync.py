@@ -22,6 +22,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(ROOT, "r2.env")
 STATE_FILE = os.path.join(region.region_dir(), "r2_uploaded.json")
 PREFIX = region.prefix()
+SKIP_FRAMES = False       # hourly cloud job: never upload frames or the manifest (the radar job owns them)
 FRAME_DIRS = ("radar", "sat", "dbz", "rainviewer", "nws_pnw", "nws_conus")
 CONTENT_TYPES = {".jpg": "image/jpeg", ".gif": "image/gif", ".png": "image/png", ".webp": "image/webp", ".npy": "application/octet-stream",
                  ".js": "application/javascript", ".json": "application/json", ".geojson": "application/geo+json"}
@@ -113,7 +114,7 @@ def sync(log=print):
     done, n_new = _load_state(), 0
 
     # immutable frames: upload once
-    for d in FRAME_DIRS:
+    for d in ([] if SKIP_FRAMES else FRAME_DIRS):
         full = os.path.join(region.frames_dir(), d)
         if not os.path.isdir(full):
             continue
@@ -158,7 +159,7 @@ def sync(log=print):
 
     # manifest last, so the site never lists a frame that is not there yet
     manifest = os.path.join(region.region_dir(), "frames.js")
-    if os.path.exists(manifest):
+    if os.path.exists(manifest) and not SKIP_FRAMES:
         put(s3, bucket, PREFIX + "frames.js", manifest, "no-cache")
 
     _save_state(done)

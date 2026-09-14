@@ -14,6 +14,10 @@ R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL) or from r2.env locally.
 Set TZ=America/Los_Angeles so file names and labels stay in Pacific time.
 
 Usage:  python cloud.py [radar|hourly]
+
+The two modes write disjoint sets of files (radar: frames, accumulation, manifest, alerts;
+hourly: stations, rivers, forecast, MRMS QPE, freezing level, SNODAS, webcams, avalanche,
+basins), so they run at the same time without sharing a lock.
 """
 import datetime as dt
 import json
@@ -65,9 +69,12 @@ def main():
     now = dt.datetime.now()
     cutoff = now - dt.timedelta(hours=RETAIN_H)
 
-    # ---- 1. inventory and prune ----
+    mode = (sys.argv[1] if len(sys.argv) > 1 else "radar").lower()
+    hourly = mode == "hourly"
+
+    # ---- 1. inventory and prune (radar mode only: the hourly job never touches frames) ----
     keys = r2sync.list_keys(s3, bucket, region.prefix() + "frames/")
-    old = [k for k in keys if k.split("/")[2] in ("radar", "sat", "dbz") and (stamp_of(k) or now) < cutoff]
+    old = [] if hourly else [k for k in keys if k.split("/")[2] in ("radar", "sat", "dbz") and (stamp_of(k) or now) < cutoff]
     if old:
         r2sync.delete_keys(s3, bucket, old)
         log("pruned %d objects older than %d h" % (len(old), RETAIN_H))
@@ -75,7 +82,7 @@ def main():
 
     # ---- 2. rebuild local layout ----
     n_ph = n_dl = 0
-    for k in keys:
+    for k in ([] if hourly else keys):
         parts = k.split("/")
         if len(parts) != 4:
             continue
@@ -105,10 +112,11 @@ def main():
     #         alerts); "hourly" mode also runs stations, rivers, forecast, MRMS, freezing level,
     #         SNODAS, webcams, avalanche and basins ----
     import capture
-    mode = (sys.argv[1] if len(sys.argv) > 1 else "radar").lower()
-    due = mode == "hourly"
+    due = hourly
     capture.FORCE_HOURLY = due
     capture.FORCE_HALF = due
+    capture.HOURLY_ONLY = due
+    r2sync.SKIP_FRAMES = due          # the radar job owns frames and the manifest
     before = time.time()
     capture.capture_all()
 

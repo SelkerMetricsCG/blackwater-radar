@@ -58,6 +58,11 @@ def tile_lat(y):
 BOUNDS = [[tile_lat(Y1 + 1), tile_lon(X0)], [tile_lat(Y0), tile_lon(X1 + 1)]]   # [[S, W], [N, E]]
 
 PALETTE_FILE = os.path.join(ROOT, "rv_palette.json")
+
+# overrides used by cloud.py (None = decide from the clock / missing files)
+FORCE_HOURLY = None
+FORCE_HALF = None
+HOURLY_ONLY = False      # hourly job: skip radar, satellite, accumulation, manifest and alerts (the radar job owns those)
 _palette = None
 
 
@@ -179,43 +184,44 @@ def capture_all():
     tag = dt.datetime.now().strftime("%Y%m%d_%H%M")
     ok = []
     accum_meta = {}
-    # radar: NOAA MRMS composite reflectivity, RainViewer only if MRMS is unreachable
-    try:
-        import cref
-        new = cref.capture(log)
-        ok.append("mrms +%d%s" % (len(new), (" (latest " + new[-1][10:12] + ":" + new[-1][12:14] + ")") if new else ""))
-    except Exception as e:  # noqa: BLE001
-        log("MRMS radar FAILED: %r -- falling back to RainViewer" % e)
+    if not HOURLY_ONLY:
+        # radar: NOAA MRMS composite reflectivity, RainViewer only if MRMS is unreachable
         try:
-            meta = json.loads(fetch("https://api.rainviewer.com/public/weather-maps.json"))
-            new = capture_scans(meta)
-            ok.append("rainviewer +%d" % len(new))
-        except Exception as e2:  # noqa: BLE001
-            log("radar FAILED: %r" % e2)
-    try:
-        import satellite
-        n = satellite.build(log)
-        if n:
-            ok.append("sat +%d" % n)
-    except Exception as e:  # noqa: BLE001
-        log("satellite FAILED: %r" % e)
-    try:
-        import accumulate
-        accum_meta = accumulate.build_all()
-        if "24h" in accum_meta:
-            ok.append("accum 24h peak %.2f in" % accum_meta["24h"]["peak_in"])
-    except Exception as e:  # noqa: BLE001
-        log("accumulation FAILED: %r" % e)
-    try:
-        n = write_manifest(accum_meta)
-        ok.append("%d frames" % n)
-    except Exception as e:  # noqa: BLE001
-        log("manifest FAILED: %r" % e)
-    try:
-        import alerts
-        ok.append("alerts %d" % alerts.build(log))
-    except Exception as e:  # noqa: BLE001
-        log("alerts FAILED: %r" % e)
+            import cref
+            new = cref.capture(log)
+            ok.append("mrms +%d%s" % (len(new), (" (latest " + new[-1][10:12] + ":" + new[-1][12:14] + ")") if new else ""))
+        except Exception as e:  # noqa: BLE001
+            log("MRMS radar FAILED: %r -- falling back to RainViewer" % e)
+            try:
+                meta = json.loads(fetch("https://api.rainviewer.com/public/weather-maps.json"))
+                new = capture_scans(meta)
+                ok.append("rainviewer +%d" % len(new))
+            except Exception as e2:  # noqa: BLE001
+                log("radar FAILED: %r" % e2)
+        try:
+            import satellite
+            n = satellite.build(log)
+            if n:
+                ok.append("sat +%d" % n)
+        except Exception as e:  # noqa: BLE001
+            log("satellite FAILED: %r" % e)
+        try:
+            import accumulate
+            accum_meta = accumulate.build_all()
+            if "24h" in accum_meta:
+                ok.append("accum 24h peak %.2f in" % accum_meta["24h"]["peak_in"])
+        except Exception as e:  # noqa: BLE001
+            log("accumulation FAILED: %r" % e)
+        try:
+            n = write_manifest(accum_meta)
+            ok.append("%d frames" % n)
+        except Exception as e:  # noqa: BLE001
+            log("manifest FAILED: %r" % e)
+        try:
+            import alerts
+            ok.append("alerts %d" % alerts.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("alerts FAILED: %r" % e)
     # river gauges and webcams: every half hour, or if missing
     rv_file = os.path.join(region.data_dir(), "rivers.js")
     half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15 or not os.path.exists(rv_file))

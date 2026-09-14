@@ -5,9 +5,9 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
-# all region runs share this group so only one job writes to R2 at a time
+# radar cycles never overlap each other; hourly jobs run independently (separate files)
 concurrency:
-  group: r2-writes
+  group: radar
   cancel-in-progress: false
 
 jobs:
