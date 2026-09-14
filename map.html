@@ -520,14 +520,14 @@
       let m;
       if (v == null) {
         // station has no value for this metric: still on the map, just a quiet hollow dot
-        m = L.circleMarker([s.lat, s.lon], { radius: 3.5, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+        m = L.circleMarker([s.lat, s.lon], { radius: 3, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
         m.bindTooltip(s.name, { direction: 'top', offset: [0, -6], opacity: .95 });
       } else {
         n++;
         const mag = Math.max(0, v);
         if (windMode && s.wind.dir != null) m = L.marker([s.lat, s.lon], { icon: windIcon(s.wind.dir, binColor(mag, WIND_BINS)) });
         else {
-          const r = pctMode || tempMode || windMode ? 7 : (stMode === 'snow' ? 4 + Math.min(12, Math.sqrt(mag) * 3) : 4 + Math.min(12, Math.sqrt(mag) * 9));
+          const r = 5;      // one size for every station; colour carries the value
           const fill = pctMode ? basinColor(v) : (tempMode || windMode) ? binColor(v, bins) : (v <= 0 ? '#8891a0' : binColor(mag, bins));
           m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#111', weight: 1, fillColor: fill, fillOpacity: .9 });
         }
