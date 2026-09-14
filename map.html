@@ -109,6 +109,11 @@
   <div id="grab" title="drag to resize"><span></span></div>
   <h1><span>Blackwater Radar <small id="updated"></small></span><select id="regionSel" title="Region"></select><button class="chip" id="closePanel" style="display:none">close</button></h1>
 
+  <div class="sec" id="mydefault">
+    <div style="display:flex;gap:6px;align-items:center"><button class="chip" id="saveDefault" style="flex:1;text-align:center" title="remember the current view, basemap, layers and settings">Make current map &amp; settings my default</button><button class="chip" id="clearDefault" style="flex:0 0 auto;display:none" title="go back to the standard opening view">forget</button></div>
+    <div class="muted" id="defaultInfo" style="margin-top:4px"></div>
+  </div>
+
   <div class="sec">
     <h2>Basemap</h2>
     <div class="baserow">
@@ -1026,6 +1031,44 @@
   // ---------- go ----------
   radar.addTo(map);
   applyData();          // opens on the latest scan; press Play to run the loop from the oldest
+  // ---------- "make this my default": remember the current view and every control on this device ----------
+  const DEF_KEY = 'radar.default';
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lyBasins', 'lyRivers', 'lyStf', 'lyAlerts'];
+  const DEF_SELECTS = ['stModeSel', 'accumSrc', 'snodasSel', 'basinSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
+  const DEF_RANGES = ['radarOpacity', 'satOpacity'];
+  function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
+  function defaultInfo() {
+    const d = readDefault();
+    $('clearDefault').style.display = d ? '' : 'none';
+    $('defaultInfo').textContent = d ? 'Saved ' + d.when + ' · this map loads on every visit from this device' : 'Set the map up the way you like it, then save it here';
+  }
+  $('saveDefault').onclick = () => {
+    const d = readDefault() || {};
+    d.when = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    d.base = (document.querySelector('input[name=base]:checked') || {}).value;
+    d.checks = {}; DEF_CHECKS.forEach(id => { if ($(id)) d.checks[id] = $(id).checked; });
+    d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
+    d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
+    d.stWin = stWin;
+    d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
+    try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
+    defaultInfo();
+  };
+  $('clearDefault').onclick = () => { try { localStorage.removeItem(DEF_KEY); } catch (e) {} defaultInfo(); };
+  function applyDefault() {
+    const d = readDefault(); if (!d) return;
+    if (d.base && bases[d.base]) { const r = document.querySelector('input[name=base][value="' + d.base + '"]'); if (r && !r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); } }
+    for (const id in d.ranges || {}) { const el = $(id); if (el) { el.value = d.ranges[id]; el.dispatchEvent(new Event('input')); } }
+    for (const id in d.selects || {}) { const el = $(id); if (el && el.value !== d.selects[id]) { el.value = d.selects[id]; if (id === 'stModeSel' || id === 'rvModeSel') el.dispatchEvent(new Event('change')); } }
+    if (d.stWin) stWin = String(d.stWin);
+    DEF_CHECKS.forEach(id => { const el = $(id); const want = !!(d.checks || {})[id]; if (el && el.checked !== want) { el.checked = want; el.dispatchEvent(new Event('change')); } });
+    document.querySelectorAll('.grp').forEach(g => { if (g.querySelector('.body > .opt > input:checked')) g.classList.remove('closed'); });
+    if (window.updateGroupCounts) window.updateGroupCounts();
+    const v = (d.views || {})[window.REGION];
+    if (v) map.setView(v.c, v.z);
+  }
+  defaultInfo();
+  applyDefault();
 })();
 </script>
 </body>
