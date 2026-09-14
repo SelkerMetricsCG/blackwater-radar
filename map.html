@@ -485,6 +485,25 @@
   }
   const windIcon = (dir, color) => L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -10],
     html: '<div style="width:22px;height:22px;transform:rotate(' + ((dir || 0) + 180) + 'deg)"><svg viewBox="0 0 22 22" width="22" height="22"><circle cx="11" cy="11" r="6" fill="' + color + '" stroke="#111" stroke-width="1"/><path d="M11 0 L16 8 L11 6 L6 8 Z" fill="#111"/></svg></div>' });
+  function stationCard(s) {
+    const wins = stData.windows || [];
+    let rows = '';
+    for (const [key, label] of [['precip', 'Precip'], ['snow', 'New snow'], ['swe', 'Snow water']]) {
+      if (Object.keys(s[key] || {}).length) rows += '<tr><td style="padding:1px 6px;color:#666">' + label + '</td>' + wins.map(w => '<td style="padding:1px 6px;text-align:right">' + fmt(s[key][w]) + '</td>').join('') + '</tr>';
+    }
+    let html = '<div style="font:13px system-ui;min-width:220px"><b>' + s.name + '</b> <span style="color:#666">' + s.src + (s.elev ? ' · ' + Math.round(s.elev) + ' ft' : '') + '</span>';
+    if (rows) html += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:6px 0 2px"><tr><th></th>' + wins.map(w => '<th style="padding:1px 6px;font-weight:600">' + w + 'h</th>').join('') + '</tr>' + rows + '</table><div style="font-size:11px;color:#666">inches</div>';
+    else html += '<div style="margin:4px 0"></div>';
+    if (s.temp) html += '<div>Temperature: <b>' + s.temp.now + '°F</b>' + (s.temp.max != null ? ' <span style="color:#666">(24 h ' + s.temp.min + '° to ' + s.temp.max + '°)</span>' : '') + '</div>' + tempSpark(s.temp.spark);
+    if (s.wind) html += '<div>Wind: <b>' + (s.wind.spd != null ? s.wind.spd + ' mph' : '–') + '</b>' + (s.wind.gust != null ? ', gusting ' + s.wind.gust : '') + (s.wind.dir != null ? ', from ' + Math.round(s.wind.dir) + '°' : '') + (s.wind.max_gust != null ? ' <span style="color:#666">(24 h max gust ' + s.wind.max_gust + ')</span>' : '') + '</div>';
+    if (s.rh != null) html += '<div>Humidity: ' + s.rh + '%</div>';
+    if (s.depth != null) html += '<div>Snow depth: <b>' + fmt(s.depth) + ' in</b></div>';
+    if (s.swe_total != null) html += '<div>Snowpack: <b>' + fmt(s.swe_total) + ' in</b> water equivalent' + (s.swe_pct != null ? ', <b>' + s.swe_pct + '%</b> of median' : (s.swe_median === 0 ? ', no snow normally on this date' : '')) + '</div>';
+    if (s.wy_pct != null) html += '<div>Water-year precip: ' + fmt(s.wy_total) + ' in, ' + s.wy_pct + '% of median</div>';
+    const link = stationLink(s);
+    html += '<div style="color:#666;margin-top:4px">' + (s.last ? 'last report ' + s.last : '') + (link ? (s.last ? ' · ' : '') + '<a href="' + link + '" target="_blank" rel="noopener">station page</a>' : '') + '</div></div>';
+    return html;
+  }
   function renderStations() {
     stLayer.clearLayers();
     if (!stData) return;
@@ -498,34 +517,26 @@
       else if (tempMode) v = s.temp ? s.temp.now : null;
       else if (windMode) v = s.wind ? (s.wind.gust != null ? s.wind.gust : s.wind.spd) : null;
       else v = ((s[stMode] || {})[stWin]);
-      if (v == null) continue;
-      n++;
-      const mag = Math.max(0, v);
       let m;
-      if (windMode && s.wind.dir != null) m = L.marker([s.lat, s.lon], { icon: windIcon(s.wind.dir, binColor(mag, WIND_BINS)) });
-      else {
-        const r = pctMode || tempMode || windMode ? 7 : (stMode === 'snow' ? 4 + Math.min(12, Math.sqrt(mag) * 3) : 4 + Math.min(12, Math.sqrt(mag) * 9));
-        const fill = pctMode ? basinColor(v) : (tempMode || windMode) ? binColor(v, bins) : (v <= 0 ? '#8891a0' : binColor(mag, bins));
-        m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#111', weight: 1, fillColor: fill, fillOpacity: .9 });
+      if (v == null) {
+        // station has no value for this metric: still on the map, just a quiet hollow dot
+        m = L.circleMarker([s.lat, s.lon], { radius: 3.5, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+        m.bindTooltip(s.name, { direction: 'top', offset: [0, -6], opacity: .95 });
+      } else {
+        n++;
+        const mag = Math.max(0, v);
+        if (windMode && s.wind.dir != null) m = L.marker([s.lat, s.lon], { icon: windIcon(s.wind.dir, binColor(mag, WIND_BINS)) });
+        else {
+          const r = pctMode || tempMode || windMode ? 7 : (stMode === 'snow' ? 4 + Math.min(12, Math.sqrt(mag) * 3) : 4 + Math.min(12, Math.sqrt(mag) * 9));
+          const fill = pctMode ? basinColor(v) : (tempMode || windMode) ? binColor(v, bins) : (v <= 0 ? '#8891a0' : binColor(mag, bins));
+          m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#111', weight: 1, fillColor: fill, fillOpacity: .9 });
+        }
+        const lbl = pctMode ? v + '%' : tempMode ? v + '°' : windMode ? (!s.wind.spd && !s.wind.gust ? 'calm' : (s.wind.spd != null ? s.wind.spd : '') + (s.wind.gust ? 'g' + s.wind.gust : '')) : fmt(v);
+        m.bindTooltip(String(lbl), { permanent: showLabels, direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
       }
-      const rows = (stData.windows || []).map(w => '<td style="padding:1px 6px;text-align:right">' + fmt((s[stMode] || {})[w]) + '</td>').join('');
-      const head = (stData.windows || []).map(w => '<th style="padding:1px 6px;font-weight:600">' + w + 'h</th>').join('');
-      let extra = '';
-      if (s.temp) extra += '<div>Temperature: <b>' + s.temp.now + '°F</b>' + (s.temp.max != null ? ' <span style="color:#666">(24 h ' + s.temp.min + '° to ' + s.temp.max + '°)</span>' : '') + '</div>' + tempSpark(s.temp.spark);
-      if (s.wind) extra += '<div>Wind: <b>' + (s.wind.spd != null ? s.wind.spd + ' mph' : '–') + '</b>' + (s.wind.gust != null ? ', gusting ' + s.wind.gust : '') + (s.wind.dir != null ? ', from ' + Math.round(s.wind.dir) + '°' : '') + (s.wind.max_gust != null ? ' <span style="color:#666">(24 h max gust ' + s.wind.max_gust + ')</span>' : '') + '</div>';
-      if (s.rh != null) extra += '<div>Humidity: ' + s.rh + '%</div>';
-      if (s.depth != null) extra += '<div>Snow depth: <b>' + fmt(s.depth) + ' in</b></div>';
-      if (s.swe_total != null) extra += '<div>Snowpack: <b>' + fmt(s.swe_total) + ' in</b> water equivalent' + (s.swe_pct != null ? ', <b>' + s.swe_pct + '%</b> of median' : (s.swe_median === 0 ? ', no snow normally on this date' : '')) + '</div>';
-      if (s.wy_pct != null) extra += '<div>Water-year precip: ' + fmt(s.wy_total) + ' in, ' + s.wy_pct + '% of median</div>';
-      if (s.elev) extra += '<div class="muted">' + Math.round(s.elev) + ' ft</div>';
-      const link = stationLink(s);
-      const tableMode = ['precip', 'snow', 'swe'].includes(stMode) && Object.keys(s[stMode] || {}).length;
-      m.bindPopup('<div style="font:13px system-ui;min-width:220px"><b>' + s.name + '</b> <span style="color:#666">' + s.src + '</span>' +
-        (tableMode ? '<div style="margin:6px 0 2px">' + ({ precip: 'Precipitation', snow: 'Snow depth change', swe: 'Snow water gain' })[stMode] + ' (in)</div>' +
-        '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums"><tr>' + head + '</tr><tr>' + rows + '</tr></table>' : '<div style="margin:4px 0"></div>') + extra +
-        '<div style="color:#666;margin-top:4px">' + (s.last ? 'last report ' + s.last : '') + (link ? (s.last ? ' · ' : '') + '<a href="' + link + '" target="_blank" rel="noopener">station page</a>' : '') + '</div></div>', { maxWidth: 300 });
-      const lbl = pctMode ? v + '%' : tempMode ? v + '°' : windMode ? (!s.wind.spd && !s.wind.gust ? 'calm' : (s.wind.spd != null ? s.wind.spd : '') + (s.wind.gust ? 'g' + s.wind.gust : '')) : fmt(v);
-      m.bindTooltip(String(lbl), { permanent: showLabels, direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+      // hover (or tap) shows everything the station reports
+      m.bindPopup(() => stationCard(s), { maxWidth: 300 });
+      m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
       stLayer.addLayer(m);
     }
     const winsEl = $('stWins'); winsEl.innerHTML = '';
@@ -534,8 +545,8 @@
       b.onclick = () => { stWin = String(w); renderStations(); }; winsEl.appendChild(b);
     });
     const legFmt = pctMode ? (x => x === 0 ? '<50' : x + '%') : (tempMode || windMode) ? (x => String(x)) : fmt;
-    const note = pctMode ? 'SNOTEL only, percent of 1991–2020 median for yesterday' : tempMode ? '°F now; SNOTEL everywhere, NWS network near Leavenworth' : windMode ? 'mph, gust if reported; arrows point downwind' : 'inches';
-    $('stInfo').innerHTML = '<div class="muted">' + n + ' stations · updated ' + (stData.updated || '') + '</div>' + legendHtml(bins, legFmt) + '<div class="note" style="margin-top:18px">' + note + '</div>';
+    const note = pctMode ? 'SNOTEL only, percent of 1991–2020 median for yesterday' : tempMode ? '°F now' : windMode ? 'mph, gust if reported; arrows point downwind' : 'inches';
+    $('stInfo').innerHTML = '<div class="muted">' + n + ' of ' + stData.stations.length + ' stations report this · hollow dots have other data · updated ' + (stData.updated || '') + '</div>' + legendHtml(bins, legFmt) + '<div class="note" style="margin-top:18px">' + note + '</div>';
     if ($('lyAccum').checked && ['stations', 'snow'].includes($('accumSrc').value)) { renderAccumUI(); showAccum(); }
   }
   function loadStations() { loadScript('data/stations.js', () => { stData = window.STATIONS || stData; renderStations(); }, () => { $('stInfo').innerHTML = '<div class="muted">station data not available yet</div>'; }); }
