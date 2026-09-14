@@ -109,16 +109,6 @@
   <div id="grab" title="drag to resize"><span></span></div>
   <h1><span>Blackwater Radar <small id="updated"></small></span><select id="regionSel" title="Region"></select><button class="chip" id="closePanel" style="display:none">close</button></h1>
 
-  <div class="sec" id="presets">
-    <h2>Presets</h2>
-    <div class="baserow">
-      <button class="chip" data-preset="weather" title="radar, temperatures, warnings">Weather</button>
-      <button class="chip" data-preset="ski" title="radar, freezing level, new snow, NWAC, snow depth">Ski</button>
-      <button class="chip" data-preset="river" title="radar, 24 h rain totals, rivers, forecast rain">River</button>
-      <button class="chip" data-preset="reset" title="back to radar only">Reset</button>
-    </div>
-  </div>
-
   <div class="sec">
     <h2>Basemap</h2>
     <div class="baserow">
@@ -749,36 +739,6 @@
     }, () => { $('avyInfo').innerHTML = '<div class="muted">forecast not available yet</div>'; });
   }
   $('lyAvy').onchange = e => { if (e.target.checked) { avyLayer.addTo(map); loadAvy(); } else map.removeLayer(avyLayer); };
-
-  // ---------- presets: one tap sets a whole layer recipe ----------
-  const PRESET_LAYERS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lyBasins', 'lyRivers', 'lyStf', 'lyAlerts'];
-  const PRESETS = {
-    weather: { lyRadar: true, lyStations: true, stModeSel: 'temp', lyAlerts: true },
-    ski:     { lyRadar: true, lyFz: true, lyStations: true, stModeSel: 'snow', lyAvy: true, lySnodas: true, snodasSel: 'depth' },
-    river:   { lyRadar: true, lyAccum: true, accumSrc: 'stations', lyRivers: true, rvModeSel: 'pctmed', lyFcst: true, fcSel: 'qpf_24' },
-    reset:   { lyRadar: true },
-  };
-  function fire(el) { el.dispatchEvent(new Event('change', { bubbles: true })); }
-  function applyPreset(name) {
-    const want = PRESETS[name]; if (!want) return;
-    // dropdowns first so a layer that loads on check renders in the right mode
-    const SEL_LAYER = { stModeSel: 'lyStations', rvModeSel: 'lyRivers', accumSrc: 'lyAccum', snodasSel: 'lySnodas', fcSel: 'lyFcst' };
-    for (const k in want) {
-      const el = $(k); if (!el || el.tagName !== 'SELECT' || el.value === want[k]) continue;
-      el.value = want[k];
-      // mode selects keep a variable, so always fire them; the rest only re-render a layer that is already on
-      if (k === 'stModeSel' || k === 'rvModeSel' || $(SEL_LAYER[k]).checked) fire(el);
-    }
-    // turn layers off first, then on, so shared overlays end in the wanted state
-    for (const id of PRESET_LAYERS) { const cb = $(id); if (cb && cb.checked && !want[id]) { cb.checked = false; fire(cb); } }
-    for (const id of PRESET_LAYERS) { const cb = $(id); if (cb && !cb.checked && want[id]) { cb.checked = true; fire(cb); } }
-    document.querySelectorAll('.grp').forEach(g => { if (g.querySelector('.body > .opt > input:checked')) g.classList.remove('closed'); });
-    if (window.updateGroupCounts) window.updateGroupCounts();
-    document.querySelectorAll('#presets .chip').forEach(c => c.classList.toggle('on', c.dataset.preset === name && name !== 'reset'));
-  }
-  document.querySelectorAll('#presets .chip').forEach(c => c.onclick = () => applyPreset(c.dataset.preset));
-  // any hand change means we are no longer exactly on a preset
-  document.querySelectorAll('.grp input, .grp select').forEach(el => el.addEventListener('change', e => { if (e.isTrusted) document.querySelectorAll('#presets .chip').forEach(c => c.classList.remove('on')); }));
 
   // ---------- USBR snow-to-flow sites (seasonal SWE vs streamflow charts) ----------
   const stfLayer = L.featureGroup();
