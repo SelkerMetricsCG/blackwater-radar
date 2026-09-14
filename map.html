@@ -211,6 +211,10 @@
     <div class="subwrap" data-for="lyRivers">
       <div class="sub" id="rvInfo" style="display:block"></div>
     </div>
+    <label class="opt"><input type="checkbox" id="lyStf"> Snow-to-flow sites (USBR)</label>
+    <div class="subwrap" data-for="lyStf">
+      <div class="sub" id="stfInfo" style="display:block"></div>
+    </div>
     </div>
   </div>
 
@@ -735,6 +739,34 @@
     }, () => { $('avyInfo').innerHTML = '<div class="muted">forecast not available yet</div>'; });
   }
   $('lyAvy').onchange = e => { if (e.target.checked) { avyLayer.addTo(map); loadAvy(); } else map.removeLayer(avyLayer); };
+
+  // ---------- USBR snow-to-flow sites (seasonal SWE vs streamflow charts) ----------
+  const stfLayer = L.featureGroup();
+  let stfLoaded = false;
+  function renderStf() {
+    const sites = window.STF_SITES || [];
+    stfLayer.clearLayers();
+    const b = bounds(); let n = 0;
+    for (const s of sites) {
+      if (!b.contains([s.lat, s.lon])) continue;
+      n++;
+      const m = L.circleMarker([s.lat, s.lon], { radius: 5, color: '#0b1220', weight: 1, fillColor: '#a5f3fc', fillOpacity: .95 });
+      m.bindTooltip(s.name, { direction: 'top', offset: [0, -5] });
+      m.bindPopup('<div style="font:13px system-ui;min-width:230px"><b>' + s.name + '</b><div style="color:#666;font-size:12px;margin:2px 0">' + s.basin + ' basin · ' + s.elev_ft.toLocaleString() + ' ft</div>' +
+        '<div style="font-size:12px;margin:4px 0">Basin snowpack (SWE) against streamflow through the water year, with the median and every past year.</div>' +
+        '<div style="margin-top:6px"><a href="' + s.url + '" target="_blank" rel="noopener">Snow-to-flow chart (USBR) →</a> · <a href="https://waterdata.usgs.gov/monitoring-location/' + s.usgs + '/" target="_blank" rel="noopener">USGS ' + s.usgs + '</a></div></div>', { maxWidth: 300 });
+      stfLayer.addLayer(m);
+    }
+    $('stfInfo').innerHTML = '<div class="muted">' + n + ' sites in this region · click one for its chart · <a href="https://www.usbr.gov/uc/water/hydrodata/stf/site_map.html" target="_blank" rel="noopener" style="color:#9cf">usbr.gov</a></div>';
+  }
+  function loadStf() {
+    if (stfLoaded || window.STF_SITES) { renderStf(); return; }
+    const sc = document.createElement('script'); sc.src = 'stf.js?v=' + (window.STF_VERSION || 1);
+    sc.onload = () => { stfLoaded = true; renderStf(); };
+    sc.onerror = () => { $('stfInfo').innerHTML = '<div class="muted">site list not available</div>'; };
+    document.body.appendChild(sc);
+  }
+  $('lyStf').onchange = e => { if (e.target.checked) { stfLayer.addTo(map); loadStf(); } else map.removeLayer(stfLayer); };
 
   // ---------- freezing level (HRRR 0°C height) ----------
   const FZ_STOPS = [[0, [68, 1, 84]], [2000, [72, 40, 120]], [3000, [62, 74, 137]], [4000, [49, 104, 142]], [5000, [38, 130, 142]], [6000, [31, 158, 137]], [7000, [53, 183, 121]], [8000, [109, 205, 89]], [9000, [180, 222, 44]], [10000, [253, 231, 37]], [12000, [253, 174, 60]], [14000, [230, 80, 40]]];

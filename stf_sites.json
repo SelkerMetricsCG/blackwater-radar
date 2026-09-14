@@ -1,0 +1,5392 @@
+[
+{
+"name": "South Platte R bl Antero Reservoir",
+"basin": "South Platte",
+"lat": 38.9932,
+"lon": -105.895,
+"elev_ft": 8950,
+"usgs": "06694650",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Platte%20R%20bl%20Antero%20Reservoir.html"
+},
+{
+"name": "Bear Ck ab Evergreen",
+"basin": "South Platte",
+"lat": 39.6332,
+"lon": -105.3369,
+"elev_ft": 7080,
+"usgs": "06710385",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/Bear%20Ck%20ab%20Evergreen.html"
+},
+{
+"name": "Big Thompson R at Canyon Mouth",
+"basin": "South Platte",
+"lat": 40.4216,
+"lon": -105.2266,
+"elev_ft": 5305,
+"usgs": "06738000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/Big%20Thompson%20R%20at%20Canyon%20Mouth.html"
+},
+{
+"name": "Boulder Ck nr Orodell",
+"basin": "South Platte",
+"lat": 40.0064,
+"lon": -105.3308,
+"elev_ft": 5826,
+"usgs": "06727000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/Boulder%20Ck%20nr%20Orodell.html"
+},
+{
+"name": "Cache La Poudre at Canyon Mouth",
+"basin": "South Platte",
+"lat": 40.6644,
+"lon": -105.2244,
+"elev_ft": 5220,
+"usgs": "06752000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/Cache%20La%20Poudre%20at%20Canyon%20Mouth.html"
+},
+{
+"name": "South Platte R bl Cheesman Lk",
+"basin": "South Platte",
+"lat": 39.2092,
+"lon": -105.2678,
+"elev_ft": 6609,
+"usgs": "06701000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Platte%20R%20bl%20Cheesman%20Lk.html"
+},
+{
+"name": "Clear Ck at Golden",
+"basin": "South Platte",
+"lat": 39.753,
+"lon": -105.2353,
+"elev_ft": 5695,
+"usgs": "06719505",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/Clear%20Ck%20at%20Golden.html"
+},
+{
+"name": "South Platte R nr Lake George",
+"basin": "South Platte",
+"lat": 38.9053,
+"lon": -105.4728,
+"elev_ft": 8458,
+"usgs": "06695500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Platte%20R%20nr%20Lake%20George.html"
+},
+{
+"name": "North Platte R nr Northgate",
+"basin": "North Platte",
+"lat": 40.9366,
+"lon": -106.3392,
+"elev_ft": 7810,
+"usgs": "06620000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/North%20Platte%20R%20nr%20Northgate.html"
+},
+{
+"name": "South Boulder Ck nr Eldorado Springs",
+"basin": "South Platte",
+"lat": 39.9311,
+"lon": -105.2958,
+"elev_ft": 6080,
+"usgs": "06729500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Boulder%20Ck%20nr%20Eldorado%20Springs.html"
+},
+{
+"name": "South Platte R at South Platte",
+"basin": "South Platte",
+"lat": 39.4092,
+"lon": -105.17,
+"elev_ft": 6078,
+"usgs": "06707500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Platte%20R%20at%20South%20Platte.html"
+},
+{
+"name": "South Platte R ab Spinney Res",
+"basin": "South Platte",
+"lat": 38.9975,
+"lon": -105.6817,
+"elev_ft": 8695,
+"usgs": "06694920",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/South%20Platte%20R%20ab%20Spinney%20Res.html"
+},
+{
+"name": "St. Vrain Ck at Lyons",
+"basin": "South Platte",
+"lat": 40.218,
+"lon": -105.26,
+"elev_ft": 5292,
+"usgs": "06724000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/South%20Platte/St.%20Vrain%20Ck%20at%20Lyons.html"
+},
+{
+"name": "Badger Ck nr Browning",
+"basin": "Missouri-Marias",
+"lat": 48.3462,
+"lon": -112.8418,
+"elev_ft": 4179,
+"usgs": "06093200",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Badger%20Ck%20nr%20Browning.html"
+},
+{
+"name": "Beaverhead R at Barretts",
+"basin": "Missouri Headwaters",
+"lat": 45.1163,
+"lon": -112.7506,
+"elev_ft": 5268,
+"usgs": "06016000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Beaverhead%20R%20at%20Barretts.html"
+},
+{
+"name": "Big Hole R bl Big Lake Ck at Wisdom",
+"basin": "Missouri Headwaters",
+"lat": 45.6185,
+"lon": -113.4578,
+"elev_ft": 6040,
+"usgs": "06024450",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Big%20Hole%20R%20bl%20Big%20Lake%20Ck%20at%20Wisdom.html"
+},
+{
+"name": "Big Hole R nr Melrose",
+"basin": "Missouri Headwaters",
+"lat": 45.5266,
+"lon": -112.7017,
+"elev_ft": 5033,
+"usgs": "06025500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Big%20Hole%20R%20nr%20Melrose.html"
+},
+{
+"name": "Bighorn R nr St. Xavier",
+"basin": "Big Horn",
+"lat": 45.3166,
+"lon": -107.9187,
+"elev_ft": 3158,
+"usgs": "06287000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Bighorn%20R%20nr%20St.%20Xavier.html"
+},
+{
+"name": "Boulder R at Big Timber",
+"basin": "Upper Yellowstone",
+"lat": 45.8341,
+"lon": -109.9388,
+"elev_ft": 4056,
+"usgs": "06200000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Boulder%20R%20at%20Big%20Timber.html"
+},
+{
+"name": "Boulder R nr Boulder",
+"basin": "Missouri Headwaters",
+"lat": 46.211,
+"lon": -112.0917,
+"elev_ft": 4810,
+"usgs": "06033000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Boulder%20R%20nr%20Boulder.html"
+},
+{
+"name": "Beaverhead R nr Grant",
+"basin": "Missouri Headwaters",
+"lat": 45.0033,
+"lon": -112.8536,
+"elev_ft": 5443,
+"usgs": "06015400",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Beaverhead%20R%20nr%20Grant.html"
+},
+{
+"name": "Clarks Fk Yellowstone R nr Belfry",
+"basin": "Upper Yellowstone",
+"lat": 45.0102,
+"lon": -109.0654,
+"elev_ft": 3986,
+"usgs": "06207500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Clarks%20Fk%20Yellowstone%20R%20nr%20Belfry.html"
+},
+{
+"name": "Cut Bank Ck nr Browning",
+"basin": "Missouri-Marias",
+"lat": 48.6333,
+"lon": -112.347,
+"elev_ft": 3561,
+"usgs": "06098500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Cut%20Bank%20Ck%20nr%20Browning.html"
+},
+{
+"name": "Ennis Lake Inflow",
+"basin": "Missouri Headwaters",
+"lat": 45.4902,
+"lon": -111.6341,
+"elev_ft": 4689,
+"usgs": "06041000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Ennis%20Lake%20Inflow.html"
+},
+{
+"name": "Gallatin R at Logan",
+"basin": "Missouri Headwaters",
+"lat": 45.8852,
+"lon": -111.4383,
+"elev_ft": 4086,
+"usgs": "06052500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Gallatin%20R%20at%20Logan.html"
+},
+{
+"name": "Gallatin R nr Gateway",
+"basin": "Missouri Headwaters",
+"lat": 45.4974,
+"lon": -111.2705,
+"elev_ft": 5168,
+"usgs": "06043500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Gallatin%20R%20nr%20Gateway.html"
+},
+{
+"name": "Gibson Reservoir Inflow",
+"basin": "Missouri-Marias",
+"lat": 47.6408,
+"lon": -112.8603,
+"elev_ft": 4786,
+"usgs": "06078600",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Gibson%20Reservoir%20Inflow.html"
+},
+{
+"name": "Hebgen Lake Inflow",
+"basin": "Missouri Headwaters",
+"lat": 44.8666,
+"lon": -111.3383,
+"elev_ft": 6448,
+"usgs": "06038500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Hebgen%20Lake%20Inflow.html"
+},
+{
+"name": "Jefferson R nr Three Forks",
+"basin": "Missouri Headwaters",
+"lat": 45.8977,
+"lon": -111.5966,
+"elev_ft": 4077,
+"usgs": "06036650",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Jefferson%20R%20nr%20Three%20Forks.html"
+},
+{
+"name": "Jefferson R nr Twin Bridges",
+"basin": "Missouri Headwaters",
+"lat": 45.6124,
+"lon": -112.3306,
+"elev_ft": 4560,
+"usgs": "06026500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Jefferson%20R%20nr%20Twin%20Bridges.html"
+},
+{
+"name": "Lake Sakakawea Inflow",
+"basin": "Missouri-Little Missouri",
+"lat": 48.1081,
+"lon": -103.7146,
+"elev_ft": 1830,
+"usgs": "06330000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Little%20Missouri/Lake%20Sakakawea%20Inflow.html"
+},
+{
+"name": "Lima Reservoir Inflow",
+"basin": "Missouri Headwaters",
+"lat": 44.656,
+"lon": -112.3714,
+"elev_ft": 6530,
+"usgs": "06012500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Lima%20Reservoir%20Inflow.html"
+},
+{
+"name": "Little Bighorn R nr Hardin",
+"basin": "Big Horn",
+"lat": 45.7358,
+"lon": -107.5573,
+"elev_ft": 2882,
+"usgs": "06294000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Little%20Bighorn%20R%20nr%20Hardin.html"
+},
+{
+"name": "Marias R nr Shelby",
+"basin": "Missouri-Marias",
+"lat": 48.4272,
+"lon": -111.8897,
+"elev_ft": 3088,
+"usgs": "06099500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Marias%20R%20nr%20Shelby.html"
+},
+{
+"name": "Missouri R at Fort Benton",
+"basin": "Missouri-Marias",
+"lat": 47.8175,
+"lon": -110.6672,
+"elev_ft": 2614,
+"usgs": "06090800",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Missouri%20R%20at%20Fort%20Benton.html"
+},
+{
+"name": "Missouri R at Toston",
+"basin": "Missouri-Marias",
+"lat": 46.146,
+"lon": -111.4205,
+"elev_ft": 3906,
+"usgs": "06054500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Missouri%20R%20at%20Toston.html"
+},
+{
+"name": "Missouri R bl Fort Peck Dam",
+"basin": "Missouri-Poplar",
+"lat": 48.0442,
+"lon": -106.3564,
+"elev_ft": 2018,
+"usgs": "06132000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Poplar/Missouri%20R%20bl%20Fort%20Peck%20Dam.html"
+},
+{
+"name": "Missouri R nr Landusky",
+"basin": "Missouri-Musselshell",
+"lat": 47.6308,
+"lon": -108.6877,
+"elev_ft": 2240,
+"usgs": "06115200",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Musselshell/Missouri%20R%20nr%20Landusky.html"
+},
+{
+"name": "Missouri R nr Virgelle",
+"basin": "Missouri-Musselshell",
+"lat": 48.005,
+"lon": -110.2577,
+"elev_ft": 2508,
+"usgs": "06109500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Musselshell/Missouri%20R%20nr%20Virgelle.html"
+},
+{
+"name": "Musselshell R at Harlowton",
+"basin": "Missouri-Musselshell",
+"lat": 46.43,
+"lon": -109.8407,
+"elev_ft": 4171,
+"usgs": "06120500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Musselshell/Musselshell%20R%20at%20Harlowton.html"
+},
+{
+"name": "Musselshell R nr Roundup",
+"basin": "Missouri-Musselshell",
+"lat": 46.428,
+"lon": -108.5726,
+"elev_ft": 3188,
+"usgs": "06126500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Musselshell/Musselshell%20R%20nr%20Roundup.html"
+},
+{
+"name": "West Rosebud Ck nr Roscoe",
+"basin": "Upper Yellowstone",
+"lat": 45.243,
+"lon": -109.7313,
+"elev_ft": 6536,
+"usgs": "06204050",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/West%20Rosebud%20Ck%20nr%20Roscoe.html"
+},
+{
+"name": "Powder R at Moorehead",
+"basin": "Powder-Tongue",
+"lat": 45.0578,
+"lon": -105.8781,
+"elev_ft": 3351,
+"usgs": "06324500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Powder%20R%20at%20Moorehead.html"
+},
+{
+"name": "Powder R nr Locate",
+"basin": "Powder-Tongue",
+"lat": 46.43,
+"lon": -105.31,
+"elev_ft": 2385,
+"usgs": "06326500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Powder%20R%20nr%20Locate.html"
+},
+{
+"name": "Ruby R Reservoir Inflow",
+"basin": "Missouri Headwaters",
+"lat": 45.1924,
+"lon": -112.1425,
+"elev_ft": 5400,
+"usgs": "06019500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Ruby%20R%20Reservoir%20Inflow.html"
+},
+{
+"name": "SF Musselshell R ab Martinsdale",
+"basin": "Missouri-Musselshell",
+"lat": 46.4533,
+"lon": -110.3821,
+"elev_ft": 4900,
+"usgs": "06118500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Musselshell/SF%20Musselshell%20R%20ab%20Martinsdale.html"
+},
+{
+"name": "Sheep Ck nr White Sulphur Springs",
+"basin": "Missouri-Marias",
+"lat": 46.768,
+"lon": -110.8099,
+"elev_ft": 5820,
+"usgs": "06077000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Sheep%20Ck%20nr%20White%20Sulphur%20Springs.html"
+},
+{
+"name": "Shields R nr Livingston",
+"basin": "Upper Yellowstone",
+"lat": 45.7383,
+"lon": -110.4799,
+"elev_ft": 4420,
+"usgs": "06195600",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Shields%20R%20nr%20Livingston.html"
+},
+{
+"name": "Smith R bl Eagle Ck",
+"basin": "Missouri-Marias",
+"lat": 46.828,
+"lon": -111.1922,
+"elev_ft": 4350,
+"usgs": "06077200",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Smith%20R%20bl%20Eagle%20Ck.html"
+},
+{
+"name": "Stillwater R nr Absarokee",
+"basin": "Upper Yellowstone",
+"lat": 45.551,
+"lon": -109.3874,
+"elev_ft": 3874,
+"usgs": "06205000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Stillwater%20R%20nr%20Absarokee.html"
+},
+{
+"name": "Teton R nr Dutton",
+"basin": "Missouri-Marias",
+"lat": 47.9302,
+"lon": -111.5528,
+"elev_ft": 3235,
+"usgs": "06108000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Teton%20R%20nr%20Dutton.html"
+},
+{
+"name": "Tongue R at State Line nr Decker",
+"basin": "Powder-Tongue",
+"lat": 45.0089,
+"lon": -106.8362,
+"elev_ft": 3429,
+"usgs": "06306300",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Tongue%20R%20at%20State%20Line%20nr%20Decker.html"
+},
+{
+"name": "Two Medicine R bl South Fork nr Browning",
+"basin": "Missouri-Marias",
+"lat": 48.4269,
+"lon": -112.99,
+"elev_ft": 3940,
+"usgs": "06091700",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri-Marias/Two%20Medicine%20R%20bl%20South%20Fork%20nr%20Browning.html"
+},
+{
+"name": "Willow Ck Reservoir Inflow",
+"basin": "Missouri Headwaters",
+"lat": 45.723,
+"lon": -111.7411,
+"elev_ft": 4750,
+"usgs": "06035000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Missouri%20Headwaters/Willow%20Ck%20Reservoir%20Inflow.html"
+},
+{
+"name": "Yellowstone R at Billings",
+"basin": "Upper Yellowstone",
+"lat": 45.7999,
+"lon": -108.4674,
+"elev_ft": 3081,
+"usgs": "06214500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Yellowstone%20R%20at%20Billings.html"
+},
+{
+"name": "Yellowstone R at Corwin Springs",
+"basin": "Upper Yellowstone",
+"lat": 45.1119,
+"lon": -110.7944,
+"elev_ft": 5079,
+"usgs": "06191500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Yellowstone%20R%20at%20Corwin%20Springs.html"
+},
+{
+"name": "Yellowstone R at Livingston",
+"basin": "Upper Yellowstone",
+"lat": 45.5972,
+"lon": -110.566,
+"elev_ft": 4542,
+"usgs": "06192500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Yellowstone%20R%20at%20Livingston.html"
+},
+{
+"name": "Yellowstone R at Miles City",
+"basin": "Lower Yellowstone",
+"lat": 46.4217,
+"lon": -105.8611,
+"elev_ft": 2333,
+"usgs": "06309000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Yellowstone/Yellowstone%20R%20at%20Miles%20City.html"
+},
+{
+"name": "Yellowstone R nr Sidney",
+"basin": "Lower Yellowstone",
+"lat": 47.6783,
+"lon": -104.1566,
+"elev_ft": 1881,
+"usgs": "06329500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Yellowstone/Yellowstone%20R%20nr%20Sidney.html"
+},
+{
+"name": "Deerfield Reservoir Inflow",
+"basin": "Cheyenne",
+"lat": 44.0291,
+"lon": -103.7819,
+"elev_ft": 5785,
+"usgs": "06410000",
+"state": "SD",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Cheyenne/Deerfield%20Reservoir%20Inflow.html"
+},
+{
+"name": "Pactola Reservoir Inflow",
+"basin": "Cheyenne",
+"lat": 44.0766,
+"lon": -103.4821,
+"elev_ft": 4406,
+"usgs": "06411500",
+"state": "SD",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Cheyenne/Pactola%20Reservoir%20Inflow.html"
+},
+{
+"name": "Big Goose Ck nr Sheridan",
+"basin": "Powder-Tongue",
+"lat": 44.6958,
+"lon": -107.1908,
+"elev_ft": 4650,
+"usgs": "06301850",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Big%20Goose%20Ck%20nr%20Sheridan.html"
+},
+{
+"name": "Bighorn R at Kane",
+"basin": "Big Horn",
+"lat": 44.7586,
+"lon": -108.1815,
+"elev_ft": 3660,
+"usgs": "06279500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Bighorn%20R%20at%20Kane.html"
+},
+{
+"name": "Wind R bl Boysen Reservoir",
+"basin": "Big Horn",
+"lat": 43.425,
+"lon": -108.179,
+"elev_ft": 4609,
+"usgs": "06259000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Wind%20R%20bl%20Boysen%20Reservoir.html"
+},
+{
+"name": "Buffalo Bill Reservoir Inflow",
+"basin": "Big Horn",
+"lat": 44.5166,
+"lon": -109.0979,
+"elev_ft": 4900,
+"usgs": "06282000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Buffalo%20Bill%20Reservoir%20Inflow.html"
+},
+{
+"name": "Bull Lake Ck nr Lenore",
+"basin": "Big Horn",
+"lat": 43.2425,
+"lon": -109.0229,
+"elev_ft": 5654,
+"usgs": "06225000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Bull%20Lake%20Ck%20nr%20Lenore.html"
+},
+{
+"name": "Dinwoody Ck nr Burris",
+"basin": "Big Horn",
+"lat": 43.3455,
+"lon": -109.4101,
+"elev_ft": 6500,
+"usgs": "06221400",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Dinwoody%20Ck%20nr%20Burris.html"
+},
+{
+"name": "Encampment R nr Encampment",
+"basin": "North Platte",
+"lat": 41.3033,
+"lon": -106.7153,
+"elev_ft": 6970,
+"usgs": "06625000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/Encampment%20R%20nr%20Encampment.html"
+},
+{
+"name": "Greybull R at Meeteetse",
+"basin": "Big Horn",
+"lat": 44.1555,
+"lon": -108.8771,
+"elev_ft": 5739,
+"usgs": "06276500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Greybull%20R%20at%20Meeteetse.html"
+},
+{
+"name": "La Prele Ck nr Douglas",
+"basin": "North Platte",
+"lat": 42.6811,
+"lon": -105.6305,
+"elev_ft": 5600,
+"usgs": "06649000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/La%20Prele%20Ck%20nr%20Douglas.html"
+},
+{
+"name": "Laramie R and Pioneer Cnl nr Woods Lndg",
+"basin": "North Platte",
+"lat": 41.138,
+"lon": -105.9808,
+"elev_ft": 7389,
+"usgs": "06659500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/Laramie%20R%20and%20Pioneer%20Cnl%20nr%20Woods%20Lndg.html"
+},
+{
+"name": "Little Goose Ck nr Big Horn",
+"basin": "Powder-Tongue",
+"lat": 44.5961,
+"lon": -107.0401,
+"elev_ft": 4860,
+"usgs": "06303500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Little%20Goose%20Ck%20nr%20Big%20Horn.html"
+},
+{
+"name": "Little Laramie R nr Filmore",
+"basin": "North Platte",
+"lat": 41.295,
+"lon": -106.0347,
+"elev_ft": 7610,
+"usgs": "06661000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/Little%20Laramie%20R%20nr%20Filmore.html"
+},
+{
+"name": "Little Popo Agie R nr Lander",
+"basin": "Big Horn",
+"lat": 42.7166,
+"lon": -108.6434,
+"elev_ft": 5436,
+"usgs": "06233000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Little%20Popo%20Agie%20R%20nr%20Lander.html"
+},
+{
+"name": "Little Wind R nr Riverton",
+"basin": "Big Horn",
+"lat": 42.9975,
+"lon": -108.3754,
+"elev_ft": 4902,
+"usgs": "06235500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Little%20Wind%20R%20nr%20Riverton.html"
+},
+{
+"name": "Mf Powder R nr Barnum",
+"basin": "Powder-Tongue",
+"lat": 43.5777,
+"lon": -107.1384,
+"elev_ft": 7220,
+"usgs": "06309200",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Mf%20Powder%20R%20nr%20Barnum.html"
+},
+{
+"name": "NF Powder R nr Hazelton",
+"basin": "Powder-Tongue",
+"lat": 44.0277,
+"lon": -107.0809,
+"elev_ft": 8180,
+"usgs": "06311000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/NF%20Powder%20R%20nr%20Hazelton.html"
+},
+{
+"name": "NF Shoshone R at Wapiti",
+"basin": "Big Horn",
+"lat": 44.4697,
+"lon": -109.4304,
+"elev_ft": 5580,
+"usgs": "06279940",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/NF%20Shoshone%20R%20at%20Wapiti.html"
+},
+{
+"name": "North Platte R bl Glendo Reservoir",
+"basin": "North Platte",
+"lat": 42.4569,
+"lon": -104.9477,
+"elev_ft": 4489,
+"usgs": "06652800",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/North%20Platte%20R%20bl%20Glendo%20Reservoir.html"
+},
+{
+"name": "North Platte R bl Guernsey Reservoir",
+"basin": "North Platte",
+"lat": 42.2805,
+"lon": -104.7547,
+"elev_ft": 4340,
+"usgs": "06656000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/North%20Platte%20R%20bl%20Guernsey%20Reservoir.html"
+},
+{
+"name": "Piney Ck at Kearny",
+"basin": "Powder-Tongue",
+"lat": 44.5355,
+"lon": -106.8223,
+"elev_ft": 4655,
+"usgs": "06323000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Piney%20Ck%20at%20Kearny.html"
+},
+{
+"name": "Rock Ck ab King Canyon Cnl nr Arlington",
+"basin": "North Platte",
+"lat": 41.5853,
+"lon": -106.2228,
+"elev_ft": 7790,
+"usgs": "06632400",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/Rock%20Ck%20ab%20King%20Canyon%20Cnl%20nr%20Arlington.html"
+},
+{
+"name": "Rock Ck nr Buffalo",
+"basin": "Powder-Tongue",
+"lat": 44.4561,
+"lon": -106.879,
+"elev_ft": 5280,
+"usgs": "06320000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Rock%20Ck%20nr%20Buffalo.html"
+},
+{
+"name": "North Platte R bl Seminoe Reservoir",
+"basin": "North Platte",
+"lat": 42.1783,
+"lon": -106.8764,
+"elev_ft": 5930,
+"usgs": "06635500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/North%20Platte%20R%20bl%20Seminoe%20Reservoir.html"
+},
+{
+"name": "SF Shoshone R ab Buffalo Bill Reservoir",
+"basin": "Big Horn",
+"lat": 44.4191,
+"lon": -109.2579,
+"elev_ft": 5440,
+"usgs": "06281000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/SF%20Shoshone%20R%20ab%20Buffalo%20Bill%20Reservoir.html"
+},
+{
+"name": "SF Shoshone R nr Valley",
+"basin": "Big Horn",
+"lat": 44.2083,
+"lon": -109.5549,
+"elev_ft": 6200,
+"usgs": "06280300",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/SF%20Shoshone%20R%20nr%20Valley.html"
+},
+{
+"name": "Shell Ck nr Shell",
+"basin": "Big Horn",
+"lat": 44.565,
+"lon": -107.7129,
+"elev_ft": 4370,
+"usgs": "06278500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Shell%20Ck%20nr%20Shell.html"
+},
+{
+"name": "Sweetwater R nr Alcova",
+"basin": "North Platte",
+"lat": 42.49,
+"lon": -107.1339,
+"elev_ft": 5890,
+"usgs": "06639000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/North%20Platte/Sweetwater%20R%20nr%20Alcova.html"
+},
+{
+"name": "Tongue R nr Dayton",
+"basin": "Powder-Tongue",
+"lat": 44.8494,
+"lon": -107.3045,
+"elev_ft": 4060,
+"usgs": "06298000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Powder-Tongue/Tongue%20R%20nr%20Dayton.html"
+},
+{
+"name": "Wind R at Riverton",
+"basin": "Big Horn",
+"lat": 43.0105,
+"lon": -108.3768,
+"elev_ft": 4902,
+"usgs": "06228000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Big%20Horn/Wind%20R%20at%20Riverton.html"
+},
+{
+"name": "Yellowstone R at Yellowstone Lake Outlet",
+"basin": "Upper Yellowstone",
+"lat": 44.5674,
+"lon": -110.3808,
+"elev_ft": 7728,
+"usgs": "06186500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Yellowstone/Yellowstone%20R%20at%20Yellowstone%20Lake%20Outlet.html"
+},
+{
+"name": "Arkansas R at Salida",
+"basin": "Upper Arkansas",
+"lat": 38.5458,
+"lon": -106.0106,
+"elev_ft": 7050,
+"usgs": "07091500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Arkansas%20R%20at%20Salida.html"
+},
+{
+"name": "Chalk Ck nr Nathrop",
+"basin": "Upper Arkansas",
+"lat": 38.7336,
+"lon": -106.16,
+"elev_ft": 8113,
+"usgs": "07091000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Chalk%20Ck%20nr%20Nathrop.html"
+},
+{
+"name": "Grape Ck nr Westcliffe",
+"basin": "Upper Arkansas",
+"lat": 38.1861,
+"lon": -105.4836,
+"elev_ft": 7690,
+"usgs": "07095000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Grape%20Ck%20nr%20Westcliffe.html"
+},
+{
+"name": "Huerfano R nr Redwing",
+"basin": "Upper Arkansas",
+"lat": 37.7278,
+"lon": -105.3514,
+"elev_ft": 8270,
+"usgs": "07111000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Huerfano%20R%20nr%20Redwing.html"
+},
+{
+"name": "Arkansas R ab Pueblo",
+"basin": "Upper Arkansas",
+"lat": 38.2717,
+"lon": -104.718,
+"elev_ft": 4740,
+"usgs": "07099400",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Arkansas%20R%20ab%20Pueblo.html"
+},
+{
+"name": "Purgatoire R at Trinidad",
+"basin": "Upper Arkansas",
+"lat": 37.1708,
+"lon": -104.5091,
+"elev_ft": 5980,
+"usgs": "07124500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Arkansas/Purgatoire%20R%20at%20Trinidad.html"
+},
+{
+"name": "Cimarron R nr Cimarron",
+"basin": "Upper Canadian",
+"lat": 36.5198,
+"lon": -104.9786,
+"elev_ft": 6600,
+"usgs": "07207000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Cimarron%20R%20nr%20Cimarron.html"
+},
+{
+"name": "Conchas Reservoir Inflow",
+"basin": "Upper Canadian",
+"lat": 35.4089,
+"lon": -104.17,
+"elev_ft": 4022,
+"usgs": "07223500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Conchas%20Reservoir%20Inflow.html"
+},
+{
+"name": "Cimarron R bl Eagle Nest Dam",
+"basin": "Upper Canadian",
+"lat": 36.5321,
+"lon": -105.2281,
+"elev_ft": 8080,
+"usgs": "07206000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Cimarron%20R%20bl%20Eagle%20Nest%20Dam.html"
+},
+{
+"name": "Ponil Ck nr Cimarron",
+"basin": "Upper Canadian",
+"lat": 36.5737,
+"lon": -104.9468,
+"elev_ft": 6630,
+"usgs": "07207500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Ponil%20Ck%20nr%20Cimarron.html"
+},
+{
+"name": "Rayado Ck nr Cimarron",
+"basin": "Upper Canadian",
+"lat": 36.3723,
+"lon": -104.9693,
+"elev_ft": 6720,
+"usgs": "07208500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Rayado%20Ck%20nr%20Cimarron.html"
+},
+{
+"name": "Vermejo R nr Dawson",
+"basin": "Upper Canadian",
+"lat": 36.681,
+"lon": -104.7864,
+"elev_ft": 6360,
+"usgs": "07203000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Canadian/Vermejo%20R%20nr%20Dawson.html"
+},
+{
+"name": "Alamosa Ck ab Terrace Reservoir",
+"basin": "Rio Grande Headwaters",
+"lat": 37.3747,
+"lon": -106.3348,
+"elev_ft": 8600,
+"usgs": "08236000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Alamosa%20Ck%20ab%20Terrace%20Reservoir.html"
+},
+{
+"name": "Conejos R nr Mogote",
+"basin": "Rio Grande Headwaters",
+"lat": 37.0539,
+"lon": -106.1875,
+"elev_ft": 8274,
+"usgs": "08246500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Conejos%20R%20nr%20Mogote.html"
+},
+{
+"name": "Culebra Ck at San Luis",
+"basin": "Rio Grande Headwaters",
+"lat": 37.1839,
+"lon": -105.4258,
+"elev_ft": 8000,
+"usgs": "08250000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Culebra%20Ck%20at%20San%20Luis.html"
+},
+{
+"name": "La Jara Ck nr Capulin",
+"basin": "Rio Grande Headwaters",
+"lat": 37.2089,
+"lon": -106.1884,
+"elev_ft": 8130,
+"usgs": "08238000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/La%20Jara%20Ck%20nr%20Capulin.html"
+},
+{
+"name": "Platoro Reservoir Inflow",
+"basin": "Rio Grande Headwaters",
+"lat": 37.355,
+"lon": -106.5442,
+"elev_ft": 9867,
+"usgs": "08245000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Platoro%20Reservoir%20Inflow.html"
+},
+{
+"name": "Rio Grande at Thirty Mile Bridge",
+"basin": "Rio Grande Headwaters",
+"lat": 37.7247,
+"lon": -107.2556,
+"elev_ft": 9300,
+"usgs": "08213500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Rio%20Grande%20at%20Thirty%20Mile%20Bridge.html"
+},
+{
+"name": "Rio Grande at Wagon Wheel Gap",
+"basin": "Rio Grande Headwaters",
+"lat": 37.7669,
+"lon": -106.8314,
+"elev_ft": 8430,
+"usgs": "08217500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Rio%20Grande%20at%20Wagon%20Wheel%20Gap.html"
+},
+{
+"name": "Rio Grande nr Del Norte",
+"basin": "Rio Grande Headwaters",
+"lat": 37.6894,
+"lon": -106.4612,
+"elev_ft": 7980,
+"usgs": "08220000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Rio%20Grande%20nr%20Del%20Norte.html"
+},
+{
+"name": "Rio Grande nr Lobatos",
+"basin": "Rio Grande Headwaters",
+"lat": 37.0786,
+"lon": -105.7569,
+"elev_ft": 7428,
+"usgs": "08251500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Rio%20Grande%20nr%20Lobatos.html"
+},
+{
+"name": "Saguache Ck nr Saguache",
+"basin": "Rio Grande Headwaters",
+"lat": 38.1633,
+"lon": -106.2906,
+"elev_ft": 8030,
+"usgs": "08227000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Saguache%20Ck%20nr%20Saguache.html"
+},
+{
+"name": "Sangre De Cristo Ck",
+"basin": "Rio Grande Headwaters",
+"lat": 37.425,
+"lon": -105.415,
+"elev_ft": 7900,
+"usgs": "08241500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Sangre%20De%20Cristo%20Ck.html"
+},
+{
+"name": "SF Rio Grande at South Fork",
+"basin": "Rio Grande Headwaters",
+"lat": 37.657,
+"lon": -106.6492,
+"elev_ft": 8222,
+"usgs": "08219500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/SF%20Rio%20Grande%20at%20South%20Fork.html"
+},
+{
+"name": "Trinchera Ck ab Turners Ranch",
+"basin": "Rio Grande Headwaters",
+"lat": 37.3747,
+"lon": -105.295,
+"elev_ft": 8520,
+"usgs": "08240500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Trinchera%20Ck%20ab%20Turners%20Ranch.html"
+},
+{
+"name": "Ute Ck nr Fort Garland",
+"basin": "Rio Grande Headwaters",
+"lat": 37.4472,
+"lon": -105.4258,
+"elev_ft": 8045,
+"usgs": "08242500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Ute%20Ck%20nr%20Fort%20Garland.html"
+},
+{
+"name": "Costilla Ck nr Costilla",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.9669,
+"lon": -105.5071,
+"elev_ft": 7936,
+"usgs": "08255500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Costilla%20Ck%20nr%20Costilla.html"
+},
+{
+"name": "Costilla Ck bl Costilla Dam",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.8728,
+"lon": -105.2837,
+"elev_ft": 9300,
+"usgs": "08253900",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Costilla%20Ck%20bl%20Costilla%20Dam.html"
+},
+{
+"name": "Rio Chama bl El Vado Dam",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.5804,
+"lon": -106.7248,
+"elev_ft": 6696,
+"usgs": "08285500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Chama%20bl%20El%20Vado%20Dam.html"
+},
+{
+"name": "Embudo Ck at Dixon",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.2109,
+"lon": -105.9136,
+"elev_ft": 5859,
+"usgs": "08279000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Embudo%20Ck%20at%20Dixon.html"
+},
+{
+"name": "Gallinas Ck nr Montezuma",
+"basin": "Upper Pecos",
+"lat": 35.652,
+"lon": -105.3188,
+"elev_ft": 6880,
+"usgs": "08380500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Pecos/Gallinas%20Ck%20nr%20Montezuma.html"
+},
+{
+"name": "Jemez R bl Jemez Canyon Dam",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.3904,
+"lon": -106.5346,
+"elev_ft": 5096,
+"usgs": "08329000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Jemez%20R%20bl%20Jemez%20Canyon%20Dam.html"
+},
+{
+"name": "Jemez R nr Jemez",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.662,
+"lon": -106.7434,
+"elev_ft": 5622,
+"usgs": "08324000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Jemez%20R%20nr%20Jemez.html"
+},
+{
+"name": "Los Pinos R nr Ortiz",
+"basin": "Rio Grande Headwaters",
+"lat": 36.9822,
+"lon": -106.0736,
+"elev_ft": 8040,
+"usgs": "08248000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/Los%20Pinos%20R%20nr%20Ortiz.html"
+},
+{
+"name": "Mimbres R at Mimbres",
+"basin": "Rio Grande-Mimbres",
+"lat": 32.8547,
+"lon": -107.9738,
+"elev_ft": 5920,
+"usgs": "08477110",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Mimbres/Mimbres%20R%20at%20Mimbres.html"
+},
+{
+"name": "Rio Nambe bl Nambe Falls Dam nr Nambe",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.8461,
+"lon": -105.9097,
+"elev_ft": 6840,
+"usgs": "08294210",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Nambe%20bl%20Nambe%20Falls%20Dam%20nr%20Nambe.html"
+},
+{
+"name": "Pecos R ab Santa Rosa Lk",
+"basin": "Upper Pecos",
+"lat": 35.0594,
+"lon": -104.7611,
+"elev_ft": 4760,
+"usgs": "08382650",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Pecos/Pecos%20R%20ab%20Santa%20Rosa%20Lk.html"
+},
+{
+"name": "Pecos R nr Anton Chico",
+"basin": "Upper Pecos",
+"lat": 35.1787,
+"lon": -105.1088,
+"elev_ft": 5130,
+"usgs": "08379500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Pecos/Pecos%20R%20nr%20Anton%20Chico.html"
+},
+{
+"name": "Pecos R nr Pecos",
+"basin": "Upper Pecos",
+"lat": 35.7084,
+"lon": -105.6827,
+"elev_ft": 7503,
+"usgs": "08378500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Pecos/Pecos%20R%20nr%20Pecos.html"
+},
+{
+"name": "Red R bl Fish Hatchery nr Questa",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.6828,
+"lon": -105.6541,
+"elev_ft": 7105,
+"usgs": "08266820",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Red%20R%20bl%20Fish%20Hatchery%20nr%20Questa.html"
+},
+{
+"name": "Rio Grande at Otowi Bridge",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.8745,
+"lon": -106.1424,
+"elev_ft": 5488,
+"usgs": "08313000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Grande%20at%20Otowi%20Bridge.html"
+},
+{
+"name": "Rio Grande at San Marcial",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 33.6791,
+"lon": -106.997,
+"elev_ft": 4455,
+"usgs": "08358400",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Grande%20at%20San%20Marcial.html"
+},
+{
+"name": "Rio Hondo nr Valdez",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.5418,
+"lon": -105.5565,
+"elev_ft": 7650,
+"usgs": "08267500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Hondo%20nr%20Valdez.html"
+},
+{
+"name": "Rio Lucero nr Arroyo Seco",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.5083,
+"lon": -105.531,
+"elev_ft": 8051,
+"usgs": "08271000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Lucero%20nr%20Arroyo%20Seco.html"
+},
+{
+"name": "Rio Pueblo De Taos bl Los Cordovas",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.3793,
+"lon": -105.6678,
+"elev_ft": 6650,
+"usgs": "08276300",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Pueblo%20De%20Taos%20bl%20Los%20Cordovas.html"
+},
+{
+"name": "Rio Pueblo De Taos nr Taos",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 36.4394,
+"lon": -105.5036,
+"elev_ft": 7380,
+"usgs": "08269000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Rio%20Pueblo%20De%20Taos%20nr%20Taos.html"
+},
+{
+"name": "Rio Ruidoso at Hollywood",
+"basin": "Upper Pecos",
+"lat": 33.3267,
+"lon": -105.6253,
+"elev_ft": 6420,
+"usgs": "08387000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Pecos/Rio%20Ruidoso%20at%20Hollywood.html"
+},
+{
+"name": "San Antonio R at Ortiz",
+"basin": "Rio Grande Headwaters",
+"lat": 36.9931,
+"lon": -106.0386,
+"elev_ft": 7970,
+"usgs": "08247500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande%20Headwaters/San%20Antonio%20R%20at%20Ortiz.html"
+},
+{
+"name": "Santa Cruz R at Cundiyo",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.9647,
+"lon": -105.9047,
+"elev_ft": 6460,
+"usgs": "08291000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Santa%20Cruz%20R%20at%20Cundiyo.html"
+},
+{
+"name": "Santa Fe R nr Santa Fe",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.6864,
+"lon": -105.8436,
+"elev_ft": 7720,
+"usgs": "08316000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Santa%20Fe%20R%20nr%20Santa%20Fe.html"
+},
+{
+"name": "Tesuque Ck ab Diversions",
+"basin": "Rio Grande-Elephant Butte",
+"lat": 35.74,
+"lon": -105.8983,
+"elev_ft": 7220,
+"usgs": "08302500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Rio%20Grande-Elephant%20Butte/Tesuque%20Ck%20ab%20Diversions.html"
+},
+{
+"name": "Colorado R at Glen Canyon Dam",
+"basin": "Upper Colorado-Dirty Devil",
+"lat": 36.9217,
+"lon": -111.4835,
+"elev_ft": 3100,
+"usgs": "09379900",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dirty%20Devil/Colorado%20R%20at%20Glen%20Canyon%20Dam.html"
+},
+{
+"name": "Animas R at Durango",
+"basin": "San Juan",
+"lat": 37.2792,
+"lon": -107.8803,
+"elev_ft": 6502,
+"usgs": "09361500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Animas%20R%20at%20Durango.html"
+},
+{
+"name": "Gunnison R at Blue Mesa Dam",
+"basin": "Gunnison",
+"lat": 38.4533,
+"lon": -107.3336,
+"elev_ft": 7149,
+"usgs": "09124800",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Gunnison%20R%20at%20Blue%20Mesa%20Dam.html"
+},
+{
+"name": "Cochetopa Ck bl Rock Ck nr Parlin",
+"basin": "Gunnison",
+"lat": 38.3355,
+"lon": -106.7723,
+"elev_ft": 8470,
+"usgs": "09118450",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Cochetopa%20Ck%20bl%20Rock%20Ck%20nr%20Parlin.html"
+},
+{
+"name": "Colorado R nr Cameo",
+"basin": "Colorado Headwaters",
+"lat": 39.2392,
+"lon": -108.2662,
+"elev_ft": 4814,
+"usgs": "09095500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Colorado%20R%20nr%20Cameo.html"
+},
+{
+"name": "Colorado R nr Dotsero",
+"basin": "Colorado Headwaters",
+"lat": 39.6446,
+"lon": -107.078,
+"elev_ft": 6130,
+"usgs": "09070500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Colorado%20R%20nr%20Dotsero.html"
+},
+{
+"name": "Cone Reservoir Inlet",
+"basin": "Upper Colorado-Dolores",
+"lat": 37.9837,
+"lon": -108.2519,
+"elev_ft": 8385,
+"usgs": "09172600",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Cone%20Reservoir%20Inlet.html"
+},
+{
+"name": "Blue R bl Dillon Reservoir",
+"basin": "Colorado Headwaters",
+"lat": 39.6255,
+"lon": -106.0664,
+"elev_ft": 8760,
+"usgs": "09050700",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Blue%20R%20bl%20Dillon%20Reservoir.html"
+},
+{
+"name": "Dolores R at Dolores",
+"basin": "Upper Colorado-Dolores",
+"lat": 37.4725,
+"lon": -108.4976,
+"elev_ft": 6940,
+"usgs": "09166500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Dolores%20R%20at%20Dolores.html"
+},
+{
+"name": "Eagle R bl Gypsum",
+"basin": "Colorado Headwaters",
+"lat": 39.6494,
+"lon": -106.9537,
+"elev_ft": 6275,
+"usgs": "09070000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Eagle%20R%20bl%20Gypsum.html"
+},
+{
+"name": "East R at Almont",
+"basin": "Gunnison",
+"lat": 38.6644,
+"lon": -106.8481,
+"elev_ft": 8006,
+"usgs": "09112500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/East%20R%20at%20Almont.html"
+},
+{
+"name": "Elk R nr Milner",
+"basin": "White-Yampa",
+"lat": 40.5147,
+"lon": -106.9539,
+"elev_ft": 6590,
+"usgs": "09242500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Elk%20R%20nr%20Milner.html"
+},
+{
+"name": "Elkhead Ck ab Long Gulch",
+"basin": "White-Yampa",
+"lat": 40.5917,
+"lon": -107.3203,
+"elev_ft": 6405,
+"usgs": "09246200",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Elkhead%20Ck%20ab%20Long%20Gulch.html"
+},
+{
+"name": "Blue R bl Green Mountain Reservoir",
+"basin": "Colorado Headwaters",
+"lat": 39.8803,
+"lon": -106.3339,
+"elev_ft": 7683,
+"usgs": "09057500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Blue%20R%20bl%20Green%20Mountain%20Reservoir.html"
+},
+{
+"name": "Gunnison R Near Gunnison",
+"basin": "Gunnison",
+"lat": 38.5419,
+"lon": -106.9498,
+"elev_ft": 7655,
+"usgs": "09114500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Gunnison%20R%20Near%20Gunnison.html"
+},
+{
+"name": "Gunnison R nr Grand Junction",
+"basin": "Gunnison",
+"lat": 38.9833,
+"lon": -108.4506,
+"elev_ft": 4628,
+"usgs": "09152500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Gunnison%20R%20nr%20Grand%20Junction.html"
+},
+{
+"name": "Gurley Reservoir Inlet",
+"basin": "Upper Colorado-Dolores",
+"lat": 37.8899,
+"lon": -108.1535,
+"elev_ft": 9250,
+"usgs": "09172700",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Gurley%20Reservoir%20Inlet.html"
+},
+{
+"name": "La Plata R at Hesperus",
+"basin": "San Juan",
+"lat": 37.2897,
+"lon": -108.0406,
+"elev_ft": 8105,
+"usgs": "09365500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/La%20Plata%20R%20at%20Hesperus.html"
+},
+{
+"name": "Lake Fk at Gateview",
+"basin": "Gunnison",
+"lat": 38.2989,
+"lon": -107.2301,
+"elev_ft": 7828,
+"usgs": "09124500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Lake%20Fk%20at%20Gateview.html"
+},
+{
+"name": "Colorado R bl Lake Granby",
+"basin": "Colorado Headwaters",
+"lat": 40.1441,
+"lon": -105.8672,
+"elev_ft": 8050,
+"usgs": "09019000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Colorado%20R%20bl%20Lake%20Granby.html"
+},
+{
+"name": "Florida R bl Lemon Reservoir nr Durango",
+"basin": "San Juan",
+"lat": 37.3792,
+"lon": -107.6611,
+"elev_ft": 7920,
+"usgs": "09363100",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Florida%20R%20bl%20Lemon%20Reservoir%20nr%20Durango.html"
+},
+{
+"name": "Little Snake R nr Lily",
+"basin": "White-Yampa",
+"lat": 40.5486,
+"lon": -108.4243,
+"elev_ft": 5685,
+"usgs": "09260000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Little%20Snake%20R%20nr%20Lily.html"
+},
+{
+"name": "Little Snake R nr Slater",
+"basin": "White-Yampa",
+"lat": 40.9994,
+"lon": -107.1434,
+"elev_ft": 6830,
+"usgs": "09253000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Little%20Snake%20R%20nr%20Slater.html"
+},
+{
+"name": "Mancos R nr Mancos",
+"basin": "San Juan",
+"lat": 37.3572,
+"lon": -108.2548,
+"elev_ft": 7235,
+"usgs": "09370500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Mancos%20R%20nr%20Mancos.html"
+},
+{
+"name": "Dolores R bl Mcphee Reservoir",
+"basin": "Upper Colorado-Dolores",
+"lat": 37.5769,
+"lon": -108.5719,
+"elev_ft": 6666,
+"usgs": "09169000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Dolores%20R%20bl%20Mcphee%20Reservoir.html"
+},
+{
+"name": "Navajo R bl Oso Diversion Dam nr Chromo",
+"basin": "San Juan",
+"lat": 37.0303,
+"lon": -106.7372,
+"elev_ft": 7648,
+"usgs": "09344400",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Navajo%20R%20bl%20Oso%20Diversion%20Dam%20nr%20Chromo.html"
+},
+{
+"name": "NF Gunnison R nr Somerset",
+"basin": "Gunnison",
+"lat": 38.9258,
+"lon": -107.4342,
+"elev_ft": 6280,
+"usgs": "09132500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/NF%20Gunnison%20R%20nr%20Somerset.html"
+},
+{
+"name": "Muddy Ck bl Paonia Reservoir",
+"basin": "Gunnison",
+"lat": 38.94,
+"lon": -107.3581,
+"elev_ft": 6266,
+"usgs": "09131400",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Muddy%20Ck%20bl%20Paonia%20Reservoir.html"
+},
+{
+"name": "Piedra R nr Arboles",
+"basin": "San Juan",
+"lat": 37.0883,
+"lon": -107.3978,
+"elev_ft": 6148,
+"usgs": "09349800",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Piedra%20R%20nr%20Arboles.html"
+},
+{
+"name": "Uncompahgre R bl Ridgway Reservoir",
+"basin": "Gunnison",
+"lat": 38.2406,
+"lon": -107.7603,
+"elev_ft": 6650,
+"usgs": "09147025",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Uncompahgre%20R%20bl%20Ridgway%20Reservoir.html"
+},
+{
+"name": "Rio Blanco bl Blanco Diversion",
+"basin": "San Juan",
+"lat": 37.2036,
+"lon": -106.8122,
+"elev_ft": 7858,
+"usgs": "09343300",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Rio%20Blanco%20bl%20Blanco%20Diversion.html"
+},
+{
+"name": "Roaring Fk at Glenwood Springs",
+"basin": "Colorado Headwaters",
+"lat": 39.5436,
+"lon": -107.3295,
+"elev_ft": 5721,
+"usgs": "09085000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Roaring%20Fk%20at%20Glenwood%20Springs.html"
+},
+{
+"name": "Frying Pan R at Ruedi",
+"basin": "Colorado Headwaters",
+"lat": 39.3614,
+"lon": -106.8186,
+"elev_ft": 7766,
+"usgs": "09080190",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Frying%20Pan%20R%20at%20Ruedi.html"
+},
+{
+"name": "San Juan R nr Carracas",
+"basin": "San Juan",
+"lat": 37.0136,
+"lon": -107.3123,
+"elev_ft": 6090,
+"usgs": "09346400",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/San%20Juan%20R%20nr%20Carracas.html"
+},
+{
+"name": "San Miguel R nr Placerville",
+"basin": "Upper Colorado-Dolores",
+"lat": 38.0425,
+"lon": -108.1333,
+"elev_ft": 7030,
+"usgs": "09172500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/San%20Miguel%20R%20nr%20Placerville.html"
+},
+{
+"name": "Slate R nr Crested Butte",
+"basin": "Gunnison",
+"lat": 38.8697,
+"lon": -106.9695,
+"elev_ft": 8820,
+"usgs": "09111500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Slate%20R%20nr%20Crested%20Butte.html"
+},
+{
+"name": "Surface Ck at Cedaredge",
+"basin": "Gunnison",
+"lat": 38.9016,
+"lon": -107.9212,
+"elev_ft": 6220,
+"usgs": "09143500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Surface%20Ck%20at%20Cedaredge.html"
+},
+{
+"name": "Taylor R bl Taylor Park Reservoir",
+"basin": "Gunnison",
+"lat": 38.8183,
+"lon": -106.6092,
+"elev_ft": 9170,
+"usgs": "09109209",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Taylor%20R%20bl%20Taylor%20Park%20Reservoir.html"
+},
+{
+"name": "Tomichi Ck at Gunnison",
+"basin": "Gunnison",
+"lat": 38.5211,
+"lon": -106.941,
+"elev_ft": 7629,
+"usgs": "09119000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Tomichi%20Ck%20at%20Gunnison.html"
+},
+{
+"name": "Tomichi Ck at Sargents",
+"basin": "Gunnison",
+"lat": 38.395,
+"lon": -106.4226,
+"elev_ft": 8416,
+"usgs": "09115500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Tomichi%20Ck%20at%20Sargents.html"
+},
+{
+"name": "Uncompahgre R at Colona",
+"basin": "Gunnison",
+"lat": 38.3314,
+"lon": -107.7795,
+"elev_ft": 6319,
+"usgs": "09147500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Gunnison/Uncompahgre%20R%20at%20Colona.html"
+},
+{
+"name": "Los Pinos R nr Bayfield",
+"basin": "San Juan",
+"lat": 37.3828,
+"lon": -107.5776,
+"elev_ft": 7583,
+"usgs": "09353500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/Los%20Pinos%20R%20nr%20Bayfield.html"
+},
+{
+"name": "White R nr Meeker",
+"basin": "White-Yampa",
+"lat": 40.0336,
+"lon": -107.8623,
+"elev_ft": 6300,
+"usgs": "09304500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/White%20R%20nr%20Meeker.html"
+},
+{
+"name": "Williams Fk bl Williams Fk Reservoir",
+"basin": "Colorado Headwaters",
+"lat": 40.0353,
+"lon": -106.2053,
+"elev_ft": 7615,
+"usgs": "09038500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Williams%20Fk%20bl%20Williams%20Fk%20Reservoir.html"
+},
+{
+"name": "Willow Ck bl Willow Ck Reservoir",
+"basin": "Colorado Headwaters",
+"lat": 40.1458,
+"lon": -105.94,
+"elev_ft": 8024,
+"usgs": "09021000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Willow%20Ck%20bl%20Willow%20Ck%20Reservoir.html"
+},
+{
+"name": "Muddy Creek bl Wolford Mtn Reservoir",
+"basin": "Colorado Headwaters",
+"lat": 40.1,
+"lon": -106.4,
+"elev_ft": 7380,
+"usgs": "09041400",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Colorado%20Headwaters/Muddy%20Creek%20bl%20Wolford%20Mtn%20Reservoir.html"
+},
+{
+"name": "Yampa R ab Stagecoach Reservoir",
+"basin": "White-Yampa",
+"lat": 40.2692,
+"lon": -106.8812,
+"elev_ft": 7200,
+"usgs": "09237450",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Yampa%20R%20ab%20Stagecoach%20Reservoir.html"
+},
+{
+"name": "Yampa R at Steamboat Springs",
+"basin": "White-Yampa",
+"lat": 40.483,
+"lon": -106.8324,
+"elev_ft": 6695,
+"usgs": "09239500",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Yampa%20R%20at%20Steamboat%20Springs.html"
+},
+{
+"name": "Yampa R nr Maybell",
+"basin": "White-Yampa",
+"lat": 40.5028,
+"lon": -108.0334,
+"elev_ft": 5900,
+"usgs": "09251000",
+"state": "CO",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Yampa%20R%20nr%20Maybell.html"
+},
+{
+"name": "San Juan R nr Archuleta",
+"basin": "San Juan",
+"lat": 36.8019,
+"lon": -107.6986,
+"elev_ft": 5653,
+"usgs": "09355200",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/San%20Juan%20R%20nr%20Archuleta.html"
+},
+{
+"name": "Ashley Ck nr Vernal",
+"basin": "Lower Green",
+"lat": 40.5775,
+"lon": -109.6221,
+"elev_ft": 6231,
+"usgs": "09266500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Ashley%20Ck%20nr%20Vernal.html"
+},
+{
+"name": "Big Brush Ck ab Red Fleet Reservoir",
+"basin": "Lower Green",
+"lat": 40.5888,
+"lon": -109.4654,
+"elev_ft": 5625,
+"usgs": "09261700",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Big%20Brush%20Ck%20ab%20Red%20Fleet%20Reservoir.html"
+},
+{
+"name": "Blacks Fk nr Robertson",
+"basin": "Great Divide-Upper Green",
+"lat": 40.9591,
+"lon": -110.5802,
+"elev_ft": 8811,
+"usgs": "09217900",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Blacks%20Fk%20nr%20Robertson.html"
+},
+{
+"name": "Colorado R nr Cisco",
+"basin": "Upper Colorado-Dolores",
+"lat": 38.8105,
+"lon": -109.2934,
+"elev_ft": 4090,
+"usgs": "09180500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Colorado%20R%20nr%20Cisco.html"
+},
+{
+"name": "Currant Ck bl Currant Ck Dam",
+"basin": "Lower Green",
+"lat": 40.3308,
+"lon": -111.0496,
+"elev_ft": 7550,
+"usgs": "09286700",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Currant%20Ck%20bl%20Currant%20Ck%20Dam.html"
+},
+{
+"name": "Duchesne R ab Knight Diversion",
+"basin": "Lower Green",
+"lat": 40.2705,
+"lon": -110.4427,
+"elev_ft": 5840,
+"usgs": "09279150",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Duchesne%20R%20ab%20Knight%20Diversion.html"
+},
+{
+"name": "Duchesne R at Myton",
+"basin": "Lower Green",
+"lat": 40.2002,
+"lon": -110.0638,
+"elev_ft": 5061,
+"usgs": "09295000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Duchesne%20R%20at%20Myton.html"
+},
+{
+"name": "Duchesne R nr Randlett",
+"basin": "Lower Green",
+"lat": 40.2103,
+"lon": -109.7814,
+"elev_ft": 4756,
+"usgs": "09302000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Duchesne%20R%20nr%20Randlett.html"
+},
+{
+"name": "Duchesne R nr Tabiona",
+"basin": "Lower Green",
+"lat": 40.3002,
+"lon": -110.6024,
+"elev_ft": 6190,
+"usgs": "09277500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Duchesne%20R%20nr%20Tabiona.html"
+},
+{
+"name": "Huntington Ck bl Electric Lake",
+"basin": "Lower Green",
+"lat": 39.5992,
+"lon": -111.2086,
+"elev_ft": 8400,
+"usgs": "09317801",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Huntington%20Ck%20bl%20Electric%20Lake.html"
+},
+{
+"name": "Ferron Ck Upper Station nr Ferron",
+"basin": "Lower Green",
+"lat": 39.1041,
+"lon": -111.2166,
+"elev_ft": 6210,
+"usgs": "09326500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Ferron%20Ck%20Upper%20Station%20nr%20Ferron.html"
+},
+{
+"name": "Fish Ck ab Reservoir nr Scofield",
+"basin": "Lower Green",
+"lat": 39.7744,
+"lon": -111.1903,
+"elev_ft": 7670,
+"usgs": "09310500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Fish%20Ck%20ab%20Reservoir%20nr%20Scofield.html"
+},
+{
+"name": "Green R at Flaming Gorge Dam",
+"basin": "Great Divide-Upper Green",
+"lat": 40.9083,
+"lon": -109.4229,
+"elev_ft": 5594,
+"usgs": "09234400",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Green%20R%20at%20Flaming%20Gorge%20Dam.html"
+},
+{
+"name": "Flaming Gorge Resvr Local bl Fontenelle",
+"basin": "Great Divide-Upper Green",
+"lat": 40.9083,
+"lon": -109.4229,
+"elev_ft": 5594,
+"usgs": "09234300",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Flaming%20Gorge%20Resvr%20Local%20bl%20Fontenelle.html"
+},
+{
+"name": "Green R at Green River, UT",
+"basin": "Lower Green",
+"lat": 38.9861,
+"lon": -110.1513,
+"elev_ft": 4040,
+"usgs": "09315000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Green%20R%20at%20Green%20River,%20UT.html"
+},
+{
+"name": "Huntington Ck nr Huntington",
+"basin": "Lower Green",
+"lat": 39.3852,
+"lon": -111.0882,
+"elev_ft": 6450,
+"usgs": "09317997",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Huntington%20Ck%20nr%20Huntington.html"
+},
+{
+"name": "Seely Ck bl Joes Valley Resv",
+"basin": "Lower Green",
+"lat": 39.2889,
+"lon": -111.2694,
+"elev_ft": 6850,
+"usgs": "09323900",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Seely%20Ck%20bl%20Joes%20Valley%20Resv.html"
+},
+{
+"name": "Lake Fk R ab Moon Lk nr Mountain Home",
+"basin": "Lower Green",
+"lat": 40.6066,
+"lon": -110.5271,
+"elev_ft": 8180,
+"usgs": "09289500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Lake%20Fk%20R%20ab%20Moon%20Lk%20nr%20Mountain%20Home.html"
+},
+{
+"name": "Lake Fk R bl Moon Lk nr Mountain Home",
+"basin": "Lower Green",
+"lat": 40.5563,
+"lon": -110.4846,
+"elev_ft": 7970,
+"usgs": "09291000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Lake%20Fk%20R%20bl%20Moon%20Lk%20nr%20Mountain%20Home.html"
+},
+{
+"name": "Mill Ck at Sheley Tunnel nr Moab",
+"basin": "Upper Colorado-Dolores",
+"lat": 38.483,
+"lon": -109.404,
+"elev_ft": 5500,
+"usgs": "09183500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dolores/Mill%20Ck%20at%20Sheley%20Tunnel%20nr%20Moab.html"
+},
+{
+"name": "Muddy Ck nr Emery",
+"basin": "Upper Colorado-Dirty Devil",
+"lat": 38.9819,
+"lon": -111.2493,
+"elev_ft": 6400,
+"usgs": "09330500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dirty%20Devil/Muddy%20Ck%20nr%20Emery.html"
+},
+{
+"name": "Pine Ck nr Escalante",
+"basin": "Upper Colorado-Dirty Devil",
+"lat": 37.8625,
+"lon": -111.6353,
+"elev_ft": 6400,
+"usgs": "09337000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dirty%20Devil/Pine%20Ck%20nr%20Escalante.html"
+},
+{
+"name": "Price R nr Scofield Reservoir",
+"basin": "Lower Green",
+"lat": 39.7869,
+"lon": -111.1202,
+"elev_ft": 7570,
+"usgs": "09311000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Price%20R%20nr%20Scofield%20Reservoir.html"
+},
+{
+"name": "Rock Ck nr Mountain Home",
+"basin": "Lower Green",
+"lat": 40.4933,
+"lon": -110.5782,
+"elev_ft": 7250,
+"usgs": "09279000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Rock%20Ck%20nr%20Mountain%20Home.html"
+},
+{
+"name": "San Juan R Near Bluff",
+"basin": "San Juan",
+"lat": 37.1469,
+"lon": -109.8648,
+"elev_ft": 4048,
+"usgs": "09379500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/San%20Juan%20R%20Near%20Bluff.html"
+},
+{
+"name": "Seven Mile Ck nr Fish Lake",
+"basin": "Upper Colorado-Dirty Devil",
+"lat": 38.6278,
+"lon": -111.6472,
+"elev_ft": 9200,
+"usgs": "09329050",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Colorado-Dirty%20Devil/Seven%20Mile%20Ck%20nr%20Fish%20Lake.html"
+},
+{
+"name": "South Ck ab Resv nr Monticello",
+"basin": "San Juan",
+"lat": 37.8333,
+"lon": -109.3667,
+"elev_ft": 7170,
+"usgs": "09378170",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/San%20Juan/South%20Ck%20ab%20Resv%20nr%20Monticello.html"
+},
+{
+"name": "Strawberry R nr Duchesne",
+"basin": "Lower Green",
+"lat": 40.1547,
+"lon": -110.5549,
+"elev_ft": 5722,
+"usgs": "09288180",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Strawberry%20R%20nr%20Duchesne.html"
+},
+{
+"name": "Strawberry R nr Soldier Springs",
+"basin": "Lower Green",
+"lat": 40.1333,
+"lon": -111.0249,
+"elev_ft": 7360,
+"usgs": "09285000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Strawberry%20R%20nr%20Soldier%20Springs.html"
+},
+{
+"name": "Uinta R bl Powerplant Diversion nr Neola",
+"basin": "Lower Green",
+"lat": 40.5914,
+"lon": -110.1136,
+"elev_ft": 7330,
+"usgs": "09296800",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Uinta%20R%20bl%20Powerplant%20Diversion%20nr%20Neola.html"
+},
+{
+"name": "Rock Ck at Upper Stillwater Dam",
+"basin": "Lower Green",
+"lat": 40.5574,
+"lon": -110.6979,
+"elev_ft": 7968,
+"usgs": "09277800",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Rock%20Ck%20at%20Upper%20Stillwater%20Dam.html"
+},
+{
+"name": "WF Duchesne R at Vat Diversion",
+"basin": "Lower Green",
+"lat": 40.4503,
+"lon": -111.0036,
+"elev_ft": 7800,
+"usgs": "09274899",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/WF%20Duchesne%20R%20at%20Vat%20Diversion.html"
+},
+{
+"name": "White R bl Tabbyune Creek",
+"basin": "Lower Green",
+"lat": 39.8758,
+"lon": -111.0374,
+"elev_ft": 7230,
+"usgs": "09312600",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/White%20R%20bl%20Tabbyune%20Creek.html"
+},
+{
+"name": "Whiterocks R nr Whiterocks",
+"basin": "Lower Green",
+"lat": 40.5936,
+"lon": -109.9317,
+"elev_ft": 7200,
+"usgs": "09299500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Whiterocks%20R%20nr%20Whiterocks.html"
+},
+{
+"name": "Yellowstone R nr Altonah",
+"basin": "Lower Green",
+"lat": 40.5119,
+"lon": -110.3416,
+"elev_ft": 7430,
+"usgs": "09292500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Green/Yellowstone%20R%20nr%20Altonah.html"
+},
+{
+"name": "Big Sandy R nr Farson",
+"basin": "Great Divide-Upper Green",
+"lat": 42.3169,
+"lon": -109.4857,
+"elev_ft": 6770,
+"usgs": "09213500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Big%20Sandy%20R%20nr%20Farson.html"
+},
+{
+"name": "EF of Smiths Fork nr Robertson",
+"basin": "Great Divide-Upper Green",
+"lat": 41.0541,
+"lon": -110.3985,
+"elev_ft": 8470,
+"usgs": "09220000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/EF%20of%20Smiths%20Fork%20nr%20Robertson.html"
+},
+{
+"name": "Green R at Fontenelle Dam",
+"basin": "Great Divide-Upper Green",
+"lat": 42.0278,
+"lon": -110.0667,
+"elev_ft": 6506,
+"usgs": "09211150",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Green%20R%20at%20Fontenelle%20Dam.html"
+},
+{
+"name": "Green R at Warren Bridge",
+"basin": "Great Divide-Upper Green",
+"lat": 43.0188,
+"lon": -110.1182,
+"elev_ft": 7468,
+"usgs": "09188500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Green%20R%20at%20Warren%20Bridge.html"
+},
+{
+"name": "Green R nr Green River, WY",
+"basin": "Great Divide-Upper Green",
+"lat": 41.5163,
+"lon": -109.449,
+"elev_ft": 6060,
+"usgs": "09217000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Green%20R%20nr%20Green%20River,%20WY.html"
+},
+{
+"name": "Hams Fk bl Pole Ck nr Frontier",
+"basin": "Great Divide-Upper Green",
+"lat": 42.1105,
+"lon": -110.7096,
+"elev_ft": 7455,
+"usgs": "09223000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Hams%20Fk%20bl%20Pole%20Ck%20nr%20Frontier.html"
+},
+{
+"name": "Little Snake R nr Dixon",
+"basin": "White-Yampa",
+"lat": 41.0283,
+"lon": -107.5492,
+"elev_ft": 6331,
+"usgs": "09257000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/White-Yampa/Little%20Snake%20R%20nr%20Dixon.html"
+},
+{
+"name": "New Fork R nr Big Piney",
+"basin": "Great Divide-Upper Green",
+"lat": 42.5672,
+"lon": -109.9302,
+"elev_ft": 6800,
+"usgs": "09205000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/New%20Fork%20R%20nr%20Big%20Piney.html"
+},
+{
+"name": "Pine Ck ab Fremont Lake",
+"basin": "Great Divide-Upper Green",
+"lat": 43.0305,
+"lon": -109.7701,
+"elev_ft": 7450,
+"usgs": "09196500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Pine%20Ck%20ab%20Fremont%20Lake.html"
+},
+{
+"name": "Hams Fk bl Viva Naughton Reservoir",
+"basin": "Great Divide-Upper Green",
+"lat": 41.9634,
+"lon": -110.6601,
+"elev_ft": 7160,
+"usgs": "09223100",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Divide-Upper%20Green/Hams%20Fk%20bl%20Viva%20Naughton%20Reservoir.html"
+},
+{
+"name": "East Clear Ck bl Blue Ridge Reservoir",
+"basin": "Little Colorado",
+"lat": 34.5553,
+"lon": -111.184,
+"elev_ft": 6620,
+"usgs": "09398300",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Little%20Colorado/East%20Clear%20Ck%20bl%20Blue%20Ridge%20Reservoir.html"
+},
+{
+"name": "Gila R nr Solomon",
+"basin": "Upper Gila",
+"lat": 32.8684,
+"lon": -109.5112,
+"elev_ft": 3060,
+"usgs": "09448500",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Gila/Gila%20R%20nr%20Solomon.html"
+},
+{
+"name": "Lake Mary Reservoir Inflow",
+"basin": "Little Colorado",
+"lat": 35.1214,
+"lon": -111.5922,
+"elev_ft": 6800,
+"usgs": "09400910",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Little%20Colorado/Lake%20Mary%20Reservoir%20Inflow.html"
+},
+{
+"name": "Little Colorado R ab Lyman Lake",
+"basin": "Little Colorado",
+"lat": 34.3145,
+"lon": -109.3623,
+"elev_ft": 6010,
+"usgs": "09384000",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Little%20Colorado/Little%20Colorado%20R%20ab%20Lyman%20Lake.html"
+},
+{
+"name": "Salt R nr Roosevelt",
+"basin": "Salt",
+"lat": 33.6194,
+"lon": -110.9208,
+"elev_ft": 2177,
+"usgs": "09498500",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Salt/Salt%20R%20nr%20Roosevelt.html"
+},
+{
+"name": "Gila R bl Coolidge Dam",
+"basin": "Middle Gila",
+"lat": 33.1695,
+"lon": -110.5312,
+"elev_ft": 2309,
+"usgs": "09469499",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Gila/Gila%20R%20bl%20Coolidge%20Dam.html"
+},
+{
+"name": "San Francisco R at Clifton",
+"basin": "Upper Gila",
+"lat": 33.0495,
+"lon": -109.2959,
+"elev_ft": 3436,
+"usgs": "09444500",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Gila/San%20Francisco%20R%20at%20Clifton.html"
+},
+{
+"name": "Tonto Ck ab Gun Ck nr Roosevelt",
+"basin": "Salt",
+"lat": 33.98,
+"lon": -111.3035,
+"elev_ft": 2523,
+"usgs": "09499000",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Salt/Tonto%20Ck%20ab%20Gun%20Ck%20nr%20Roosevelt.html"
+},
+{
+"name": "Verde R bl Tangle Ck ab Horseshoe Dam",
+"basin": "Salt",
+"lat": 34.0731,
+"lon": -111.7163,
+"elev_ft": 2029,
+"usgs": "09508500",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Salt/Verde%20R%20bl%20Tangle%20Ck%20ab%20Horseshoe%20Dam.html"
+},
+{
+"name": "Virgin R at Littlefield",
+"basin": "Lower Colorado-Lake Mead",
+"lat": 36.8916,
+"lon": -113.9244,
+"elev_ft": 1764,
+"usgs": "09415000",
+"state": "AZ",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Colorado-Lake%20Mead/Virgin%20R%20at%20Littlefield.html"
+},
+{
+"name": "Gila R at Gila",
+"basin": "Upper Gila",
+"lat": 33.0615,
+"lon": -108.5374,
+"elev_ft": 4655,
+"usgs": "09430500",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Gila/Gila%20R%20at%20Gila.html"
+},
+{
+"name": "Gila R bl Blue Ck nr Virden",
+"basin": "Upper Gila",
+"lat": 32.6481,
+"lon": -108.8459,
+"elev_ft": 3875,
+"usgs": "09432000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Gila/Gila%20R%20bl%20Blue%20Ck%20nr%20Virden.html"
+},
+{
+"name": "Rio Nutria nr Ramah",
+"basin": "Little Colorado",
+"lat": 35.2826,
+"lon": -108.553,
+"elev_ft": 6860,
+"usgs": "09386900",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Little%20Colorado/Rio%20Nutria%20nr%20Ramah.html"
+},
+{
+"name": "San Francisco R at Glenwood",
+"basin": "Upper Gila",
+"lat": 33.2472,
+"lon": -108.88,
+"elev_ft": 4560,
+"usgs": "09444000",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Gila/San%20Francisco%20R%20at%20Glenwood.html"
+},
+{
+"name": "Zuni R ab Black Rock Reservoir",
+"basin": "Little Colorado",
+"lat": 35.1003,
+"lon": -108.7517,
+"elev_ft": 6480,
+"usgs": "09386950",
+"state": "NM",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Little%20Colorado/Zuni%20R%20ab%20Black%20Rock%20Reservoir.html"
+},
+{
+"name": "Santa Clara R nr Pine Valley",
+"basin": "Lower Colorado-Lake Mead",
+"lat": 37.3833,
+"lon": -113.4833,
+"elev_ft": 6640,
+"usgs": "09408400",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Colorado-Lake%20Mead/Santa%20Clara%20R%20nr%20Pine%20Valley.html"
+},
+{
+"name": "Virgin R at Virgin",
+"basin": "Lower Colorado-Lake Mead",
+"lat": 37.2042,
+"lon": -113.1808,
+"elev_ft": 3500,
+"usgs": "09406000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Colorado-Lake%20Mead/Virgin%20R%20at%20Virgin.html"
+},
+{
+"name": "Virgin R nr Hurricane",
+"basin": "Lower Colorado-Lake Mead",
+"lat": 37.1628,
+"lon": -113.3952,
+"elev_ft": 2836,
+"usgs": "09408150",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Colorado-Lake%20Mead/Virgin%20R%20nr%20Hurricane.html"
+},
+{
+"name": "Boca Res Local Inflow",
+"basin": "Central Lahontan",
+"lat": 39.3904,
+"lon": -120.0956,
+"elev_ft": 5620,
+"usgs": "150028",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Boca%20Res%20Local%20Inflow.html"
+},
+{
+"name": "Donner Lk Inflow",
+"basin": "Central Lahontan",
+"lat": 39.3236,
+"lon": -120.2333,
+"elev_ft": 5294,
+"usgs": "10338500",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Donner%20Lk%20Inflow.html"
+},
+{
+"name": "E Walker R nr Bridgeport",
+"basin": "Central Lahontan",
+"lat": 38.3277,
+"lon": -119.2149,
+"elev_ft": 6400,
+"usgs": "10293000",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/E%20Walker%20R%20nr%20Bridgeport.html"
+},
+{
+"name": "Independence Lk Inflow",
+"basin": "Central Lahontan",
+"lat": 39.4567,
+"lon": -120.2861,
+"elev_ft": 6940,
+"usgs": "10343000",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Independence%20Lk%20Inflow.html"
+},
+{
+"name": "L Truckee R ab Boca Reservoir",
+"basin": "Central Lahontan",
+"lat": 39.4357,
+"lon": -120.0844,
+"elev_ft": 5619,
+"usgs": "10344400",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/L%20Truckee%20R%20ab%20Boca%20Reservoir.html"
+},
+{
+"name": "Lake Tahoe Net Inflow",
+"basin": "Central Lahontan",
+"lat": 39.1673,
+"lon": -120.143,
+"elev_ft": 6220,
+"usgs": "150017",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Lake%20Tahoe%20Net%20Inflow.html"
+},
+{
+"name": "Martis Ck Res Inflow",
+"basin": "Central Lahontan",
+"lat": 39.327,
+"lon": -120.113,
+"elev_ft": 5745,
+"usgs": "150021",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Martis%20Ck%20Res%20Inflow.html"
+},
+{
+"name": "Prosser Ck Res Inflow",
+"basin": "Central Lahontan",
+"lat": 39.3733,
+"lon": -120.1306,
+"elev_ft": 5572,
+"usgs": "10340500",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Prosser%20Ck%20Res%20Inflow.html"
+},
+{
+"name": "Sagehen Ck nr Truckee",
+"basin": "Central Lahontan",
+"lat": 39.4316,
+"lon": -120.238,
+"elev_ft": 6320,
+"usgs": "10343500",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Sagehen%20Ck%20nr%20Truckee.html"
+},
+{
+"name": "Stampede Res Local Inflow",
+"basin": "Central Lahontan",
+"lat": 39.4706,
+"lon": -120.1031,
+"elev_ft": 5690,
+"usgs": "10344300",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Stampede%20Res%20Local%20Inflow.html"
+},
+{
+"name": "Truckee R ab Farad Sidewater",
+"basin": "Central Lahontan",
+"lat": 39.427,
+"lon": -120.0341,
+"elev_ft": 5153,
+"usgs": "10345999",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Truckee%20R%20ab%20Farad%20Sidewater.html"
+},
+{
+"name": "Truckee R at Farad",
+"basin": "Central Lahontan",
+"lat": 39.428,
+"lon": -120.0341,
+"elev_ft": 5153,
+"usgs": "10346000",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Truckee%20R%20at%20Farad.html"
+},
+{
+"name": "W Walker R bl L Walker R nr Coleville",
+"basin": "Central Lahontan",
+"lat": 38.3796,
+"lon": -119.4502,
+"elev_ft": 6591,
+"usgs": "10296000",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/W%20Walker%20R%20bl%20L%20Walker%20R%20nr%20Coleville.html"
+},
+{
+"name": "W Walker R nr Coleville",
+"basin": "Central Lahontan",
+"lat": 38.5132,
+"lon": -119.4499,
+"elev_ft": 5520,
+"usgs": "10296500",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/W%20Walker%20R%20nr%20Coleville.html"
+},
+{
+"name": "WF Carson R nr Woodfords",
+"basin": "Central Lahontan",
+"lat": 38.7696,
+"lon": -119.8338,
+"elev_ft": 5755,
+"usgs": "10310000",
+"state": "CA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/WF%20Carson%20R%20nr%20Woodfords.html"
+},
+{
+"name": "Bear R bl Stewart Dam",
+"basin": "Bear",
+"lat": 42.2538,
+"lon": -111.2938,
+"elev_ft": 5950,
+"usgs": "10046500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Bear%20R%20bl%20Stewart%20Dam.html"
+},
+{
+"name": "Ash Canyon Ck nr Carson City",
+"basin": "Central Lahontan",
+"lat": 39.1763,
+"lon": -119.8057,
+"elev_ft": 5080,
+"usgs": "10311200",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Ash%20Canyon%20Ck%20nr%20Carson%20City.html"
+},
+{
+"name": "Carson R at Ft Churchill",
+"basin": "Central Lahontan",
+"lat": 39.2917,
+"lon": -119.3111,
+"elev_ft": 4180,
+"usgs": "10312000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Carson%20R%20at%20Ft%20Churchill.html"
+},
+{
+"name": "Carson R nr Carson City",
+"basin": "Central Lahontan",
+"lat": 39.1077,
+"lon": -119.7132,
+"elev_ft": 4620,
+"usgs": "10311000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Carson%20R%20nr%20Carson%20City.html"
+},
+{
+"name": "Cleve Ck nr Ely",
+"basin": "Central Nevada Desert Basins",
+"lat": 39.2166,
+"lon": -114.5296,
+"elev_ft": 6200,
+"usgs": "10243700",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Nevada%20Desert%20Basins/Cleve%20Ck%20nr%20Ely.html"
+},
+{
+"name": "EF Carson R nr Gardnerville",
+"basin": "Central Lahontan",
+"lat": 38.8449,
+"lon": -119.7046,
+"elev_ft": 5000,
+"usgs": "10309000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/EF%20Carson%20R%20nr%20Gardnerville.html"
+},
+{
+"name": "Galena Ck at Galena Ck State Pk",
+"basin": "Central Lahontan",
+"lat": 39.3544,
+"lon": -119.8575,
+"elev_ft": 6320,
+"usgs": "10348850",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Galena%20Ck%20at%20Galena%20Ck%20State%20Pk.html"
+},
+{
+"name": "Humboldt R at Comus",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.9921,
+"lon": -117.3176,
+"elev_ft": 4360,
+"usgs": "10327500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Humboldt%20R%20at%20Comus.html"
+},
+{
+"name": "Humboldt R at Palisade",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.6074,
+"lon": -116.2017,
+"elev_ft": 4826,
+"usgs": "10322500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Humboldt%20R%20at%20Palisade.html"
+},
+{
+"name": "Humboldt R nr Carlin",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.7277,
+"lon": -116.0092,
+"elev_ft": 4932,
+"usgs": "10321000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Humboldt%20R%20nr%20Carlin.html"
+},
+{
+"name": "Humboldt R nr Elko",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.936,
+"lon": -115.6245,
+"elev_ft": 5142,
+"usgs": "10318500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Humboldt%20R%20nr%20Elko.html"
+},
+{
+"name": "Humboldt R nr Imlay",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.6924,
+"lon": -118.2043,
+"elev_ft": 4130,
+"usgs": "10333000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Humboldt%20R%20nr%20Imlay.html"
+},
+{
+"name": "Kings Canyon Ck nr Carson City",
+"basin": "Central Lahontan",
+"lat": 39.1538,
+"lon": -119.808,
+"elev_ft": 5180,
+"usgs": "10311100",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Kings%20Canyon%20Ck%20nr%20Carson%20City.html"
+},
+{
+"name": "Kingston Ck nr Austin",
+"basin": "Central Nevada Desert Basins",
+"lat": 39.2124,
+"lon": -117.1134,
+"elev_ft": 6480,
+"usgs": "10249280",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Nevada%20Desert%20Basins/Kingston%20Ck%20nr%20Austin.html"
+},
+{
+"name": "L Humboldt R nr Paradise Valley",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 41.4158,
+"lon": -117.3735,
+"elev_ft": 4470,
+"usgs": "10329000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/L%20Humboldt%20R%20nr%20Paradise%20Valley.html"
+},
+{
+"name": "Lamoille Ck nr Lamoille",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.6908,
+"lon": -115.477,
+"elev_ft": 6240,
+"usgs": "10316500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Lamoille%20Ck%20nr%20Lamoille.html"
+},
+{
+"name": "Lehman Ck nr Baker",
+"basin": "Great Salt Lake",
+"lat": 39.0116,
+"lon": -114.2144,
+"elev_ft": 6700,
+"usgs": "10243260",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Lehman%20Ck%20nr%20Baker.html"
+},
+{
+"name": "Marlette Lake Inflow",
+"basin": "Central Lahontan",
+"lat": 39.1721,
+"lon": -119.908,
+"elev_ft": 7760,
+"usgs": "10336715",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Marlette%20Lake%20Inflow.html"
+},
+{
+"name": "Martin Ck nr Paradise Valley",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 41.5346,
+"lon": -117.4179,
+"elev_ft": 4700,
+"usgs": "10329500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Martin%20Ck%20nr%20Paradise%20Valley.html"
+},
+{
+"name": "Marys R nr Deeth",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 41.2527,
+"lon": -115.2564,
+"elev_ft": 5504,
+"usgs": "10315500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Marys%20R%20nr%20Deeth.html"
+},
+{
+"name": "NF Humboldt R at Devils Gate",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 41.1787,
+"lon": -115.4926,
+"elev_ft": 5370,
+"usgs": "10317500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/NF%20Humboldt%20R%20at%20Devils%20Gate.html"
+},
+{
+"name": "Rock Ck nr Battle Mountain",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.8304,
+"lon": -116.5883,
+"elev_ft": 4670,
+"usgs": "10324500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/Rock%20Ck%20nr%20Battle%20Mountain.html"
+},
+{
+"name": "SF Humboldt R ab Dixie Ck",
+"basin": "Black Rock Desert-Humboldt",
+"lat": 40.6849,
+"lon": -115.8134,
+"elev_ft": 5140,
+"usgs": "10320000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Black%20Rock%20Desert-Humboldt/SF%20Humboldt%20R%20ab%20Dixie%20Ck.html"
+},
+{
+"name": "Steamboat Ck at Steamboat",
+"basin": "Central Lahontan",
+"lat": 39.3771,
+"lon": -119.7437,
+"elev_ft": 4600,
+"usgs": "10349300",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Lahontan/Steamboat%20Ck%20at%20Steamboat.html"
+},
+{
+"name": "Steptoe Ck nr Ely",
+"basin": "Central Nevada Desert Basins",
+"lat": 39.2015,
+"lon": -114.6892,
+"elev_ft": 7440,
+"usgs": "10244950",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Central%20Nevada%20Desert%20Basins/Steptoe%20Ck%20nr%20Ely.html"
+},
+{
+"name": "American Fk ab Upper Powerplant",
+"basin": "Great Salt Lake",
+"lat": 40.4477,
+"lon": -111.6822,
+"elev_ft": 5950,
+"usgs": "10164500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/American%20Fk%20ab%20Upper%20Powerplant.html"
+},
+{
+"name": "Bear R nr Ut-Wy State Line",
+"basin": "Bear",
+"lat": 40.9652,
+"lon": -110.8535,
+"elev_ft": 7965,
+"usgs": "10011500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Bear%20R%20nr%20Ut-Wy%20State%20Line.html"
+},
+{
+"name": "Beaver R nr Beaver",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.2805,
+"lon": -112.5683,
+"elev_ft": 6200,
+"usgs": "10234500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Beaver%20R%20nr%20Beaver.html"
+},
+{
+"name": "Big Ck nr Randolph",
+"basin": "Bear",
+"lat": 41.6099,
+"lon": -111.2541,
+"elev_ft": 6410,
+"usgs": "10023000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Big%20Ck%20nr%20Randolph.html"
+},
+{
+"name": "Big Cottonwood Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.6186,
+"lon": -111.7819,
+"elev_ft": 4990,
+"usgs": "10168500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Big%20Cottonwood%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Blacksmith Fk nr Hyrum",
+"basin": "Bear",
+"lat": 41.6236,
+"lon": -111.7388,
+"elev_ft": 5021,
+"usgs": "10113500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Blacksmith%20Fk%20nr%20Hyrum.html"
+},
+{
+"name": "Centerville Ck nr Centerville",
+"basin": "Great Salt Lake",
+"lat": 40.9163,
+"lon": -111.863,
+"elev_ft": 4680,
+"usgs": "10143500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Centerville%20Ck%20nr%20Centerville.html"
+},
+{
+"name": "Chalk Ck at Coalville",
+"basin": "Great Salt Lake",
+"lat": 40.9205,
+"lon": -111.4016,
+"elev_ft": 5561,
+"usgs": "10131000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Chalk%20Ck%20at%20Coalville.html"
+},
+{
+"name": "City Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.7924,
+"lon": -111.8772,
+"elev_ft": 4540,
+"usgs": "10172500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/City%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Clear Ck ab Diversions nr Sevier",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.5794,
+"lon": -112.2885,
+"elev_ft": 5680,
+"usgs": "10194200",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Clear%20Ck%20ab%20Diversions%20nr%20Sevier.html"
+},
+{
+"name": "Coal Ck nr Cedar City",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 37.6722,
+"lon": -113.0347,
+"elev_ft": 6000,
+"usgs": "10242000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Coal%20Ck%20nr%20Cedar%20City.html"
+},
+{
+"name": "Dell Fk nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.7688,
+"lon": -111.7023,
+"elev_ft": 5800,
+"usgs": "10171000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Dell%20Fk%20nr%20SLC.html"
+},
+{
+"name": "Dunn Ck nr Park Valley",
+"basin": "Great Salt Lake",
+"lat": 41.8585,
+"lon": -113.3272,
+"elev_ft": 6250,
+"usgs": "10172952",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Dunn%20Ck%20nr%20Park%20Valley.html"
+},
+{
+"name": "East Canyon Ck nr Jeremy Ranch",
+"basin": "Great Salt Lake",
+"lat": 40.7597,
+"lon": -111.5641,
+"elev_ft": 6240,
+"usgs": "10133800",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/East%20Canyon%20Ck%20nr%20Jeremy%20Ranch.html"
+},
+{
+"name": "East Canyon Ck nr Morgan",
+"basin": "Great Salt Lake",
+"lat": 40.9225,
+"lon": -111.6071,
+"elev_ft": 5460,
+"usgs": "10134500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/East%20Canyon%20Ck%20nr%20Morgan.html"
+},
+{
+"name": "Echo Reservoir Inflow",
+"basin": "Great Salt Lake",
+"lat": 40.9677,
+"lon": -111.4377,
+"elev_ft": 5440,
+"usgs": "10131500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Echo%20Reservoir%20Inflow.html"
+},
+{
+"name": "EF Sevier R nr Kingston",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.1964,
+"lon": -112.1477,
+"elev_ft": 6160,
+"usgs": "10189000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/EF%20Sevier%20R%20nr%20Kingston.html"
+},
+{
+"name": "Emigration Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.75,
+"lon": -111.8133,
+"elev_ft": 4870,
+"usgs": "10172000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Emigration%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Little Bear R at Paradise",
+"basin": "Bear",
+"lat": 41.5755,
+"lon": -111.8552,
+"elev_ft": 4740,
+"usgs": "10105900",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Little%20Bear%20R%20at%20Paradise.html"
+},
+{
+"name": "Little Cottonwood Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.5777,
+"lon": -111.798,
+"elev_ft": 5080,
+"usgs": "10167500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Little%20Cottonwood%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Logan R nr Logan",
+"basin": "Bear",
+"lat": 41.7433,
+"lon": -111.7827,
+"elev_ft": 4680,
+"usgs": "10109000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Logan%20R%20nr%20Logan.html"
+},
+{
+"name": "Lost Ck Reservoir Inflow",
+"basin": "Great Salt Lake",
+"lat": 41.1847,
+"lon": -111.4005,
+"elev_ft": 6000,
+"usgs": "10132490",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Lost%20Ck%20Reservoir%20Inflow.html"
+},
+{
+"name": "Mammoth Ck nr Hatch",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 37.6228,
+"lon": -112.5169,
+"elev_ft": 7300,
+"usgs": "10173450",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Mammoth%20Ck%20nr%20Hatch.html"
+},
+{
+"name": "Manti Ck bl Dugway Ck nr Manti",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 39.2591,
+"lon": -111.5799,
+"elev_ft": 6500,
+"usgs": "10215900",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Manti%20Ck%20bl%20Dugway%20Ck%20nr%20Manti.html"
+},
+{
+"name": "Mill Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.6888,
+"lon": -111.7827,
+"elev_ft": 5050,
+"usgs": "10170000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Mill%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Parleys Ck nr SLC",
+"basin": "Great Salt Lake",
+"lat": 40.7166,
+"lon": -111.7841,
+"elev_ft": 4890,
+"usgs": "10171500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Parleys%20Ck%20nr%20SLC.html"
+},
+{
+"name": "Pineview Reservoir Inflow",
+"basin": "Great Salt Lake",
+"lat": 41.2555,
+"lon": -111.841,
+"elev_ft": 4880,
+"usgs": "10139001",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Pineview%20Reservoir%20Inflow.html"
+},
+{
+"name": "Provo R at Hailstone",
+"basin": "Great Salt Lake",
+"lat": 40.6008,
+"lon": -111.3316,
+"elev_ft": 6220,
+"usgs": "10155000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Provo%20R%20at%20Hailstone.html"
+},
+{
+"name": "Provo R at Woodland",
+"basin": "Great Salt Lake",
+"lat": 40.5577,
+"lon": -111.1688,
+"elev_ft": 6950,
+"usgs": "10154200",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Provo%20R%20at%20Woodland.html"
+},
+{
+"name": "Provo R bl Deer Ck Dam",
+"basin": "Great Salt Lake",
+"lat": 40.4033,
+"lon": -111.5296,
+"elev_ft": 5270,
+"usgs": "10159500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Provo%20R%20bl%20Deer%20Ck%20Dam.html"
+},
+{
+"name": "Rockport Reservoir Inflow",
+"basin": "Great Salt Lake",
+"lat": 40.7927,
+"lon": -111.4049,
+"elev_ft": 5900,
+"usgs": "10129500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Rockport%20Reservoir%20Inflow.html"
+},
+{
+"name": "S Willow Ck nr Grantsville",
+"basin": "Great Salt Lake",
+"lat": 40.4963,
+"lon": -112.5744,
+"elev_ft": 6360,
+"usgs": "10172800",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/S%20Willow%20Ck%20nr%20Grantsville.html"
+},
+{
+"name": "Salina Ck nr Emery",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.9119,
+"lon": -111.5305,
+"elev_ft": 7000,
+"usgs": "10205030",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Salina%20Ck%20nr%20Emery.html"
+},
+{
+"name": "Salt Ck at Nephi",
+"basin": "Great Salt Lake",
+"lat": 39.713,
+"lon": -111.8044,
+"elev_ft": 5280,
+"usgs": "10146000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Salt%20Ck%20at%20Nephi.html"
+},
+{
+"name": "Sevier R at Hatch",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 37.6511,
+"lon": -112.4302,
+"elev_ft": 6870,
+"usgs": "10174500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Sevier%20R%20at%20Hatch.html"
+},
+{
+"name": "Sevier R bl Piute Dam",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.328,
+"lon": -112.1877,
+"elev_ft": 5920,
+"usgs": "10191500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Sevier%20R%20bl%20Piute%20Dam.html"
+},
+{
+"name": "Sevier R nr Gunnison",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 39.1552,
+"lon": -111.8777,
+"elev_ft": 5025,
+"usgs": "10217000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Sevier%20R%20nr%20Gunnison.html"
+},
+{
+"name": "Sevier R nr Kingston",
+"basin": "Escalante Desert-Sevier Lake",
+"lat": 38.2061,
+"lon": -112.2077,
+"elev_ft": 5980,
+"usgs": "10183500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Escalante%20Desert-Sevier%20Lake/Sevier%20R%20nr%20Kingston.html"
+},
+{
+"name": "SF Ogden R nr Huntsville",
+"basin": "Great Salt Lake",
+"lat": 41.2686,
+"lon": -111.6741,
+"elev_ft": 5190,
+"usgs": "10137500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/SF%20Ogden%20R%20nr%20Huntsville.html"
+},
+{
+"name": "Smith and Morehouse Ck nr Oakley",
+"basin": "Great Salt Lake",
+"lat": 40.7858,
+"lon": -111.1124,
+"elev_ft": 7380,
+"usgs": "10128000",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Smith%20and%20Morehouse%20Ck%20nr%20Oakley.html"
+},
+{
+"name": "Spanish Fk at Castilla",
+"basin": "Great Salt Lake",
+"lat": 40.0497,
+"lon": -111.548,
+"elev_ft": 4870,
+"usgs": "10150500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Spanish%20Fk%20at%20Castilla.html"
+},
+{
+"name": "Utah Lake Inflow",
+"basin": "Great Salt Lake",
+"lat": 40.3872,
+"lon": -111.9052,
+"elev_ft": 4500,
+"usgs": "10166605",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Utah%20Lake%20Inflow.html"
+},
+{
+"name": "Vernon Ck nr Vernon",
+"basin": "Great Salt Lake",
+"lat": 39.9794,
+"lon": -112.3802,
+"elev_ft": 6200,
+"usgs": "10172700",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Vernon%20Ck%20nr%20Vernon.html"
+},
+{
+"name": "W Canyon Ck nr Cedar Fort",
+"basin": "Great Salt Lake",
+"lat": 40.4052,
+"lon": -112.1005,
+"elev_ft": 5620,
+"usgs": "10166430",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/W%20Canyon%20Ck%20nr%20Cedar%20Fort.html"
+},
+{
+"name": "Weber R at Gateway",
+"basin": "Great Salt Lake",
+"lat": 41.1369,
+"lon": -111.8324,
+"elev_ft": 4800,
+"usgs": "10136500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Weber%20R%20at%20Gateway.html"
+},
+{
+"name": "Weber R nr Coalville",
+"basin": "Great Salt Lake",
+"lat": 40.8952,
+"lon": -111.4019,
+"elev_ft": 5600,
+"usgs": "10130500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Weber%20R%20nr%20Coalville.html"
+},
+{
+"name": "Weber R nr Oakley",
+"basin": "Great Salt Lake",
+"lat": 40.7372,
+"lon": -111.248,
+"elev_ft": 6640,
+"usgs": "10128500",
+"state": "UT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Great%20Salt%20Lake/Weber%20R%20nr%20Oakley.html"
+},
+{
+"name": "Bear R ab Resv nr Woodruff",
+"basin": "Bear",
+"lat": 41.4344,
+"lon": -111.0177,
+"elev_ft": 6455,
+"usgs": "10020100",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Bear%20R%20ab%20Resv%20nr%20Woodruff.html"
+},
+{
+"name": "Smiths Fk nr Border",
+"basin": "Bear",
+"lat": 42.2933,
+"lon": -110.8724,
+"elev_ft": 6650,
+"usgs": "10032000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Bear/Smiths%20Fk%20nr%20Border.html"
+},
+{
+"name": "Big Lost R at Howell Ranch",
+"basin": "Upper Snake",
+"lat": 43.9983,
+"lon": -114.0211,
+"elev_ft": 6622,
+"usgs": "13120500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Big%20Lost%20R%20at%20Howell%20Ranch.html"
+},
+{
+"name": "Big Lost R bl Mackay Reservoir",
+"basin": "Upper Snake",
+"lat": 43.9392,
+"lon": -113.6483,
+"elev_ft": 5946,
+"usgs": "13127000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Big%20Lost%20R%20bl%20Mackay%20Reservoir.html"
+},
+{
+"name": "Big Wood R ab Magic Reservoir",
+"basin": "Upper Snake",
+"lat": 43.3281,
+"lon": -114.3417,
+"elev_ft": 4820,
+"usgs": "13141000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Big%20Wood%20R%20ab%20Magic%20Reservoir.html"
+},
+{
+"name": "Big Wood R at Hailey",
+"basin": "Upper Snake",
+"lat": 43.5172,
+"lon": -114.3217,
+"elev_ft": 5295,
+"usgs": "13139510",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Big%20Wood%20R%20at%20Hailey.html"
+},
+{
+"name": "Big Wood R bl Magic Dam",
+"basin": "Upper Snake",
+"lat": 43.2481,
+"lon": -114.3567,
+"elev_ft": 4662,
+"usgs": "13142500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Big%20Wood%20R%20bl%20Magic%20Dam.html"
+},
+{
+"name": "Boise R nr Boise",
+"basin": "Middle Snake",
+"lat": 43.5277,
+"lon": -116.0595,
+"elev_ft": 2827,
+"usgs": "13202000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Boise%20R%20nr%20Boise.html"
+},
+{
+"name": "Boise R nr Twin Springs",
+"basin": "Middle Snake",
+"lat": 43.6681,
+"lon": -115.7253,
+"elev_ft": 3310,
+"usgs": "13185000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Boise%20R%20nr%20Twin%20Springs.html"
+},
+{
+"name": "Boundary Ck nr Porthill",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.9972,
+"lon": -116.5691,
+"elev_ft": 1770,
+"usgs": "12321500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Boundary%20Ck%20nr%20Porthill.html"
+},
+{
+"name": "Bruneau R nr Hot Spring",
+"basin": "Middle Snake",
+"lat": 42.7711,
+"lon": -115.7203,
+"elev_ft": 2599,
+"usgs": "13168500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Bruneau%20R%20nr%20Hot%20Spring.html"
+},
+{
+"name": "Camas Ck at Camas",
+"basin": "Upper Snake",
+"lat": 44.0028,
+"lon": -112.2211,
+"elev_ft": 4807,
+"usgs": "13112000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Camas%20Ck%20at%20Camas.html"
+},
+{
+"name": "Camas Ck nr Blaine",
+"basin": "Upper Snake",
+"lat": 43.3328,
+"lon": -114.5419,
+"elev_ft": 4870,
+"usgs": "13141500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Camas%20Ck%20nr%20Blaine.html"
+},
+{
+"name": "Clearwater R at Orofino",
+"basin": "Lower Snake",
+"lat": 46.4783,
+"lon": -116.2575,
+"elev_ft": 991,
+"usgs": "13340000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Clearwater%20R%20at%20Orofino.html"
+},
+{
+"name": "Clearwater R at Spalding",
+"basin": "Lower Snake",
+"lat": 46.4485,
+"lon": -116.8274,
+"elev_ft": 770,
+"usgs": "13342500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Clearwater%20R%20at%20Spalding.html"
+},
+{
+"name": "Deadwood R bl Deadwood Res nr Lowman",
+"basin": "Middle Snake",
+"lat": 44.2919,
+"lon": -115.6419,
+"elev_ft": 5181,
+"usgs": "13236500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Deadwood%20R%20bl%20Deadwood%20Res%20nr%20Lowman.html"
+},
+{
+"name": "Falls R nr Ashton",
+"basin": "Upper Snake",
+"lat": 44.0561,
+"lon": -111.3586,
+"elev_ft": 5390,
+"usgs": "13047600",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Falls%20R%20nr%20Ashton.html"
+},
+{
+"name": "Goose Ck abv Trapper Ck nr Oakley",
+"basin": "Upper Snake",
+"lat": 42.1261,
+"lon": -113.9356,
+"elev_ft": 4770,
+"usgs": "13082500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Goose%20Ck%20abv%20Trapper%20Ck%20nr%20Oakley.html"
+},
+{
+"name": "Henrys Fk nr Ashton",
+"basin": "Upper Snake",
+"lat": 44.0697,
+"lon": -111.5106,
+"elev_ft": 5090,
+"usgs": "13046000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Henrys%20Fk%20nr%20Ashton.html"
+},
+{
+"name": "Henrys Fk nr Rexburg",
+"basin": "Upper Snake",
+"lat": 43.8258,
+"lon": -111.905,
+"elev_ft": 4806,
+"usgs": "13056500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Henrys%20Fk%20nr%20Rexburg.html"
+},
+{
+"name": "Johnson Ck at Yellow Pine",
+"basin": "Lower Snake",
+"lat": 44.9617,
+"lon": -115.5,
+"elev_ft": 4656,
+"usgs": "13313000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Johnson%20Ck%20at%20Yellow%20Pine.html"
+},
+{
+"name": "Lake Fork Payette R nr Mccall",
+"basin": "Middle Snake",
+"lat": 44.9136,
+"lon": -115.9972,
+"elev_ft": 5140,
+"usgs": "13240000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Lake%20Fork%20Payette%20R%20nr%20Mccall.html"
+},
+{
+"name": "Lemhi R nr Lemhi",
+"basin": "Lower Snake",
+"lat": 44.94,
+"lon": -113.6392,
+"elev_ft": 4960,
+"usgs": "13305000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Lemhi%20R%20nr%20Lemhi.html"
+},
+{
+"name": "Little Lost R bl Wet Ck nr Howe",
+"basin": "Upper Snake",
+"lat": 44.1386,
+"lon": -113.2453,
+"elev_ft": 5880,
+"usgs": "13118700",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Little%20Lost%20R%20bl%20Wet%20Ck%20nr%20Howe.html"
+},
+{
+"name": "Little Wood R ab High Five Ck",
+"basin": "Upper Snake",
+"lat": 43.4931,
+"lon": -114.0572,
+"elev_ft": 5320,
+"usgs": "13147900",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Little%20Wood%20R%20ab%20High%20Five%20Ck.html"
+},
+{
+"name": "Little Wood R nr Carey",
+"basin": "Upper Snake",
+"lat": 43.39,
+"lon": -113.9997,
+"elev_ft": 4991,
+"usgs": "13148500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Little%20Wood%20R%20nr%20Carey.html"
+},
+{
+"name": "Lochsa R nr Lowell",
+"basin": "Lower Snake",
+"lat": 46.1508,
+"lon": -115.5872,
+"elev_ft": 1453,
+"usgs": "13337000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Lochsa%20R%20nr%20Lowell.html"
+},
+{
+"name": "Mf Salmon R at Mf Lodge",
+"basin": "Lower Snake",
+"lat": 44.7217,
+"lon": -115.0164,
+"elev_ft": 4380,
+"usgs": "13309220",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Mf%20Salmon%20R%20at%20Mf%20Lodge.html"
+},
+{
+"name": "Mores Ck nr Arrowrock Dam",
+"basin": "Middle Snake",
+"lat": 43.6481,
+"lon": -115.9897,
+"elev_ft": 3120,
+"usgs": "13200000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Mores%20Ck%20nr%20Arrowrock%20Dam.html"
+},
+{
+"name": "Moyie R at Eastport",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.9992,
+"lon": -116.1797,
+"elev_ft": 2620,
+"usgs": "12306500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Moyie%20R%20at%20Eastport.html"
+},
+{
+"name": "NF Coeur dAlene R at Enaville",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.5689,
+"lon": -116.2533,
+"elev_ft": 2100,
+"usgs": "12413000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/NF%20Coeur%20dAlene%20R%20at%20Enaville.html"
+},
+{
+"name": "NF Payette R at Cascade",
+"basin": "Middle Snake",
+"lat": 44.5249,
+"lon": -116.0468,
+"elev_ft": 4720,
+"usgs": "13245000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/NF%20Payette%20R%20at%20Cascade.html"
+},
+{
+"name": "NF Payette R nr Banks",
+"basin": "Middle Snake",
+"lat": 44.1142,
+"lon": -116.1072,
+"elev_ft": 3081,
+"usgs": "13246000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/NF%20Payette%20R%20nr%20Banks.html"
+},
+{
+"name": "Payette R nr Horseshoe Bend",
+"basin": "Middle Snake",
+"lat": 43.9433,
+"lon": -116.1967,
+"elev_ft": 2626,
+"usgs": "13247500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Payette%20R%20nr%20Horseshoe%20Bend.html"
+},
+{
+"name": "Pend Oreille Lake Inflow",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.1821,
+"lon": -117.0344,
+"elev_ft": 2000,
+"usgs": "12395500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Pend%20Oreille%20Lake%20Inflow.html"
+},
+{
+"name": "Portneuf R at Topaz",
+"basin": "Upper Snake",
+"lat": 42.6247,
+"lon": -112.0881,
+"elev_ft": 4918,
+"usgs": "13073000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Portneuf%20R%20at%20Topaz.html"
+},
+{
+"name": "Priest R nr Priest River",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.2085,
+"lon": -116.9146,
+"elev_ft": 2090,
+"usgs": "12395000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Priest%20R%20nr%20Priest%20River.html"
+},
+{
+"name": "Reynolds Ck at Tollgate",
+"basin": "Middle Snake",
+"lat": 43.1429,
+"lon": -116.7615,
+"elev_ft": 4626,
+"usgs": "13172583",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Reynolds%20Ck%20at%20Tollgate.html"
+},
+{
+"name": "Salmon R at Salmon",
+"basin": "Lower Snake",
+"lat": 45.1836,
+"lon": -113.8953,
+"elev_ft": 3911,
+"usgs": "13302500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Salmon%20R%20at%20Salmon.html"
+},
+{
+"name": "Salmon R at White Bird",
+"basin": "Lower Snake",
+"lat": 45.7503,
+"lon": -116.3239,
+"elev_ft": 1413,
+"usgs": "13317000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Salmon%20R%20at%20White%20Bird.html"
+},
+{
+"name": "Selway R nr Lowell",
+"basin": "Lower Snake",
+"lat": 46.0867,
+"lon": -115.5139,
+"elev_ft": 1540,
+"usgs": "13336500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Selway%20R%20nr%20Lowell.html"
+},
+{
+"name": "SF Boise R at Anderson Ranch Dam",
+"basin": "Middle Snake",
+"lat": 43.3436,
+"lon": -115.4775,
+"elev_ft": 3830,
+"usgs": "13190500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/SF%20Boise%20R%20at%20Anderson%20Ranch%20Dam.html"
+},
+{
+"name": "SF Payette R at Lowman",
+"basin": "Middle Snake",
+"lat": 44.0853,
+"lon": -115.6222,
+"elev_ft": 3790,
+"usgs": "13235000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/SF%20Payette%20R%20at%20Lowman.html"
+},
+{
+"name": "SF Salmon R nr Krassel Ranger Station",
+"basin": "Lower Snake",
+"lat": 44.9869,
+"lon": -115.725,
+"elev_ft": 3750,
+"usgs": "13310700",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/SF%20Salmon%20R%20nr%20Krassel%20Ranger%20Station.html"
+},
+{
+"name": "Snake R at Neeley",
+"basin": "Upper Snake",
+"lat": 42.7675,
+"lon": -112.8794,
+"elev_ft": 4242,
+"usgs": "13077000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20at%20Neeley.html"
+},
+{
+"name": "Snake R nr Heise",
+"basin": "Upper Snake",
+"lat": 43.6125,
+"lon": -111.66,
+"elev_ft": 5015,
+"usgs": "13037500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20nr%20Heise.html"
+},
+{
+"name": "Snake R nr Irwin",
+"basin": "Upper Snake",
+"lat": 43.3508,
+"lon": -111.2189,
+"elev_ft": 5353,
+"usgs": "13032500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20nr%20Irwin.html"
+},
+{
+"name": "Spokane R nr Post Falls",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.7031,
+"lon": -116.9778,
+"elev_ft": 2003,
+"usgs": "12419000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Spokane%20R%20nr%20Post%20Falls.html"
+},
+{
+"name": "St. Joe R at Calder",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.2746,
+"lon": -116.189,
+"elev_ft": 2172,
+"usgs": "12414500",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/St.%20Joe%20R%20at%20Calder.html"
+},
+{
+"name": "Teton R nr Driggs",
+"basin": "Upper Snake",
+"lat": 43.7819,
+"lon": -111.2092,
+"elev_ft": 5953,
+"usgs": "13052200",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Teton%20R%20nr%20Driggs.html"
+},
+{
+"name": "Teton R nr St Anthony",
+"basin": "Upper Snake",
+"lat": 43.9272,
+"lon": -111.6139,
+"elev_ft": 4880,
+"usgs": "13055000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Teton%20R%20nr%20St%20Anthony.html"
+},
+{
+"name": "Trapper Ck nr Oakley",
+"basin": "Upper Snake",
+"lat": 42.1658,
+"lon": -113.9836,
+"elev_ft": 4820,
+"usgs": "13083000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Trapper%20Ck%20nr%20Oakley.html"
+},
+{
+"name": "Weiser R nr Weiser",
+"basin": "Middle Snake",
+"lat": 44.27,
+"lon": -116.7722,
+"elev_ft": 2206,
+"usgs": "13266000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Weiser%20R%20nr%20Weiser.html"
+},
+{
+"name": "Willow Ck nr Ririe",
+"basin": "Upper Snake",
+"lat": 43.5833,
+"lon": -111.7461,
+"elev_ft": 4950,
+"usgs": "13058000",
+"state": "ID",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Willow%20Ck%20nr%20Ririe.html"
+},
+{
+"name": "Bitterroot R nr Darby",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 45.972,
+"lon": -114.1412,
+"elev_ft": 3942,
+"usgs": "12344000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Bitterroot%20R%20nr%20Darby.html"
+},
+{
+"name": "Blackfoot R nr Bonner",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.8997,
+"lon": -113.7565,
+"elev_ft": 3345,
+"usgs": "12340000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Blackfoot%20R%20nr%20Bonner.html"
+},
+{
+"name": "Clark Fork R ab MissouLa",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.8772,
+"lon": -113.9323,
+"elev_ft": 3198,
+"usgs": "12340500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Clark%20Fork%20R%20ab%20MissouLa.html"
+},
+{
+"name": "Clark Fork R at St. Regis",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.3019,
+"lon": -115.0874,
+"elev_ft": 2600,
+"usgs": "12354500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Clark%20Fork%20R%20at%20St.%20Regis.html"
+},
+{
+"name": "Clark Fork R bl MissouLa",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.8691,
+"lon": -114.1268,
+"elev_ft": 3084,
+"usgs": "12353000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Clark%20Fork%20R%20bl%20MissouLa.html"
+},
+{
+"name": "Clark Fork R nr Plains",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.4297,
+"lon": -114.856,
+"elev_ft": 2449,
+"usgs": "12389000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Clark%20Fork%20R%20nr%20Plains.html"
+},
+{
+"name": "Como Reservoir Inflow",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.0675,
+"lon": -114.2238,
+"elev_ft": 4070,
+"usgs": "12345000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Como%20Reservoir%20Inflow.html"
+},
+{
+"name": "Flathead R nr Polson",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.6802,
+"lon": -114.2468,
+"elev_ft": 2693,
+"usgs": "12372000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Flathead%20R%20nr%20Polson.html"
+},
+{
+"name": "Flathead R at Columbia Falls",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.3619,
+"lon": -114.1849,
+"elev_ft": 2978,
+"usgs": "12363000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Flathead%20R%20at%20Columbia%20Falls.html"
+},
+{
+"name": "Flint Ck nr Southern Cross",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.233,
+"lon": -113.2998,
+"elev_ft": 5630,
+"usgs": "12325500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Flint%20Ck%20nr%20Southern%20Cross.html"
+},
+{
+"name": "Hungry Horse Reservoir Inflow",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.3566,
+"lon": -114.0376,
+"elev_ft": 3040,
+"usgs": "12362500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Hungry%20Horse%20Reservoir%20Inflow.html"
+},
+{
+"name": "Kootenai R at Leonia",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.6177,
+"lon": -116.0474,
+"elev_ft": 1830,
+"usgs": "12305000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Kootenai%20R%20at%20Leonia.html"
+},
+{
+"name": "Mf Flathead R nr West Glacier",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.4952,
+"lon": -114.0101,
+"elev_ft": 3129,
+"usgs": "12358500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Mf%20Flathead%20R%20nr%20West%20Glacier.html"
+},
+{
+"name": "Mf Rock Ck nr Philipsburg",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.1847,
+"lon": -113.5026,
+"elev_ft": 5444,
+"usgs": "12332000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Mf%20Rock%20Ck%20nr%20Philipsburg.html"
+},
+{
+"name": "Mill Ck ab Bassoo Ck nr Niarada",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.8297,
+"lon": -114.6976,
+"elev_ft": 3000,
+"usgs": "12374250",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Mill%20Ck%20ab%20Bassoo%20Ck%20nr%20Niarada.html"
+},
+{
+"name": "Mission Ck nr St. Ignatius",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.323,
+"lon": -113.9796,
+"elev_ft": 3460,
+"usgs": "12377150",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Mission%20Ck%20nr%20St.%20Ignatius.html"
+},
+{
+"name": "Nevada Ck nr Helmville",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.7783,
+"lon": -112.7675,
+"elev_ft": 4640,
+"usgs": "12335500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Nevada%20Ck%20nr%20Helmville.html"
+},
+{
+"name": "NF Flathead R nr Columbia Falls",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.4955,
+"lon": -114.1276,
+"elev_ft": 3146,
+"usgs": "12355500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/NF%20Flathead%20R%20nr%20Columbia%20Falls.html"
+},
+{
+"name": "Prospect Ck at Thompson Falls",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.5861,
+"lon": -115.3551,
+"elev_ft": 2382,
+"usgs": "12390700",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Prospect%20Ck%20at%20Thompson%20Falls.html"
+},
+{
+"name": "Rock Ck nr Clinton",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 46.7224,
+"lon": -113.6832,
+"elev_ft": 3519,
+"usgs": "12334510",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Rock%20Ck%20nr%20Clinton.html"
+},
+{
+"name": "SF Flathead R nr Hungry Horse",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.9791,
+"lon": -113.5607,
+"elev_ft": 3575,
+"usgs": "12359800",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/SF%20Flathead%20R%20nr%20Hungry%20Horse.html"
+},
+{
+"name": "SF Jocko R nr Arlee",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.1955,
+"lon": -113.8506,
+"elev_ft": 3970,
+"usgs": "12381400",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/SF%20Jocko%20R%20nr%20Arlee.html"
+},
+{
+"name": "South Crow Ck nr Ronan",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.4916,
+"lon": -114.0268,
+"elev_ft": 3320,
+"usgs": "12375900",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/South%20Crow%20Ck%20nr%20Ronan.html"
+},
+{
+"name": "Swan R nr Bigfork",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.0244,
+"lon": -113.9798,
+"elev_ft": 3063,
+"usgs": "12370000",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Swan%20R%20nr%20Bigfork.html"
+},
+{
+"name": "Tobacco R nr Eureka",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.8936,
+"lon": -115.088,
+"elev_ft": 2519,
+"usgs": "12301300",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Tobacco%20R%20nr%20Eureka.html"
+},
+{
+"name": "WF Bitterroot R nr Conner",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 45.7248,
+"lon": -114.2823,
+"elev_ft": 4581,
+"usgs": "12342500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/WF%20Bitterroot%20R%20nr%20Conner.html"
+},
+{
+"name": "Yaak R nr Troy",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.5619,
+"lon": -115.9702,
+"elev_ft": 1839,
+"usgs": "12304500",
+"state": "MT",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Yaak%20R%20nr%20Troy.html"
+},
+{
+"name": "Owyhee R nr Gold Ck",
+"basin": "Middle Snake",
+"lat": 41.6888,
+"lon": -115.8448,
+"elev_ft": 6119,
+"usgs": "13174500",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Owyhee%20R%20nr%20Gold%20Ck.html"
+},
+{
+"name": "Salmon Falls Ck nr San Jacinto",
+"basin": "Upper Snake",
+"lat": 41.9447,
+"lon": -114.6886,
+"elev_ft": 5120,
+"usgs": "13105000",
+"state": "NV",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Salmon%20Falls%20Ck%20nr%20San%20Jacinto.html"
+},
+{
+"name": "Applegate Lake Inflow",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.0637,
+"lon": -123.1114,
+"elev_ft": 1748,
+"usgs": "14362000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/Applegate%20Lake%20Inflow.html"
+},
+{
+"name": "Bear Ck nr Wallowa",
+"basin": "Lower Snake",
+"lat": 45.5268,
+"lon": -117.5524,
+"elev_ft": 3250,
+"usgs": "13330500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Bear%20Ck%20nr%20Wallowa.html"
+},
+{
+"name": "Blue Lake Inflow",
+"basin": "Willamette",
+"lat": 44.1623,
+"lon": -122.3331,
+"elev_ft": 1057,
+"usgs": "14162200",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Blue%20Lake%20Inflow.html"
+},
+{
+"name": "Burnt R nr Hereford",
+"basin": "Middle Snake",
+"lat": 44.5038,
+"lon": -118.1774,
+"elev_ft": 3758,
+"usgs": "13273000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Burnt%20R%20nr%20Hereford.html"
+},
+{
+"name": "Butter Ck nr Pine City",
+"basin": "Middle Columbia",
+"lat": 45.5443,
+"lon": -119.3122,
+"elev_ft": 1400,
+"usgs": "14032000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Butter%20Ck%20nr%20Pine%20City.html"
+},
+{
+"name": "Camas Ck nr Ukiah",
+"basin": "Middle Columbia",
+"lat": 45.1568,
+"lon": -118.8205,
+"elev_ft": 3589,
+"usgs": "14042500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Camas%20Ck%20nr%20Ukiah.html"
+},
+{
+"name": "Catherine Ck nr Union",
+"basin": "Lower Snake",
+"lat": 45.1554,
+"lon": -117.7749,
+"elev_ft": 3082,
+"usgs": "13320000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Catherine%20Ck%20nr%20Union.html"
+},
+{
+"name": "Chewaucan R nr Paisley",
+"basin": "Oregon Closed Basins",
+"lat": 42.6846,
+"lon": -120.57,
+"elev_ft": 4430,
+"usgs": "10384000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Chewaucan%20R%20nr%20Paisley.html"
+},
+{
+"name": "Clackamas R ab Three Lynx",
+"basin": "Willamette",
+"lat": 45.1248,
+"lon": -122.0734,
+"elev_ft": 1092,
+"usgs": "14209500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Clackamas%20R%20ab%20Three%20Lynx.html"
+},
+{
+"name": "Clackamas R at Estacada",
+"basin": "Willamette",
+"lat": 45.2998,
+"lon": -122.354,
+"elev_ft": 287,
+"usgs": "14210000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Clackamas%20R%20at%20Estacada.html"
+},
+{
+"name": "Cougar Lake Inflow",
+"basin": "Willamette",
+"lat": 44.136,
+"lon": -122.2484,
+"elev_ft": 1236,
+"usgs": "14159500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Cougar%20Lake%20Inflow.html"
+},
+{
+"name": "Crane Prairie Reservoir Inflow",
+"basin": "Middle Columbia",
+"lat": 43.7536,
+"lon": -121.7825,
+"elev_ft": 4420,
+"usgs": "14053500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Crane%20Prairie%20Reservoir%20Inflow.html"
+},
+{
+"name": "Crescent Lake Inflow",
+"basin": "Middle Columbia",
+"lat": 43.5029,
+"lon": -121.9734,
+"elev_ft": 4820,
+"usgs": "14060000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Crescent%20Lake%20Inflow.html"
+},
+{
+"name": "Deep Ck ab Adel",
+"basin": "Oregon Closed Basins",
+"lat": 42.189,
+"lon": -120.0016,
+"elev_ft": 4980,
+"usgs": "10371500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Deep%20Ck%20ab%20Adel.html"
+},
+{
+"name": "Deschutes R at Benham Falls",
+"basin": "Middle Columbia",
+"lat": 43.9301,
+"lon": -121.412,
+"elev_ft": 4142,
+"usgs": "14064500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Deschutes%20R%20at%20Benham%20Falls.html"
+},
+{
+"name": "Detroit Lake Inflow",
+"basin": "Willamette",
+"lat": 44.7526,
+"lon": -122.2984,
+"elev_ft": 1094,
+"usgs": "14181500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Detroit%20Lake%20Inflow.html"
+},
+{
+"name": "Donner Und Blitzen R nr Frenchglen",
+"basin": "Oregon Closed Basins",
+"lat": 42.7908,
+"lon": -118.8675,
+"elev_ft": 4254,
+"usgs": "10396000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Donner%20Und%20Blitzen%20R%20nr%20Frenchglen.html"
+},
+{
+"name": "Grande Ronde R at Troy",
+"basin": "Lower Snake",
+"lat": 45.9457,
+"lon": -117.451,
+"elev_ft": 1586,
+"usgs": "13333000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Grande%20Ronde%20R%20at%20Troy.html"
+},
+{
+"name": "Hills Creek Reservoir Inflow",
+"basin": "Willamette",
+"lat": 43.721,
+"lon": -122.4378,
+"elev_ft": 1208,
+"usgs": "14145500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Hills%20Creek%20Reservoir%20Inflow.html"
+},
+{
+"name": "Honey Ck nr Plush",
+"basin": "Oregon Closed Basins",
+"lat": 42.4249,
+"lon": -119.9233,
+"elev_ft": 4553,
+"usgs": "10378500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Honey%20Ck%20nr%20Plush.html"
+},
+{
+"name": "Hood R at Tucker Bridge",
+"basin": "Middle Columbia",
+"lat": 45.6554,
+"lon": -121.5484,
+"elev_ft": 383,
+"usgs": "14120000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Hood%20R%20at%20Tucker%20Bridge.html"
+},
+{
+"name": "Illinois R nr Kerby",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.2318,
+"lon": -123.6637,
+"elev_ft": 1199,
+"usgs": "14377100",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/Illinois%20R%20nr%20Kerby.html"
+},
+{
+"name": "Imnaha R at Imnaha",
+"basin": "Lower Snake",
+"lat": 45.5624,
+"lon": -116.8343,
+"elev_ft": 1941,
+"usgs": "13292000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Imnaha%20R%20at%20Imnaha.html"
+},
+{
+"name": "Little Deschutes R nr La Pine",
+"basin": "Middle Columbia",
+"lat": 43.689,
+"lon": -121.5028,
+"elev_ft": 4193,
+"usgs": "14063000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Little%20Deschutes%20R%20nr%20La%20Pine.html"
+},
+{
+"name": "Lookout Point Reservoir Inflow",
+"basin": "Willamette",
+"lat": 43.9457,
+"lon": -122.8373,
+"elev_ft": 592,
+"usgs": "14150000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Lookout%20Point%20Reservoir%20Inflow.html"
+},
+{
+"name": "Lostine R nr Lostine",
+"basin": "Lower Snake",
+"lat": 45.4388,
+"lon": -117.4274,
+"elev_ft": 3650,
+"usgs": "13330000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Lostine%20R%20nr%20Lostine.html"
+},
+{
+"name": "Malheur R nr Drewsey",
+"basin": "Middle Snake",
+"lat": 43.7846,
+"lon": -118.3316,
+"elev_ft": 3479,
+"usgs": "13214000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Malheur%20R%20nr%20Drewsey.html"
+},
+{
+"name": "Mckay Ck nr Pilot Rock",
+"basin": "Middle Columbia",
+"lat": 45.549,
+"lon": -118.7744,
+"elev_ft": 1344,
+"usgs": "14022500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Mckay%20Ck%20nr%20Pilot%20Rock.html"
+},
+{
+"name": "Mckenzie R bl Trail Bridge",
+"basin": "Willamette",
+"lat": 44.2679,
+"lon": -122.0498,
+"elev_ft": 1980,
+"usgs": "14158850",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Mckenzie%20R%20bl%20Trail%20Bridge.html"
+},
+{
+"name": "Mckenzie R nr Vida",
+"basin": "Willamette",
+"lat": 44.1249,
+"lon": -122.4706,
+"elev_ft": 856,
+"usgs": "14162500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Mckenzie%20R%20nr%20Vida.html"
+},
+{
+"name": "Mf John Day R at Ritter",
+"basin": "Middle Columbia",
+"lat": 44.8888,
+"lon": -119.1414,
+"elev_ft": 2545,
+"usgs": "14044000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Mf%20John%20Day%20R%20at%20Ritter.html"
+},
+{
+"name": "Mountain Ck nr Mitchell",
+"basin": "Middle Columbia",
+"lat": 44.5349,
+"lon": -120.0303,
+"elev_ft": 4240,
+"usgs": "14040600",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Mountain%20Ck%20nr%20Mitchell.html"
+},
+{
+"name": "NF John Day R at Monument",
+"basin": "Middle Columbia",
+"lat": 44.8138,
+"lon": -119.4317,
+"elev_ft": 1960,
+"usgs": "14046000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/NF%20John%20Day%20R%20at%20Monument.html"
+},
+{
+"name": "NF Malheur R at Beulah",
+"basin": "Middle Snake",
+"lat": 43.9075,
+"lon": -118.1533,
+"elev_ft": 3261,
+"usgs": "13217500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/NF%20Malheur%20R%20at%20Beulah.html"
+},
+{
+"name": "North Santiam R at Mehama",
+"basin": "Willamette",
+"lat": 44.789,
+"lon": -122.6187,
+"elev_ft": 602,
+"usgs": "14183000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/North%20Santiam%20R%20at%20Mehama.html"
+},
+{
+"name": "North Umpqua R at Winchester",
+"basin": "Oregon-Washington Coastal",
+"lat": 43.2721,
+"lon": -123.4123,
+"elev_ft": 373,
+"usgs": "14319500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/North%20Umpqua%20R%20at%20Winchester.html"
+},
+{
+"name": "Oak Grove Fk ab Powerplant",
+"basin": "Willamette",
+"lat": 45.0712,
+"lon": -121.9406,
+"elev_ft": 2100,
+"usgs": "14209000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Oak%20Grove%20Fk%20ab%20Powerplant.html"
+},
+{
+"name": "Ochoco Reservoir Inflow",
+"basin": "Middle Columbia",
+"lat": 44.2989,
+"lon": -120.7278,
+"elev_ft": 3050,
+"usgs": "14085100",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Ochoco%20Reservoir%20Inflow.html"
+},
+{
+"name": "Owyhee R bl Owyhee Dam",
+"basin": "Middle Snake",
+"lat": 43.6544,
+"lon": -117.2558,
+"elev_ft": 2344,
+"usgs": "13183000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Owyhee%20R%20bl%20Owyhee%20Dam.html"
+},
+{
+"name": "Owyhee R nr Rome",
+"basin": "Middle Snake",
+"lat": 42.8664,
+"lon": -117.6492,
+"elev_ft": 3344,
+"usgs": "13181000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Owyhee%20R%20nr%20Rome.html"
+},
+{
+"name": "Pine Ck nr Oxbow",
+"basin": "Middle Snake",
+"lat": 44.9525,
+"lon": -116.8742,
+"elev_ft": 1850,
+"usgs": "13290190",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Pine%20Ck%20nr%20Oxbow.html"
+},
+{
+"name": "Powder R nr Sumpter",
+"basin": "Middle Snake",
+"lat": 44.6721,
+"lon": -117.9955,
+"elev_ft": 3898,
+"usgs": "13275300",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Snake/Powder%20R%20nr%20Sumpter.html"
+},
+{
+"name": "Prineville Reservoir Inflow",
+"basin": "Middle Columbia",
+"lat": 44.1132,
+"lon": -120.7956,
+"elev_ft": 3071,
+"usgs": "14080500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Prineville%20Reservoir%20Inflow.html"
+},
+{
+"name": "Rhea Ck nr Heppner",
+"basin": "Middle Columbia",
+"lat": 45.2612,
+"lon": -119.6239,
+"elev_ft": 2320,
+"usgs": "14034800",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Rhea%20Ck%20nr%20Heppner.html"
+},
+{
+"name": "Rogue R at Grants Pass",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.4304,
+"lon": -123.3178,
+"elev_ft": 884,
+"usgs": "14361500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/Rogue%20R%20at%20Grants%20Pass.html"
+},
+{
+"name": "Rogue R at Raygold",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.4374,
+"lon": -122.9873,
+"elev_ft": 1122,
+"usgs": "14359000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/Rogue%20R%20at%20Raygold.html"
+},
+{
+"name": "Sandy R nr Marmot",
+"basin": "Lower Columbia",
+"lat": 45.3996,
+"lon": -122.1373,
+"elev_ft": 720,
+"usgs": "14137000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Columbia/Sandy%20R%20nr%20Marmot.html"
+},
+{
+"name": "SF Walla Walla R nr Milton-Freewater",
+"basin": "Middle Columbia",
+"lat": 45.8299,
+"lon": -118.17,
+"elev_ft": 2050,
+"usgs": "14010000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/SF%20Walla%20Walla%20R%20nr%20Milton-Freewater.html"
+},
+{
+"name": "Silvies R nr Burns",
+"basin": "Oregon Closed Basins",
+"lat": 43.7151,
+"lon": -119.1774,
+"elev_ft": 4195,
+"usgs": "10393500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Silvies%20R%20nr%20Burns.html"
+},
+{
+"name": "South Santiam R at Waterloo",
+"basin": "Willamette",
+"lat": 44.4985,
+"lon": -122.8234,
+"elev_ft": 370,
+"usgs": "14187500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/South%20Santiam%20R%20at%20Waterloo.html"
+},
+{
+"name": "South Umpqua R at Tiller",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.9304,
+"lon": -122.9484,
+"elev_ft": 992,
+"usgs": "14308000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/South%20Umpqua%20R%20at%20Tiller.html"
+},
+{
+"name": "South Umpqua R nr Brockway",
+"basin": "Oregon-Washington Coastal",
+"lat": 43.1332,
+"lon": -123.3984,
+"elev_ft": 463,
+"usgs": "14312000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/South%20Umpqua%20R%20nr%20Brockway.html"
+},
+{
+"name": "Strawberry Ck nr Prairie City",
+"basin": "Middle Columbia",
+"lat": 44.3415,
+"lon": -118.6566,
+"elev_ft": 4910,
+"usgs": "14037500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Strawberry%20Ck%20nr%20Prairie%20City.html"
+},
+{
+"name": "Sucker Ck nr Holland",
+"basin": "Oregon-Washington Coastal",
+"lat": 42.15,
+"lon": -123.4667,
+"elev_ft": 1714,
+"usgs": "14375100",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon-Washington%20Coastal/Sucker%20Ck%20nr%20Holland.html"
+},
+{
+"name": "Trout Ck nr Denio",
+"basin": "Oregon Closed Basins",
+"lat": 42.1554,
+"lon": -118.4593,
+"elev_ft": 4352,
+"usgs": "10406500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Trout%20Ck%20nr%20Denio.html"
+},
+{
+"name": "Twentymile Ck nr Adel",
+"basin": "Oregon Closed Basins",
+"lat": 42.0721,
+"lon": -119.9627,
+"elev_ft": 4561,
+"usgs": "10366000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Oregon%20Closed%20Basins/Twentymile%20Ck%20nr%20Adel.html"
+},
+{
+"name": "Umatilla R ab Meacham Ck nr Gibbon",
+"basin": "Middle Columbia",
+"lat": 45.7196,
+"lon": -118.3233,
+"elev_ft": 1855,
+"usgs": "14020000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Umatilla%20R%20ab%20Meacham%20Ck%20nr%20Gibbon.html"
+},
+{
+"name": "Umatilla R at Pendleton",
+"basin": "Middle Columbia",
+"lat": 45.6721,
+"lon": -118.7928,
+"elev_ft": 1054,
+"usgs": "14021000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Umatilla%20R%20at%20Pendleton.html"
+},
+{
+"name": "WF Hood R nr Dee",
+"basin": "Middle Columbia",
+"lat": 45.5984,
+"lon": -121.6359,
+"elev_ft": 802,
+"usgs": "14118500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/WF%20Hood%20R%20nr%20Dee.html"
+},
+{
+"name": "Whychus Ck nr Sisters",
+"basin": "Middle Columbia",
+"lat": 44.2337,
+"lon": -121.567,
+"elev_ft": 3490,
+"usgs": "14075000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Whychus%20Ck%20nr%20Sisters.html"
+},
+{
+"name": "Willamette R at Salem",
+"basin": "Willamette",
+"lat": 44.9443,
+"lon": -123.0429,
+"elev_ft": 106,
+"usgs": "14191000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Willamette/Willamette%20R%20at%20Salem.html"
+},
+{
+"name": "Willow Ck ab Willow Ck Lake nr Heppner",
+"basin": "Middle Columbia",
+"lat": 45.3407,
+"lon": -119.5158,
+"elev_ft": 2085,
+"usgs": "14034470",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Willow%20Ck%20ab%20Willow%20Ck%20Lake%20nr%20Heppner.html"
+},
+{
+"name": "Ahtanum Ck at Union Gap",
+"basin": "Yakima",
+"lat": 46.536,
+"lon": -120.4734,
+"elev_ft": 940,
+"usgs": "12502500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Ahtanum%20Ck%20at%20Union%20Gap.html"
+},
+{
+"name": "American R nr Nile",
+"basin": "Yakima",
+"lat": 46.9776,
+"lon": -121.1687,
+"elev_ft": 2700,
+"usgs": "12488500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/American%20R%20nr%20Nile.html"
+},
+{
+"name": "Asotin Ck at Asotin",
+"basin": "Lower Snake",
+"lat": 46.3407,
+"lon": -117.056,
+"elev_ft": 760,
+"usgs": "13335050",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Snake/Asotin%20Ck%20at%20Asotin.html"
+},
+{
+"name": "Baker R at Concrete",
+"basin": "Puget Sound",
+"lat": 48.54,
+"lon": -121.7419,
+"elev_ft": 190,
+"usgs": "12193500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Baker%20R%20at%20Concrete.html"
+},
+{
+"name": "Bumping Lake Inflow",
+"basin": "Yakima",
+"lat": 46.8726,
+"lon": -121.2926,
+"elev_ft": 3367,
+"usgs": "12488000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Bumping%20Lake%20Inflow.html"
+},
+{
+"name": "Cedar R nr Cedar Falls",
+"basin": "Puget Sound",
+"lat": 47.3701,
+"lon": -121.6251,
+"elev_ft": 1560,
+"usgs": "12115000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Cedar%20R%20nr%20Cedar%20Falls.html"
+},
+{
+"name": "Chamokane Ck nr Long Lake",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.8632,
+"lon": -117.8583,
+"elev_ft": 1420,
+"usgs": "12433200",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Chamokane%20Ck%20nr%20Long%20Lake.html"
+},
+{
+"name": "Chelan R at Chelan",
+"basin": "Upper Columbia",
+"lat": 47.8346,
+"lon": -120.0131,
+"elev_ft": 1090,
+"usgs": "12452500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Chelan%20R%20at%20Chelan.html"
+},
+{
+"name": "Cle Elum Lake Inflow",
+"basin": "Yakima",
+"lat": 47.2446,
+"lon": -121.0679,
+"elev_ft": 2102,
+"usgs": "12479000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Cle%20Elum%20Lake%20Inflow.html"
+},
+{
+"name": "Colville R at Kettle Falls",
+"basin": "Upper Columbia",
+"lat": 48.5943,
+"lon": -118.0625,
+"elev_ft": 1400,
+"usgs": "12409000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Colville%20R%20at%20Kettle%20Falls.html"
+},
+{
+"name": "Cowlitz R at Castle Rock",
+"basin": "Lower Columbia",
+"lat": 46.2748,
+"lon": -122.9146,
+"elev_ft": 25,
+"usgs": "14243000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Columbia/Cowlitz%20R%20at%20Castle%20Rock.html"
+},
+{
+"name": "Cowlitz R bl Mayfield",
+"basin": "Lower Columbia",
+"lat": 46.5104,
+"lon": -122.6162,
+"elev_ft": 227,
+"usgs": "14238000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Columbia/Cowlitz%20R%20bl%20Mayfield.html"
+},
+{
+"name": "Dungeness R nr Sequim",
+"basin": "Puget Sound",
+"lat": 48.0143,
+"lon": -123.1327,
+"elev_ft": 569,
+"usgs": "12048000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Dungeness%20R%20nr%20Sequim.html"
+},
+{
+"name": "Elwha at Mcdonald Bridge",
+"basin": "Puget Sound",
+"lat": 48.05,
+"lon": -123.5667,
+"elev_ft": 200,
+"usgs": "12045500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Elwha%20at%20Mcdonald%20Bridge.html"
+},
+{
+"name": "Entiat R nr Ardenvoir",
+"basin": "Upper Columbia",
+"lat": 47.8185,
+"lon": -120.4231,
+"elev_ft": 1561,
+"usgs": "12452800",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Entiat%20R%20nr%20Ardenvoir.html"
+},
+{
+"name": "Green R bl Howard A Hanson Dam",
+"basin": "Puget Sound",
+"lat": 47.2837,
+"lon": -121.7979,
+"elev_ft": 990,
+"usgs": "12105900",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Green%20R%20bl%20Howard%20A%20Hanson%20Dam.html"
+},
+{
+"name": "Icicle Ck nr Leavenworth",
+"basin": "Upper Columbia",
+"lat": 47.541,
+"lon": -120.7201,
+"elev_ft": 1450,
+"usgs": "12458000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Icicle%20Ck%20nr%20Leavenworth.html"
+},
+{
+"name": "Kachess Reservoir Inflow",
+"basin": "Yakima",
+"lat": 47.2612,
+"lon": -121.2034,
+"elev_ft": 2188,
+"usgs": "12476000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Kachess%20Reservoir%20Inflow.html"
+},
+{
+"name": "Keechelus Reservoir Inflow",
+"basin": "Yakima",
+"lat": 47.3212,
+"lon": -121.3362,
+"elev_ft": 2422,
+"usgs": "12474500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Keechelus%20Reservoir%20Inflow.html"
+},
+{
+"name": "Klickitat R nr Glenwood",
+"basin": "Middle Columbia",
+"lat": 46.2648,
+"lon": -121.2451,
+"elev_ft": 2720,
+"usgs": "14107000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Klickitat%20R%20nr%20Glenwood.html"
+},
+{
+"name": "Klickitat R nr Pitt",
+"basin": "Middle Columbia",
+"lat": 45.7565,
+"lon": -121.2101,
+"elev_ft": 289,
+"usgs": "14113000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Klickitat%20R%20nr%20Pitt.html"
+},
+{
+"name": "Lewis R at Ariel",
+"basin": "Lower Columbia",
+"lat": 45.9518,
+"lon": -122.564,
+"elev_ft": 44,
+"usgs": "14220500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Lower%20Columbia/Lewis%20R%20at%20Ariel.html"
+},
+{
+"name": "Methow R nr Pateros",
+"basin": "Upper Columbia",
+"lat": 48.0774,
+"lon": -119.9851,
+"elev_ft": 900,
+"usgs": "12449950",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Methow%20R%20nr%20Pateros.html"
+},
+{
+"name": "Mill Ck nr Walla Walla",
+"basin": "Middle Columbia",
+"lat": 46.0079,
+"lon": -118.1186,
+"elev_ft": 2000,
+"usgs": "14013000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Middle%20Columbia/Mill%20Ck%20nr%20Walla%20Walla.html"
+},
+{
+"name": "Naches R nr Naches",
+"basin": "Yakima",
+"lat": 46.7454,
+"lon": -120.7692,
+"elev_ft": 1550,
+"usgs": "12494000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Naches%20R%20nr%20Naches.html"
+},
+{
+"name": "Okanogan R at Malott",
+"basin": "Upper Columbia",
+"lat": 48.2813,
+"lon": -119.7045,
+"elev_ft": 784,
+"usgs": "12447200",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Okanogan%20R%20at%20Malott.html"
+},
+{
+"name": "Okanogan R nr Tonasket",
+"basin": "Upper Columbia",
+"lat": 48.6324,
+"lon": -119.4617,
+"elev_ft": 861,
+"usgs": "12445000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Okanogan%20R%20nr%20Tonasket.html"
+},
+{
+"name": "Pend Oreille R bl Box Canyon",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 48.781,
+"lon": -117.4164,
+"elev_ft": 1900,
+"usgs": "12396500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Pend%20Oreille%20R%20bl%20Box%20Canyon.html"
+},
+{
+"name": "Rex R nr Cedar Falls",
+"basin": "Puget Sound",
+"lat": 47.3507,
+"lon": -121.6632,
+"elev_ft": 1700,
+"usgs": "12115500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Rex%20R%20nr%20Cedar%20Falls.html"
+},
+{
+"name": "Rimrock Lake Inflow",
+"basin": "Yakima",
+"lat": 46.6626,
+"lon": -121.1248,
+"elev_ft": 2681,
+"usgs": "12491500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Rimrock%20Lake%20Inflow.html"
+},
+{
+"name": "SF Tolt R nr Index",
+"basin": "Puget Sound",
+"lat": 47.7068,
+"lon": -121.6001,
+"elev_ft": 1850,
+"usgs": "12147600",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/SF%20Tolt%20R%20nr%20Index.html"
+},
+{
+"name": "Similkameen R nr Nighthawk",
+"basin": "Upper Columbia",
+"lat": 48.9846,
+"lon": -119.6184,
+"elev_ft": 1138,
+"usgs": "12442500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Similkameen%20R%20nr%20Nighthawk.html"
+},
+{
+"name": "Skagit R at Newhalem",
+"basin": "Puget Sound",
+"lat": 48.6718,
+"lon": -121.2462,
+"elev_ft": 402,
+"usgs": "12178000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Skagit%20R%20at%20Newhalem.html"
+},
+{
+"name": "Spokane R at Long Lake",
+"basin": "Kootenai-Pend Oreille-Spokane",
+"lat": 47.8366,
+"lon": -117.8413,
+"elev_ft": 1299,
+"usgs": "12433000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Kootenai-Pend%20Oreille-Spokane/Spokane%20R%20at%20Long%20Lake.html"
+},
+{
+"name": "Stehekin R at Stehekin",
+"basin": "Upper Columbia",
+"lat": 48.3296,
+"lon": -120.6918,
+"elev_ft": 1099,
+"usgs": "12451000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Stehekin%20R%20at%20Stehekin.html"
+},
+{
+"name": "Taylor Ck nr Selleck",
+"basin": "Puget Sound",
+"lat": 47.3865,
+"lon": -121.8462,
+"elev_ft": 940,
+"usgs": "12117000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Taylor%20Ck%20nr%20Selleck.html"
+},
+{
+"name": "Teanaway R bl Forks nr Cle Elum",
+"basin": "Yakima",
+"lat": 47.2465,
+"lon": -120.8612,
+"elev_ft": 2160,
+"usgs": "12480000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Teanaway%20R%20bl%20Forks%20nr%20Cle%20Elum.html"
+},
+{
+"name": "Thunder Ck nr Newhalem",
+"basin": "Puget Sound",
+"lat": 48.6726,
+"lon": -121.0729,
+"elev_ft": 1220,
+"usgs": "12175500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/Thunder%20Ck%20nr%20Newhalem.html"
+},
+{
+"name": "Wenatchee R at Peshastin",
+"basin": "Upper Columbia",
+"lat": 47.5832,
+"lon": -120.6195,
+"elev_ft": 1028,
+"usgs": "12459000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Wenatchee%20R%20at%20Peshastin.html"
+},
+{
+"name": "Wenatchee R at Plain",
+"basin": "Upper Columbia",
+"lat": 47.7629,
+"lon": -120.6662,
+"elev_ft": 1805,
+"usgs": "12457000",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Columbia/Wenatchee%20R%20at%20Plain.html"
+},
+{
+"name": "White R nr Buckley",
+"basin": "Puget Sound",
+"lat": 47.1512,
+"lon": -121.9498,
+"elev_ft": 840,
+"usgs": "12098500",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Puget%20Sound/White%20R%20nr%20Buckley.html"
+},
+{
+"name": "Yakima R nr Parker",
+"basin": "Yakima",
+"lat": 46.4971,
+"lon": -120.4428,
+"elev_ft": 886,
+"usgs": "12505001",
+"state": "WA",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Yakima/Yakima%20R%20nr%20Parker.html"
+},
+{
+"name": "Buffalo Fk ab Lava Ck nr Moran",
+"basin": "Upper Snake",
+"lat": 43.8381,
+"lon": -110.4408,
+"elev_ft": 6773,
+"usgs": "13011900",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Buffalo%20Fk%20ab%20Lava%20Ck%20nr%20Moran.html"
+},
+{
+"name": "Greys R ab Reservoir nr Alpine",
+"basin": "Upper Snake",
+"lat": 43.1431,
+"lon": -110.9769,
+"elev_ft": 5729,
+"usgs": "13023000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Greys%20R%20ab%20Reservoir%20nr%20Alpine.html"
+},
+{
+"name": "Pacific Ck at Moran",
+"basin": "Upper Snake",
+"lat": 43.8503,
+"lon": -110.5178,
+"elev_ft": 6720,
+"usgs": "13011500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Pacific%20Ck%20at%20Moran.html"
+},
+{
+"name": "Salt R ab Reservoir nr Etna",
+"basin": "Upper Snake",
+"lat": 43.0797,
+"lon": -111.0372,
+"elev_ft": 5676,
+"usgs": "13027500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Salt%20R%20ab%20Reservoir%20nr%20Etna.html"
+},
+{
+"name": "Snake R ab Reservoir nr Alpine",
+"basin": "Upper Snake",
+"lat": 43.1961,
+"lon": -110.8894,
+"elev_ft": 5730,
+"usgs": "13022500",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20ab%20Reservoir%20nr%20Alpine.html"
+},
+{
+"name": "Snake R at Flagg Ranch",
+"basin": "Upper Snake",
+"lat": 44.0989,
+"lon": -110.6675,
+"elev_ft": 6802,
+"usgs": "13010065",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20at%20Flagg%20Ranch.html"
+},
+{
+"name": "Snake R nr Moran",
+"basin": "Upper Snake",
+"lat": 43.8583,
+"lon": -110.5858,
+"elev_ft": 6760,
+"usgs": "13011000",
+"state": "WY",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Upper%20Snake/Snake%20R%20nr%20Moran.html"
+},
+{
+"name": "Sprague R nr Chiloquin",
+"basin": "Klamath-Northern California Coastal",
+"lat": 42.5846,
+"lon": -121.8497,
+"elev_ft": 4202,
+"usgs": "11501000",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Klamath-Northern%20California%20Coastal/Sprague%20R%20nr%20Chiloquin.html"
+},
+{
+"name": "Upper Klamath Lake Inflow",
+"basin": "Klamath-Northern California Coastal",
+"lat": 42.2499,
+"lon": -121.8164,
+"elev_ft": 4098,
+"usgs": "11507001",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Klamath-Northern%20California%20Coastal/Upper%20Klamath%20Lake%20Inflow.html"
+},
+{
+"name": "Williamson R bl Sprague R nr Chiloquin",
+"basin": "Klamath-Northern California Coastal",
+"lat": 42.5649,
+"lon": -121.8795,
+"elev_ft": 4149,
+"usgs": "11502500",
+"state": "OR",
+"url": "https://www.usbr.gov/uc/water/hydrodata/stf/Klamath-Northern%20California%20Coastal/Williamson%20R%20bl%20Sprague%20R%20nr%20Chiloquin.html"
+}
+]

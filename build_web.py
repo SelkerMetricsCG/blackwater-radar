@@ -2,6 +2,7 @@
 Build the public site into web/ for the Cloudflare Worker (publish with `npx wrangler deploy`).
 
   web/index.html   map.html with the R2 public URL and the region table baked in
+  web/stf.js       USBR snow-to-flow site list (from stf_sites.json)
 
 Usage:  python build_web.py
 """
@@ -34,4 +35,9 @@ html = html.replace(marker, '<meta name="radar-base" content="%s/">\n<script>win
 os.makedirs(OUT, exist_ok=True)
 with open(os.path.join(OUT, "index.html"), "w", encoding="utf-8") as f:
     f.write(html)
+# USBR snow-to-flow site list (static; parsed from their site map) served next to the page
+with open(os.path.join(ROOT, "stf_sites.json"), encoding="utf-8") as f:
+    sites = json.load(f)
+with open(os.path.join(OUT, "stf.js"), "w", encoding="utf-8") as f:
+    f.write("window.STF_SITES = %s;" % json.dumps(sites, separators=(",", ":")))
 print("built web/index.html with base", base, "and regions", ", ".join(regions))
