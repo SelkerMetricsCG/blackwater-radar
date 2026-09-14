@@ -477,7 +477,7 @@
     if (s.src === 'SNOTEL') { const m = /^(\d+):/.exec(s.id); return m ? 'https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=' + m[1] : null; }
     if (s.src === 'HADS') return 'https://water.noaa.gov/gauges/' + s.id;
     if (s.src === 'CoCoRaHS') return 'https://www.cocorahs.org/ViewData/StationPrecipSummary.aspx?station=' + s.id;
-    if (s.src === 'NWS') return 'https://forecast.weather.gov/data/obhistory/' + s.id + '.html';
+    if (s.src === 'NWS') return 'https://www.weather.gov/wrh/timeseries?site=' + s.id;    // covers mesonet sites too; obhistory pages only exist for airports
     return null;
   }
   const TEMP_BINS = [[-20, '#313695'], [0, '#4575b4'], [10, '#74add1'], [20, '#abd9e9'], [32, '#e0f3f8'], [40, '#ffffbf'], [50, '#fee090'], [60, '#fdae61'], [70, '#f46d43'], [80, '#d73027'], [90, '#a50026'], [100, '#6e001e']];
