@@ -37,23 +37,7 @@ WENATCHEE_BINS = dict(
 )
 
 RIVERS = [
-    dict(
-        key="wenatchee-monitor",
-        name="Wenatchee River at Monitor",
-        short="Wenatchee at Monitor",
-        river="Wenatchee River",
-        usgs="12462500",
-        drainage_mi2=1301.0,
-        lat=47.4993, lon=-120.4245,
-        stations=[606, 791, 507, 352],
-        temp_stations=[606, 791],
-        runnable_cfs=1000.0,
-        bins=WENATCHEE_BINS,
-        region="pnw",
-        start_wy=1990,
-        blurb=("The gauge of record for the lower river, below the Dryden, Icicle and "
-               "Peshastin irrigation diversions. Summer flows here are net of withdrawal."),
-    ),
+    # First entry is the site's default river: kayakers read Peshastin.
     dict(
         key="wenatchee-peshastin",
         name="Wenatchee River at Peshastin",
@@ -68,7 +52,25 @@ RIVERS = [
         bins=WENATCHEE_BINS,
         region="pnw",
         start_wy=1990,
-        blurb=("Above the Dryden-reach diversions, so a partial control on irrigation. "
-               "The gauge for the Leavenworth to Peshastin reach."),
+        blurb=("The paddlers' gauge: the Leavenworth to Peshastin reach, above the Dryden "
+               "diversions. No water-temperature record at this site."),
+    ),
+    dict(
+        key="wenatchee-monitor",
+        name="Wenatchee River at Monitor",
+        short="Wenatchee at Monitor",
+        river="Wenatchee River",
+        usgs="12462500",
+        drainage_mi2=1301.0,
+        lat=47.4993, lon=-120.4245,
+        stations=[606, 791, 507, 352],
+        temp_stations=[606, 791],
+        runnable_cfs=1000.0,
+        bins=WENATCHEE_BINS,
+        region="pnw",
+        start_wy=1990,
+        blurb=("The hydrology gauge: the lower river below the Dryden, Icicle and Peshastin "
+               "irrigation diversions, with the water-temperature record. Summer flows here are "
+               "net of withdrawal; paddlers read Peshastin."),
     ),
 ]
