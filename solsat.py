@@ -152,7 +152,7 @@ def write_outputs(text, rows):
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, "telemetry.csv"), "w", encoding="utf-8", newline="") as f:
         f.write(text)
-    meta = {"device": DEVICE["name"], "fetched": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), "n": len(rows),
+    meta = {"device": DEVICE["name"], "fetched": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "n": len(rows),
             "first": rows[0]["date"] if rows else None, "last": rows[-1]["date"] if rows else None,
             "columns": ["date", "level_ft", "min_ft", "max_ft", "battery_v", "water_temp_f"],
             "rows": [[r["date"], r["level_ft"], r["min_ft"], r["max_ft"], r["battery_v"], r["water_temp_f"]] for r in rows]}
