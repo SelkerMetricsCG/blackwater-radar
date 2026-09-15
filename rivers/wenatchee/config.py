@@ -172,7 +172,7 @@ class Config:
     cache_max_age_hours: float = 12.0
     offline: bool = False
     request_timeout_s: float = 90.0
-    request_retries: int = 3
+    request_retries: int = 4              # sleeps 4, 8, 12 s between attempts
 
     # --- Output ----------------------------------------------------------
     figure_dpi: int = 130

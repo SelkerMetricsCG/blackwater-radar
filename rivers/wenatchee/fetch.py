@@ -38,6 +38,9 @@ from .config import Config, Station
 USER_AGENT = "wenatchee-runoff-analysis/2.0 (personal hydrology tool)"
 
 NWIS_DV = "https://waterservices.usgs.gov/nwis/dv/"
+# The successor to the legacy daily-values service. Used as a fallback when
+# waterservices answers 503 (it does, intermittently, from cloud runners).
+USGS_OGC_DAILY = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items"
 NRCS_REPORT = ("https://wcc.sc.egov.usda.gov/reportGenerator/view_csv/"
                "customSingleStationReport/daily")
 
@@ -89,7 +92,7 @@ def _get(cfg: Config, key: str, url: str, label: str) -> str:
         except Exception as exc:      # noqa: BLE001 - retry anything transient
             last_err = exc
             if attempt < cfg.request_retries:
-                time.sleep(2.0 * attempt)
+                time.sleep(4.0 * attempt)
 
     # Network failed. Fall back to a stale cache rather than losing the run.
     if path.exists():
@@ -166,13 +169,60 @@ def parse_nwis_rdb(text: str, param_code: str) -> pd.Series:
 
 def fetch_usgs_daily(cfg: Config, param_code: str, start: str, label: str,
                      stat_code: str = "00003") -> pd.Series:
-    """Daily values from NWIS. stat_code 00003 = mean, 00001 = max, 00002 = min."""
+    """Daily values from NWIS. stat_code 00003 = mean, 00001 = max, 00002 = min.
+
+    The legacy RDB service is tried first (it is what the parser and the
+    on-disk cache were written for). If every retry fails, the same series is
+    pulled from the newer USGS OGC API instead, so a flaky afternoon at
+    waterservices.usgs.gov does not lose the day's run.
+    """
     end = pd.Timestamp.today().strftime("%Y-%m-%d")
     url = (f"{NWIS_DV}?format=rdb&sites={cfg.usgs_site}"
            f"&startDT={start}&endDT={end}"
            f"&parameterCd={param_code}&statCd={stat_code}")
-    text = _get(cfg, f"usgs_{cfg.usgs_site}_{param_code}_{stat_code}", url, label)
-    return parse_nwis_rdb(text, param_code)
+    try:
+        text = _get(cfg, f"usgs_{cfg.usgs_site}_{param_code}_{stat_code}", url, label)
+        return parse_nwis_rdb(text, param_code)
+    except FetchError as exc:
+        print(f"    {label}: legacy service failed ({exc}); trying the OGC API")
+        return fetch_usgs_daily_ogc(cfg, param_code, start, end, label, stat_code)
+
+
+def fetch_usgs_daily_ogc(cfg: Config, param_code: str, start: str, end: str,
+                         label: str, stat_code: str = "00003") -> pd.Series:
+    """The same daily series from api.waterdata.usgs.gov (GeoJSON, paged)."""
+    import json as _json
+
+    url = (f"{USGS_OGC_DAILY}?monitoring_location_id=USGS-{cfg.usgs_site}"
+           f"&parameter_code={param_code}&statistic_id={stat_code}"
+           f"&time={start}/{end}&f=json&limit=50000")
+    dates: list = []
+    vals: list = []
+    page = 0
+    while url and page < 20:
+        page += 1
+        text = _get(cfg, f"usgs_ogc_{cfg.usgs_site}_{param_code}_{stat_code}_p{page}",
+                    url, f"{label} (OGC page {page})")
+        doc = _json.loads(text)
+        for feat in doc.get("features", []):
+            pr = feat.get("properties", {})
+            v = pr.get("value")
+            if v is None or str(v).strip().lower() in _NON_NUMERIC:
+                continue
+            try:
+                vals.append(float(v))
+            except ValueError:
+                continue
+            dates.append(pr.get("time"))
+        url = next((l.get("href") for l in doc.get("links", [])
+                    if l.get("rel") == "next"), None)
+    if not vals:
+        return pd.Series(dtype=float, name=param_code)
+    s = pd.Series(vals, index=pd.to_datetime(dates, errors="coerce"))
+    s = s[~s.index.isna()]
+    s = s[~s.index.duplicated(keep="first")].sort_index()
+    s.name = param_code
+    return s.astype(float)
 
 
 # --------------------------------------------------------------------------

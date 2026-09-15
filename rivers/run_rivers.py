@@ -93,6 +93,28 @@ def run_one(r: dict, out_root: Path, make_figures: bool) -> dict:
     return entry
 
 
+def merge_previous(entries: list[dict], s3, bucket: str) -> list[dict]:
+    """A river that failed today keeps yesterday's index entry, marked stale.
+
+    The site keeps drawing the last good web.js (it is still in the bucket), so
+    the picker must not call the river "no data"; it just notes the last run.
+    """
+    try:
+        body = s3.get_object(Bucket=bucket, Key=f"{BUCKET_PREFIX}index.json")["Body"].read()
+        prev = {e["key"]: e for e in json.loads(body).get("rivers", [])}
+    except Exception:  # noqa: BLE001 - first run, or bucket unreachable
+        return entries
+    out = []
+    for e in entries:
+        p = prev.get(e["key"])
+        if e.get("status") == "failed" and p and p.get("generated"):
+            keep = {k: p.get(k) for k in ("generated", "reference_date", "water_year")}
+            e = {**e, **keep, "status": "stale", "failed_at": pd.Timestamp.now(tz="UTC").isoformat(timespec="seconds"),
+                 "last_good_status": p.get("status")}
+        out.append(e)
+    return out
+
+
 def upload(entries: list[dict], out_root: Path, fig_cache: str = "public, max-age=3600") -> int:
     import r2sync
     env = r2sync.load_env()
@@ -100,6 +122,7 @@ def upload(entries: list[dict], out_root: Path, fig_cache: str = "public, max-ag
         log("no R2 credentials; nothing uploaded")
         return 0
     s3, bucket = r2sync.client(env), env.get("R2_BUCKET") or "radar"
+    entries = merge_previous(entries, s3, bucket)
     n = 0
 
     def put(key: str, path: Path, cache: str) -> None:
