@@ -136,7 +136,12 @@ class Config:
     # that, so the tool reports both and labels which is which.
     salmon_thresh_c: float = 17.5
     sustained_below_days: int = 7         # consecutive days for "sustained" drop
-    runnable_cfs: float = 1000.0          # kayak season-end threshold
+    runnable_cfs: float = 1000.0          # kayak season-end threshold (the default shown)
+    # Presets the website can flip between. The whole season-end block (the
+    # recession-end date per year, the validated forecast, the spring track)
+    # is recomputed for each and written as output/season_<cfs>.js.
+    season_thresholds: tuple[float, ...] = (1000.0, 2000.0, 3000.0, 4000.0, 5000.0,
+                                            6000.0, 7000.0, 8000.0, 9000.0, 10000.0)
     # Issue date for the validated season-end forecast. Spring, because that
     # is when the question actually gets asked.
     season_issue_month: int = 5

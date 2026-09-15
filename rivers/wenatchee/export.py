@@ -133,6 +133,7 @@ def _meta(cfg: Config, ana: Analysis, fc) -> dict:
         "snow_index_key": cfg.snow_index,
         "prediction_interval": cfg.prediction_interval,
         "runnable_cfs": cfg.runnable_cfs,
+        "season_thresholds": [float(t) for t in cfg.season_thresholds],
         "sustained_below_days": cfg.sustained_below_days,
         "salmon_thresh_c": cfg.salmon_thresh_c,
         "season_issue": f"{pd.Timestamp(2001, cfg.season_issue_month, cfg.season_issue_day):%b %d}",
@@ -412,9 +413,40 @@ def _season(cfg: Config, ana: Analysis, fc, season, season_skill, season_current
         [{"wy": int(w), "recession_end": _d(se.recession_end), "last_any": _d(se.last_any),
           "days": int(se.rain_bump_days)} for w, se in ends.items() if se.rain_bump_days > 0],
         key=lambda r: -r["days"])
+    # What a boater needs to expect at this threshold: years the river never
+    # reached it in the May-Sep season at all, years it never dropped below
+    # it before Sep 30, and how many days a year it spends at or above it.
+    thr = cfg.runnable_cfs
+    by_year = []
+    for rec in ana.records:
+        ws, we = wy_bounds(rec.wy)
+        q_wy = ana.q.loc[ws:we].dropna()
+        season_q = q_wy.loc[pd.Timestamp(rec.wy, 5, 1):we]
+        se = ends.get(rec.wy)
+        above = q_wy[q_wy >= thr]
+        by_year.append({
+            "wy": int(rec.wy), "complete": bool(rec.complete),
+            "days_above": int((q_wy >= thr).sum()),
+            "days_above_season": int((season_q >= thr).sum()),
+            "first_above": _d(above.index.min()) if len(above) else None,
+            "last_above": _d(above.index.max()) if len(above) else None,
+            "peak_cfs": _f(rec.peak_q_cfs, 0),
+            "recession_end": _d(se.recession_end) if se else None,
+            "censored": bool(se.censored) if se else False,
+            "never_in_season": bool(se is not None and se.last_any is None),
+            "never_at_all": bool(np.isfinite(rec.peak_q_cfs) and rec.peak_q_cfs < thr),
+        })
+    comp_years = [y for y in by_year if y["complete"]]
     out: dict = {
         "threshold_cfs": cfg.runnable_cfs,
         "sustained_days": cfg.sustained_below_days,
+        "by_year": by_year,
+        "never_in_season": [y["wy"] for y in comp_years if y["never_in_season"]],
+        "never_at_all": [y["wy"] for y in comp_years if y["never_at_all"]],
+        "censored_years": [y["wy"] for y in comp_years if y["censored"]],
+        "days_above_median": _f(np.median([y["days_above"] for y in comp_years]), 0) if comp_years else None,
+        "days_above_season_median": _f(np.median([y["days_above_season"] for y in comp_years]), 0) if comp_years else None,
+        "n_complete": len(comp_years),
         "definition": (f"the last day of the summer recession at or above {cfg.runnable_cfs:,.0f} cfs, "
                        f"i.e. the last day above the threshold before the first run of "
                        f"{cfg.sustained_below_days} consecutive days below it"),
@@ -454,6 +486,18 @@ def _season(cfg: Config, ana: Analysis, fc, season, season_skill, season_current
                          "error_days": _f(r.error_days, 1),
                          "censored": bool(r.censored), "already_over": bool(r.already_over)})
         out["years"] = rows
+        # Trend in the actual season-end day (Theil-Sen, Mann-Kendall, the
+        # same test the record page uses), uncensored complete years only.
+        good = [(r["wy"], r["actual_doy"]) for r in rows
+                if r["actual_doy"] is not None and not r["censored"] and r["wy"] != wy]
+        if len(good) >= 10:
+            t = trend(np.array([g[0] for g in good], float), np.array([g[1] for g in good], float),
+                      f"Actual last day above {cfg.runnable_cfs:,.0f} cfs", "days")
+            out["actual_trend"] = {"slope": _f(t.slope, 4), "intercept": _f(t.intercept, 4),
+                                   "lo": _f(t.lo, 4), "hi": _f(t.hi, 4), "p_value": _f(t.p_value, 4),
+                                   "n": int(t.n), "significant": bool(t.significant),
+                                   "describe": t.describe(),
+                                   "x0": good[0][0], "x1": good[-1][0]}
         fits = {}
         for k, f in (season.fits or {}).items():
             fits[k] = _fit_dict(f)
@@ -642,6 +686,52 @@ def build_web(cfg: Config, ana: Analysis, fc, th, melt, bt, lead, season,
         "figures": [{"file": f, "title": t} for f, t in FIGURES],
         "report": report_text,
     }
+
+
+def build_season_file(cfg: Config, raw, threshold: float) -> dict:
+    """The season-end block recomputed at one threshold.
+
+    A fresh Analysis at that threshold (the recession-end date per year
+    depends on it), then the same validation, skill curve, current call,
+    analog outlook and spring track the main run does at the default.
+    """
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from . import models, season_end
+    from .core import Analysis
+
+    cfg_t = replace(cfg, runnable_cfs=float(threshold))
+    ana_t = Analysis(cfg_t, raw)
+    season = season_end.validate(ana_t, cfg_t.season_issue_month, cfg_t.season_issue_day)
+    skill = season_end.skill_by_issue_date(ana_t)
+    current = season_end.forecast_current(ana_t, season) if season is not None else {}
+    track = None
+    if cfg_t.make_track and season is not None:
+        track = season_end.track_by_issue_date(ana_t, cfg_t.track_start, cfg_t.track_end,
+                                               cfg_t.track_step_days)
+    fc_t = SimpleNamespace(analogs=models.build_analogs(ana_t))
+    return {
+        "generated": pd.Timestamp.now().isoformat(timespec="seconds"),
+        "threshold_cfs": float(threshold),
+        "water_year": int(ana_t.current_wy),
+        "reference_date": _d(ana_t.ref_date),
+        "season": _season(cfg_t, ana_t, fc_t, season, skill, current),
+        "track": _track(ana_t, track),
+        "current": {"last_runnable_date": _d(ana_t.current.last_runnable_date) if ana_t.current else None,
+                    "sustained_below_date": _d(ana_t.current.sustained_below_date) if ana_t.current else None},
+    }
+
+
+def write_season_file(out_dir: Path, doc: dict, stamp: str = "") -> tuple[Path, Path]:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"season_{int(round(doc['threshold_cfs']))}{stamp}"
+    text = json.dumps(doc, separators=(",", ":"), allow_nan=False)
+    p_json = out_dir / f"{stem}.json"
+    p_js = out_dir / f"{stem}.js"
+    p_json.write_text(text, encoding="utf-8")
+    p_js.write_text("window.RIVER_SEASON = " + text + ";\n", encoding="utf-8")
+    return p_js, p_json
 
 
 def write_web(out_dir: Path, data: dict, stem: str = "web") -> tuple[Path, Path]:

@@ -235,6 +235,12 @@ class SeasonEndValidation:
                 "within_2wk": within14 / max(1, ok.sum()),
                 "PI_coverage": float(np.mean(hits)) if hits else np.nan,
             })
+        cols = ["method", "n", "skill", "RMSE_days", "MAE_days", "bias_days",
+                "within_1wk", "within_2wk", "PI_coverage"]
+        if not rows:
+            # At a high threshold and a late issue date most seasons are
+            # already over, so nothing is left to score.
+            return pd.DataFrame(columns=cols)
         return pd.DataFrame(rows).sort_values("MAE_days")
 
     def best_method(self) -> str:

@@ -14,6 +14,7 @@ uploads output/ to the public R2 bucket under ``rivers/<key>/``:
     rivers/<key>/report.txt           the written report
     rivers/<key>/results.json, annual_summary.csv, season_end_validation.csv
     rivers/<key>/figures/*.png        the ten figures
+    rivers/<key>/season_<cfs>.js      the season-end block at each preset threshold
     rivers/index.js                   the river list the site's picker reads (window.RIVERS_INDEX)
 
 R2 credentials come from the environment (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
@@ -141,6 +142,9 @@ def upload(entries: list[dict], out_root: Path, fig_cache: str = "public, max-ag
             p = out / fn
             if p.exists():
                 put(f"{BUCKET_PREFIX}{e['key']}/{fn}", p, "no-cache")
+        # the season-end block at each preset threshold (season_1000.js ...)
+        for p in sorted(out.glob("season_*.js")) + sorted(out.glob("season_*.json")):
+            put(f"{BUCKET_PREFIX}{e['key']}/{p.name}", p, "no-cache")
         figs = out / "figures"
         if figs.is_dir():
             for p in sorted(figs.glob("*.png")):
@@ -167,6 +171,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-figures", action="store_true")
     ap.add_argument("--no-upload", action="store_true")
     ap.add_argument("--out", default=str(HERE / "out"), help="local output root")
+    ap.add_argument("--upload-only", action="store_true",
+                    help="skip the analysis; upload whatever is already in out/ (index rebuilt from it)")
     args = ap.parse_args(argv)
 
     out_root = Path(args.out)
@@ -176,7 +182,20 @@ def main(argv=None) -> int:
         print("no rivers matched", file=sys.stderr)
         return 2
 
-    ran = {r["key"]: run_one(r, out_root, not args.no_figures) for r in rivers}
+    if args.upload_only:
+        ran = {}
+        for r in rivers:
+            res_p = out_root / r["key"] / "output" / "results.json"
+            if not res_p.exists():
+                continue
+            res = json.loads(res_p.read_text(encoding="utf-8"))
+            e = {k: r.get(k) for k in ("key", "name", "short", "river", "usgs", "drainage_mi2",
+                                       "lat", "lon", "region", "runnable_cfs", "blurb")}
+            e.update(stations=list(r["stations"]), status="ok", generated=res.get("generated"),
+                     reference_date=res.get("reference_date"), water_year=res.get("water_year"), seconds=0)
+            ran[r["key"]] = e
+    else:
+        ran = {r["key"]: run_one(r, out_root, not args.no_figures) for r in rivers}
     # keep every configured river in the index even when only some were run
     entries = []
     for r in RIVERS:

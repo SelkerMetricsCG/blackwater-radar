@@ -151,6 +151,12 @@ def run(cfg: Config, quiet: bool = False) -> int:
                                season_skill, season_current, track,
                                report_text=rep.text())
         export.write_web(out, web, stem=f"web{stamp}")
+        # The season-end block at every preset threshold, one file each.
+        # The default threshold is included so the files are uniform.
+        for thr in cfg.season_thresholds:
+            print(f"  Season end at {thr:,.0f} cfs...")
+            doc = export.build_season_file(cfg, raw, thr)
+            export.write_season_file(out, doc, stamp=stamp)
 
     print()
     print(f"  Wrote {out / f'report{stamp}.txt'}")
