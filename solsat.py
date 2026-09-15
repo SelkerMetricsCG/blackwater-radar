@@ -131,7 +131,7 @@ def parse(text):
             continue
         num = lambda c: _f(parts[idx[c]]) if c in idx and idx[c] < len(parts) else None
         lvl = num("Water Level ft")
-        if lvl is None:
+        if lvl is None or not (0 <= lvl <= 10):     # in-air readings before installation come through as about -1000 ft
             continue
         ok = lambda v: v is not None and abs(v - lvl) <= 0.5 and v > 0     # portal writes garbage min/max now and then
         mn, mx = num("Min ft"), num("Max ft")
