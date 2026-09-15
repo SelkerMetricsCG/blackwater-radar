@@ -288,6 +288,37 @@ def fetch_snotel(cfg: Config, station: Station,
 
 
 # --------------------------------------------------------------------------
+# NOAA CPC Oceanic Nino Index (ENSO state)
+# --------------------------------------------------------------------------
+ONI_URL = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
+_ONI_SEASONS = ("DJF", "JFM", "FMA", "MAM", "AMJ", "MJJ", "JJA", "JAS", "ASO", "SON", "OND", "NDJ")
+
+
+def fetch_oni(cfg: Config) -> pd.DataFrame:
+    """Three-month running ONI (deg C anomaly of Nino 3.4 SST) from NOAA CPC.
+
+    Columns: season (DJF..NDJ), year (CPC's YR column: the year of the
+    season's first month for OND/NDJ, otherwise the calendar year), total,
+    anom. Empty frame if the download fails; ENSO context is optional.
+    """
+    try:
+        text = _get(cfg, "oni", ONI_URL, "NOAA ONI (ENSO)")
+    except FetchError as exc:
+        print(f"    ONI unavailable ({exc}); ENSO context skipped")
+        return pd.DataFrame(columns=["season", "year", "total", "anom"])
+    rows = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 4 and parts[0] in _ONI_SEASONS:
+            try:
+                rows.append({"season": parts[0], "year": int(parts[1]),
+                             "total": float(parts[2]), "anom": float(parts[3])})
+            except ValueError:
+                continue
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------
 # Bundle
 # --------------------------------------------------------------------------
 @dataclass

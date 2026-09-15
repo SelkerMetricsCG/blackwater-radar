@@ -107,6 +107,7 @@ def run(cfg: Config, quiet: bool = False) -> int:
 
     raw = fetch.fetch_all(cfg)
     ana = core.Analysis(cfg, raw)
+    oni = fetch.fetch_oni(cfg) if cfg.make_web else None
 
     print("\n  Verifying the forecast against history (leave-one-out)...")
     bt = backtest.run_backtest(cfg, raw, ana.ref_date.month, ana.ref_date.day)
@@ -149,7 +150,7 @@ def run(cfg: Config, quiet: bool = False) -> int:
     if cfg.make_web:
         web = export.build_web(cfg, ana, fc, th, melt, bt, lead, season,
                                season_skill, season_current, track,
-                               report_text=rep.text())
+                               report_text=rep.text(), oni=oni)
         export.write_web(out, web, stem=f"web{stamp}")
         # The season-end block at every preset threshold, one file each.
         # The default threshold is included so the files are uniform.

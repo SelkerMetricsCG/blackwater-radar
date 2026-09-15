@@ -405,10 +405,60 @@ def _forecast(cfg: Config, ana: Analysis, fc, bt, lead) -> dict | None:
     return out
 
 
+def _spring_context(ana: Analysis) -> dict:
+    """What the weather did after the 1 May call: May-Jun air temperature,
+    May-Jul precipitation (both from the temperature stations, as anomalies
+    from the record median), and the basin melt-out date. This is what the
+    forecast could not know on the issue date, and it explains the misses."""
+    cfg = ana.cfg
+    air, prec = [], []
+    for sid in cfg.temp_station_ids:
+        df = ana.raw.snotel.get(sid)
+        if df is None or "tmax_f" not in df.columns:
+            continue
+        tmin = df["tmin_f"] if "tmin_f" in df.columns else df["tmax_f"]
+        air.append(((df["tmax_f"] + tmin) / 2).rename(sid))
+        if "prec_in" in df.columns:
+            prec.append(df["prec_in"].diff().clip(lower=0).rename(sid))
+    if not air:
+        return {}
+    airc = pd.concat(air, axis=1).mean(axis=1)
+    precc = pd.concat(prec, axis=1).mean(axis=1) if prec else None
+    rows = {}
+    for rec in ana.records:
+        wy = rec.wy
+        t = airc.loc[f"{wy}-05-01":f"{wy}-06-30"]
+        t_mj = float(t.mean()) if t.notna().sum() >= 40 else np.nan
+        p_mj = np.nan
+        if precc is not None:
+            pp = precc.loc[f"{wy}-05-01":f"{wy}-07-31"]
+            p_mj = float(pp.sum()) if pp.notna().sum() >= 60 else np.nan
+        sw = [ana.raw.snotel[sid]["swe_in"].loc[f"{wy}-04-01":f"{wy}-08-31"].rename(sid)
+              for sid, sy in rec.stations.items() if sy.usable and sid in ana.raw.snotel]
+        mo = None
+        if sw:
+            m = pd.concat(sw, axis=1).mean(axis=1)
+            hit = m[m < 0.5]
+            mo = hit.index.min() if len(hit) else None
+        rows[wy] = {"t_mayjun_f": t_mj, "p_mayjul_in": p_mj,
+                    "meltout": mo, "meltout_doy": doy_of_wy(mo, wy) if mo is not None else np.nan,
+                    "complete": rec.complete}
+    comp = [r for r in rows.values() if r["complete"]]
+    med = {k: float(np.nanmedian([r[k] for r in comp])) for k in ("t_mayjun_f", "p_mayjul_in", "meltout_doy")}
+    for r in rows.values():
+        r["t_mayjun_anom_f"] = r["t_mayjun_f"] - med["t_mayjun_f"]
+        r["p_mayjul_anom_in"] = r["p_mayjul_in"] - med["p_mayjul_in"]
+        r["meltout_anom_days"] = r["meltout_doy"] - med["meltout_doy"]
+    rows["_median"] = med
+    return rows
+
+
 def _season(cfg: Config, ana: Analysis, fc, season, season_skill, season_current) -> dict | None:
     from . import season_end as SE
+    from scipy import stats as _st
     wy = ana.current_wy
     ends = SE.all_season_ends(ana)
+    ctx = _spring_context(ana)
     mismatch = sorted(
         [{"wy": int(w), "recession_end": _d(se.recession_end), "last_any": _d(se.last_any),
           "days": int(se.rain_bump_days)} for w, se in ends.items() if se.rain_bump_days > 0],
@@ -475,7 +525,12 @@ def _season(cfg: Config, ana: Analysis, fc, season, season_skill, season_current
         tbl = season.table(best).sort_values("wy")
         rows = []
         for r in tbl.itertuples():
+            c = ctx.get(int(r.wy), {})
             rows.append({"wy": int(r.wy), "snow_index_in": _f(r.snow_index_in, 1),
+                         "t_mayjun_anom_f": _f(c.get("t_mayjun_anom_f"), 1),
+                         "p_mayjul_in": _f(c.get("p_mayjul_in"), 1),
+                         "p_mayjul_anom_in": _f(c.get("p_mayjul_anom_in"), 1),
+                         "meltout": _d(c.get("meltout")), "meltout_anom_days": _f(c.get("meltout_anom_days"), 0),
                          "swe_remaining_in": _f(r.swe_remaining_in, 1),
                          "flow_at_issue_cfs": _f(r.flow_at_issue_cfs, 0),
                          "predicted_doy": _f(r.predicted_doy, 1), "actual_doy": _f(r.actual_doy, 0),
@@ -486,6 +541,19 @@ def _season(cfg: Config, ana: Analysis, fc, season, season_skill, season_current
                          "error_days": _f(r.error_days, 1),
                          "censored": bool(r.censored), "already_over": bool(r.already_over)})
         out["years"] = rows
+        # Why the misses: rank correlation of the forecast error with what
+        # happened after the issue date (uncensored complete years).
+        good = [r for r in rows if r["error_days"] is not None and not r["censored"] and r["wy"] != wy]
+        diag = {}
+        for k, label in (("t_mayjun_anom_f", "May-Jun air temperature anomaly"),
+                         ("p_mayjul_anom_in", "May-Jul precipitation anomaly"),
+                         ("meltout_anom_days", "melt-out date anomaly")):
+            xs = [(r[k], r["error_days"]) for r in good if r[k] is not None]
+            if len(xs) >= 10:
+                rho, pv = _st.spearmanr([x[0] for x in xs], [x[1] for x in xs])
+                diag[k] = {"label": label, "rho": _f(rho, 2), "p": _f(pv, 4), "n": len(xs)}
+        out["miss_diagnosis"] = diag
+        out["spring_median"] = {k: _f(v, 1) for k, v in ctx.get("_median", {}).items()}
         # Trend in the actual season-end day (Theil-Sen, Mann-Kendall, the
         # same test the record page uses), uncensored complete years only.
         good = [(r["wy"], r["actual_doy"]) for r in rows
@@ -671,9 +739,68 @@ def _record(cfg: Config, ana: Analysis) -> dict:
 # --------------------------------------------------------------------------
 # assembly
 # --------------------------------------------------------------------------
+def _enso(ana: Analysis, oni) -> dict | None:
+    """ENSO state by water year from the NOAA ONI, joined to this river's record.
+
+    ``djf`` is the Dec-Feb ONI (the conventional winter state, CPC's DJF row
+    for the water year's calendar year); ``winter`` averages the four
+    overlapping seasons OND, NDJ, DJF, JFM. Phase uses the usual +/-0.5 deg C
+    on DJF. Rank correlations with the year's snowpack, runoff and season end
+    are reported with their p-values; a small-n correlation is context, not
+    a forecast.
+    """
+    from scipy import stats as _st
+    if oni is None or oni.empty:
+        return None
+    by = {}
+    key = {(r.season, int(r.year)): float(r.anom) for r in oni.itertuples()}
+    df = ana.frame()
+    for rec in ana.records:
+        w = rec.wy
+        djf = key.get(("DJF", w))
+        winter = [v for v in (key.get(("OND", w - 1)), key.get(("NDJ", w - 1)),
+                              key.get(("DJF", w)), key.get(("JFM", w))) if v is not None]
+        if djf is None and not winter:
+            continue
+        ph = None
+        if djf is not None:
+            ph = "El Nino" if djf >= 0.5 else "La Nina" if djf <= -0.5 else "neutral"
+        strength = None
+        if djf is not None and ph != "neutral":
+            a = abs(djf)
+            strength = "strong" if a >= 1.5 else "moderate" if a >= 1.0 else "weak"
+        by[w] = {"djf": _f(djf, 2), "winter": _f(np.mean(winter), 2) if winter else None,
+                 "phase": ph, "strength": strength}
+    comp = df[df.complete]
+    corr = {}
+    for col, label in (("peak_swe_in", "peak snow index"), ("v_seasonal_kaf", "seasonal runoff"),
+                       ("v_total_kaf", "annual runoff"), ("last_runnable_doy", "last day above the threshold"),
+                       ("v_oct_mar_kaf", "Oct-Mar runoff")):
+        xs = [(by[w]["djf"], v) for w, v in zip(comp["wy"], comp[col])
+              if w in by and by[w]["djf"] is not None and np.isfinite(v)]
+        if len(xs) >= 10:
+            rho, pv = _st.spearmanr([x[0] for x in xs], [x[1] for x in xs])
+            corr[col] = {"label": label, "rho": _f(rho, 2), "p": _f(pv, 4), "n": len(xs)}
+    groups = {}
+    for ph in ("El Nino", "neutral", "La Nina"):
+        wys = [int(w) for w in comp["wy"] if w in by and by[w]["phase"] == ph]
+        sub = comp[comp["wy"].isin(wys)]
+        groups[ph] = {"n": len(wys), "years": wys,
+                      "peak_swe_in": _f(sub["peak_swe_in"].median(), 1) if len(sub) else None,
+                      "v_seasonal_kaf": _f(sub["v_seasonal_kaf"].median(), 0) if len(sub) else None,
+                      "v_total_kaf": _f(sub["v_total_kaf"].median(), 0) if len(sub) else None,
+                      "last_runnable_doy": _f(sub["last_runnable_doy"].median(), 0) if len(sub) else None}
+    latest = oni.iloc[-1]
+    return {"source": "NOAA CPC Oceanic Nino Index (3-month running Nino 3.4 SST anomaly, deg C)",
+            "by_wy": by, "correlations": corr, "by_phase": groups,
+            "latest": {"season": str(latest.season), "year": int(latest.year), "anom": _f(latest.anom, 2)},
+            "current_wy": by.get(ana.current_wy)}
+
+
 def build_web(cfg: Config, ana: Analysis, fc, th, melt, bt, lead, season,
-              season_skill, season_current, track, report_text: str = "") -> dict:
+              season_skill, season_current, track, report_text: str = "", oni=None) -> dict:
     return {
+        "enso": _enso(ana, oni),
         "meta": _meta(cfg, ana, fc),
         "current": _current(cfg, ana),
         "hydrograph": _hydrograph(cfg, ana, fc),

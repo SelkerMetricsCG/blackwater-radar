@@ -36,6 +36,15 @@ WENATCHEE_BINS = dict(
           "Bank full / flooding"),
 )
 
+ICICLE_BINS = dict(
+    edges=(0, 500, 1000, 1500, 2000, 3000, 4000, float("inf")),
+    labels=("<500", "500-1k", "1-1.5k", "1.5-2k", "2-3k", "3-4k", ">4k"),
+    desc=("Low", "Low-moderate", "Moderate", "Moderate-high", "High", "Very high", "Flood"),
+)
+# Season-end presets the site can flip between (the buttons).
+WENATCHEE_THRESHOLDS = (1000.0, 2000.0, 3000.0, 4000.0, 5000.0, 6000.0, 7000.0, 8000.0, 9000.0, 10000.0)
+ICICLE_THRESHOLDS = (500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0, 3500.0, 4000.0)
+
 RIVERS = [
     # First entry is the site's default river: kayakers read Peshastin.
     dict(
@@ -49,11 +58,52 @@ RIVERS = [
         stations=[606, 791, 507, 352],
         temp_stations=[606, 791],
         runnable_cfs=1000.0,
+        thresholds=WENATCHEE_THRESHOLDS,
         bins=WENATCHEE_BINS,
         region="pnw",
         start_wy=1990,
         blurb=("The paddlers' gauge: the Leavenworth to Peshastin reach, above the Dryden "
                "diversions. No water-temperature record at this site."),
+    ),
+    dict(
+        key="wenatchee-plain",
+        name="Wenatchee River at Plain",
+        short="Wenatchee at Plain",
+        river="Wenatchee River",
+        usgs="12457000",
+        drainage_mi2=591.0,
+        lat=47.7631, lon=-120.6650,
+        stations=[606, 791, 507, 352],
+        # Only Stevens Pass (Nason Creek) drains to Plain; the Chiwawa (Grouse Camp) joins below the gauge.
+        in_basin={791: True, 507: False, 352: False, 606: False},
+        temp_stations=[606, 791],
+        runnable_cfs=1000.0,
+        thresholds=WENATCHEE_THRESHOLDS,
+        bins=WENATCHEE_BINS,
+        region="pnw",
+        start_wy=1990,
+        blurb=("The upper river below Lake Wenatchee and Nason Creek, above the Chiwawa. "
+               "No diversions of note above it; no water-temperature record."),
+    ),
+    dict(
+        key="icicle-creek",
+        name="Icicle Creek above Snow Creek near Leavenworth",
+        short="Icicle Creek",
+        river="Icicle Creek",
+        usgs="12458000",
+        drainage_mi2=193.0,
+        lat=47.5411, lon=-120.7189,
+        stations=[606, 791, 507, 352],
+        # No SNOTEL sits inside the Icicle drainage; all four are index stations.
+        in_basin={791: False, 507: False, 352: False, 606: False},
+        temp_stations=[606, 791],
+        runnable_cfs=1000.0,
+        thresholds=ICICLE_THRESHOLDS,
+        bins=ICICLE_BINS,
+        region="pnw",
+        start_wy=1994,          # the daily record starts 1 Oct 1993
+        blurb=("The Icicle above the Snow Creek confluence and the hatchery diversion, in the Alpine "
+               "Lakes. A smaller, flashier stream: thresholds run 500 to 4,000 cfs here."),
     ),
     dict(
         key="wenatchee-monitor",
@@ -66,6 +116,7 @@ RIVERS = [
         stations=[606, 791, 507, 352],
         temp_stations=[606, 791],
         runnable_cfs=1000.0,
+        thresholds=WENATCHEE_THRESHOLDS,
         bins=WENATCHEE_BINS,
         region="pnw",
         start_wy=1990,

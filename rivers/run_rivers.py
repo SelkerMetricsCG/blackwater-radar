@@ -55,7 +55,9 @@ def log(msg: str) -> None:
 
 
 def config_for(r: dict, out_root: Path, make_figures: bool) -> Config:
-    stations = tuple(Station(**STATIONS[s]) for s in r["stations"])
+    ib = r.get("in_basin", {})
+    stations = tuple(Station(**{**STATIONS[s], "in_basin": ib.get(s, STATIONS[s]["in_basin"])})
+                     for s in r["stations"])
     bins = r.get("bins") or {}
     cfg = Config(
         usgs_site=r["usgs"], usgs_site_name=r["name"],
@@ -66,6 +68,8 @@ def config_for(r: dict, out_root: Path, make_figures: bool) -> Config:
         root=out_root / r["key"], make_figures=make_figures,
         cache_max_age_hours=float(r.get("cache_max_age_hours", 12.0)),
     )
+    if r.get("thresholds"):
+        cfg = replace(cfg, season_thresholds=tuple(float(t) for t in r["thresholds"]))
     if bins:
         cfg = replace(cfg, flow_bin_edges=tuple(bins["edges"]),
                       flow_bin_labels=tuple(bins["labels"]),
@@ -79,6 +83,7 @@ def run_one(r: dict, out_root: Path, make_figures: bool) -> dict:
     entry = {k: r.get(k) for k in ("key", "name", "short", "river", "usgs", "drainage_mi2",
                                    "lat", "lon", "region", "runnable_cfs", "blurb")}
     entry["stations"] = [STATIONS[s]["site_id"] for s in r["stations"]]
+    entry["thresholds"] = list(r.get("thresholds", ()))
     try:
         rc = cli.run(cfg, quiet=True)
         if rc != 0:
