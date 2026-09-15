@@ -21,3 +21,6 @@ cache/
 # SolSat portal credentials (Chris pastes these)
 solsat.env
 solsat/
+
+# rivers dashboard: local analysis outputs (everything lands in R2)
+rivers/out/
