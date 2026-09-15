@@ -1,0 +1,31 @@
+name: solsat
+
+# Daily pull of the Roaring Creek DOE telemetry from solinstsat.com into the private
+# R2 bucket "roaring-data". The unit reports at 08:00 Pacific; this runs at 16:40 UTC
+# (08:40 PST / 09:40 PDT) so the day's reading is in.
+on:
+  schedule:
+    - cron: "40 16 * * *"
+  workflow_dispatch:
+
+jobs:
+  solsat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: America/Los_Angeles
+      SOLSAT_USER: ${{ secrets.SOLSAT_USER }}
+      SOLSAT_PASS: ${{ secrets.SOLSAT_PASS }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: roaring-data
+      R2_PUBLIC_URL: ""
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install boto3
+      - run: python solsat.py

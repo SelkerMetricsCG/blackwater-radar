@@ -17,3 +17,7 @@ frames.js
 node_modules/
 
 cache/
+
+# SolSat portal credentials (Chris pastes these)
+solsat.env
+solsat/
