@@ -56,6 +56,11 @@
   .radios input { appearance:none; -webkit-appearance:none; margin:0; flex:none; width:15px; height:15px; border:1.5px solid var(--muted); border-radius:50%; background:transparent; cursor:pointer; }
   .radios input:checked { border-color:var(--accent); background:radial-gradient(circle, var(--accent) 0 3.5px, transparent 4px); }
   .radios input:focus-visible { outline:2px solid #5b7fd0; outline-offset:2px; }
+  .opt { position:relative; }
+  .help { flex:none; width:16px; height:16px; padding:0; border:1.5px solid var(--muted); border-radius:50%; background:transparent; color:var(--muted); font:700 10px/1 system-ui,sans-serif; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+  .help:hover, .help:focus-visible, .help[aria-expanded=true] { border-color:var(--accent); color:var(--text); outline:none; }
+  .helptip { display:none; position:absolute; left:0; right:0; top:100%; z-index:5; white-space:normal; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12px; line-height:1.4; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,.45); cursor:default; }
+  .help:hover + .helptip, .helptip:hover, .help[aria-expanded=true] + .helptip { display:block; }
   .subwrap { display:none; padding-bottom:6px; }
   .subwrap.open { display:block; }
   .chip { display:inline-block; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; }
@@ -132,12 +137,16 @@
   <div class="sec grp" data-grp="now">
     <h2 class="grph"><span class="chev"></span>Now &amp; forecast <span class="n"></span></h2>
     <div class="body">
-    <label class="opt"><input type="checkbox" id="lyRadar" checked> Radar loop</label>
+    <label class="opt"><input type="checkbox" id="lyRadar" checked> Radar loop
+      <button type="button" class="help" aria-label="How to use the radar loop" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Loop the last 3, 6, 12 or 24 hours of radar (set it in the bar at the bottom) to see where storms tracked. Then turn on Rain / snow totals, just below, to see how much fell along those tracks, and Weather stations to check what individual gauges and SNOTEL sites measured.</span></label>
     <div class="subwrap" data-for="lyRadar">
       <div class="sub"><span class="muted">opacity</span><input type="range" id="radarOpacity" min="0.2" max="1" step="0.05" value="0.6"></div>
     </div>
 
     <label class="opt"><input type="checkbox" id="lyAccum"> Rain / snow totals
+      <button type="button" class="help" aria-label="About rain and snow totals" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">How much rain or new snow fell, as a map. Pick the time window below and the source in the dropdown: NOAA radar+gauges is radar corrected by rain gauges (US only); station interpolation spreads gauge totals across the terrain with elevation in mind and fades where gauges are sparse; radar estimate is radar alone and reads low in mountain valleys. The map is smoothed, so turn on Weather stations to see what each gauge and SNOTEL site actually measured.</span>
       <select id="accumSrc" hidden>
         <option value="stations">Rain: station interpolation</option>
         <option value="mrms">Rain: NOAA radar+gauges</option>
@@ -164,12 +173,6 @@
       <div class="sub" id="stInfo" style="display:block"></div>
     </div>
 
-    <label class="opt"><input type="checkbox" id="lySat"> Satellite loop (GOES)</label>
-    <div class="subwrap" data-for="lySat">
-      <div class="sub"><span class="muted">opacity</span><input type="range" id="satOpacity" min="0.2" max="1" step="0.05" value="0.85"></div>
-      <div class="sub" id="satInfo" style="display:block"></div>
-    </div>
-
     <label class="opt"><input type="checkbox" id="lyCams"> Webcams</label>
     <div class="subwrap" data-for="lyCams">
       <div class="sub" id="camInfo" style="display:block"></div>
@@ -194,6 +197,12 @@
       <div class="sub" id="fzHours"></div>
       <div class="sub"><label class="opt" style="padding:0"><input type="checkbox" id="fzBands"> shaded bands</label></div>
       <div class="sub" id="fzInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lySat"> Satellite loop (GOES)</label>
+    <div class="subwrap" data-for="lySat">
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="satOpacity" min="0.2" max="1" step="0.05" value="0.85"></div>
+      <div class="sub" id="satInfo" style="display:block"></div>
     </div>
     </div>
   </div>
@@ -359,6 +368,15 @@
     cb.addEventListener('change', sync); sync();
   });
   document.querySelectorAll('.opt select').forEach(s => s.addEventListener('click', e => e.stopPropagation()));
+  // (?) next to a layer: hover shows the tip, a click or tap pins it open until the next click elsewhere
+  document.querySelectorAll('.help').forEach(b => b.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const open = b.getAttribute('aria-expanded') !== 'true';
+    document.querySelectorAll('.help').forEach(x => x.setAttribute('aria-expanded', 'false'));
+    b.setAttribute('aria-expanded', String(open));
+  }));
+  document.querySelectorAll('.helptip').forEach(t => t.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); }));
+  document.addEventListener('click', () => document.querySelectorAll('.help').forEach(x => x.setAttribute('aria-expanded', 'false')));
 
   // ---------- data ----------
   let data = window.RADAR_DATA || { bounds: [[43, -127], [52.5, -112]], radar: [], sat: [], accum: [], legend: [] };
