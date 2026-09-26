@@ -1,0 +1,21 @@
+name: tests
+
+# Unit tests for solsat.py (tests/). No secrets, no network: everything the
+# tests need is stdlib + pytest, so the heavy scientific stack in
+# requirements.txt (eccodes, xarray, ...) is not installed here.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - run: python -m pytest tests/ -v
