@@ -51,6 +51,11 @@
   .sub { padding:4px 0 4px 24px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
   .sub input[type=range] { width:100%; accent-color:var(--accent); }
   .sub .muted { font-size:12px; color:var(--muted); }
+  .radios { flex-direction:column; align-items:flex-start; gap:0; }
+  .radios label { display:flex; align-items:center; gap:10px; padding:3px 0; cursor:pointer; }
+  .radios input { appearance:none; -webkit-appearance:none; margin:0; flex:none; width:15px; height:15px; border:1.5px solid var(--muted); border-radius:50%; background:transparent; cursor:pointer; }
+  .radios input:checked { border-color:var(--accent); background:radial-gradient(circle, var(--accent) 0 3.5px, transparent 4px); }
+  .radios input:focus-visible { outline:2px solid #5b7fd0; outline-offset:2px; }
   .subwrap { display:none; padding-bottom:6px; }
   .subwrap.open { display:block; }
   .chip { display:inline-block; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; }
@@ -132,17 +137,37 @@
       <div class="sub"><span class="muted">opacity</span><input type="range" id="radarOpacity" min="0.2" max="1" step="0.05" value="0.6"></div>
     </div>
 
+    <label class="opt"><input type="checkbox" id="lyAccum"> Rain / snow totals
+      <select id="accumSrc" hidden>
+        <option value="stations">Rain: station interpolation</option>
+        <option value="mrms">Rain: NOAA radar+gauges</option>
+        <option value="snow">New snow: station interpolation</option>
+        <option value="radar">Rain: radar estimate</option>
+      </select></label>
+    <div class="subwrap" data-for="lyAccum">
+      <div class="sub" id="accumWins"></div>
+      <div class="sub" id="accumInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyStations"> Weather stations</label>
+    <div class="subwrap" data-for="lyStations">
+      <div class="sub radios" id="stModes">
+        <label><input type="radio" name="stMode" value="precip" checked> Precipitation</label>
+        <label><input type="radio" name="stMode" value="snow"> New snow</label>
+        <label><input type="radio" name="stMode" value="swe"> New snow water</label>
+        <label><input type="radio" name="stMode" value="temp"> Temperature</label>
+        <label><input type="radio" name="stMode" value="wind"> Wind</label>
+        <label><input type="radio" name="stMode" value="swe_pct"> SNOTEL, % of median</label>
+        <label><input type="radio" name="stMode" value="wy_pct"> Water-year precip, % of median</label>
+      </div>
+      <div class="sub" id="stWins"></div>
+      <div class="sub" id="stInfo" style="display:block"></div>
+    </div>
+
     <label class="opt"><input type="checkbox" id="lySat"> Satellite loop (GOES)</label>
     <div class="subwrap" data-for="lySat">
       <div class="sub"><span class="muted">opacity</span><input type="range" id="satOpacity" min="0.2" max="1" step="0.05" value="0.85"></div>
       <div class="sub" id="satInfo" style="display:block"></div>
-    </div>
-
-    <label class="opt"><input type="checkbox" id="lyStations"> Weather stations
-      <select id="stModeSel" hidden><option value="precip">Precipitation</option><option value="snow">New snow</option><option value="swe">New snow water</option><option value="temp">Temperature</option><option value="wind">Wind</option><option value="swe_pct">Snowpack, % of median</option><option value="wy_pct">Water-year precip, % of median</option></select></label>
-    <div class="subwrap" data-for="lyStations">
-      <div class="sub" id="stWins"></div>
-      <div class="sub" id="stInfo" style="display:block"></div>
     </div>
 
     <label class="opt"><input type="checkbox" id="lyCams"> Webcams</label>
@@ -150,14 +175,7 @@
       <div class="sub" id="camInfo" style="display:block"></div>
     </div>
 
-    <label class="opt"><input type="checkbox" id="lyFz"> Freezing level (HRRR)</label>
-    <div class="subwrap" data-for="lyFz">
-      <div class="sub" id="fzHours"></div>
-      <div class="sub"><label class="opt" style="padding:0"><input type="checkbox" id="fzBands"> shaded bands</label></div>
-      <div class="sub" id="fzInfo" style="display:block"></div>
-    </div>
-
-    <label class="opt"><input type="checkbox" id="lyFcst"> NWS forecast
+    <label class="opt"><input type="checkbox" id="lyFcst"> NOAA forecast
       <select id="fcSel" hidden>
         <option value="qpf_24">Rain 24 h</option><option value="qpf_48">Rain 48 h</option>
         <option value="snow_24">Snow 24 h</option><option value="snow_48">Snow 48 h</option>
@@ -170,22 +188,12 @@
     <div class="subwrap" data-for="lyAvy">
       <div class="sub" id="avyInfo" style="display:block"></div>
     </div>
-    </div>
-  </div>
 
-  <div class="sec grp" data-grp="totals">
-    <h2 class="grph"><span class="chev"></span>Totals <span class="n"></span></h2>
-    <div class="body">
-    <label class="opt"><input type="checkbox" id="lyAccum"> Rain / snow totals
-      <select id="accumSrc" hidden>
-        <option value="stations">Rain: station interpolation</option>
-        <option value="mrms">Rain: NOAA radar+gauges</option>
-        <option value="snow">New snow: station interpolation</option>
-        <option value="radar">Rain: radar estimate</option>
-      </select></label>
-    <div class="subwrap" data-for="lyAccum">
-      <div class="sub" id="accumWins"></div>
-      <div class="sub" id="accumInfo" style="display:block"></div>
+    <label class="opt"><input type="checkbox" id="lyFz"> Freezing level (HRRR)</label>
+    <div class="subwrap" data-for="lyFz">
+      <div class="sub" id="fzHours"></div>
+      <div class="sub"><label class="opt" style="padding:0"><input type="checkbox" id="fzBands"> shaded bands</label></div>
+      <div class="sub" id="fzInfo" style="display:block"></div>
     </div>
     </div>
   </div>
@@ -555,7 +563,8 @@
     if ($('lyAccum').checked && ['stations', 'snow'].includes($('accumSrc').value)) { renderAccumUI(); showAccum(); }
   }
   function loadStations() { loadScript('data/stations.js', () => { stData = window.STATIONS || stData; renderStations(); }, () => { $('stInfo').innerHTML = '<div class="muted">station data not available yet</div>'; }); }
-  $('stModeSel').onchange = e => { stMode = e.target.value; renderStations(); };
+  function setStMode(v) { const r = document.querySelector('input[name=stMode][value="' + v + '"]'); if (!r) return; r.checked = true; stMode = v; renderStations(); }
+  document.querySelectorAll('input[name=stMode]').forEach(r => r.addEventListener('change', () => setStMode(r.value)));
   $('lyStations').onchange = e => { if (e.target.checked) { stLayer.addTo(map); if (!stData) loadStations(); else renderStations(); } else map.removeLayer(stLayer); };
   setInterval(() => { if (map.hasLayer(stLayer)) loadStations(); }, 15 * 60 * 1000);
 
@@ -966,7 +975,7 @@
     const rowsFor = async list => { const out = []; for (const [n, l] of list) { const g = await getGrid(n); const v = sample(g, ll); if (v == null) continue; const u = g.unit === 'in' ? ' in' : g.unit === 'mph' ? ' mph' : ' °F'; out.push('<tr><td>' + l + '</td><td>' + (g.unit === 'in' ? fmt(v) : Math.round(v)) + u + '</td></tr>'); } return out; };
     const r1 = await rowsFor(grids); if (r1.length) sec.push('<div style="margin-top:6px;color:#666">Observed</div><table>' + r1.join('') + '</table>');
     const r0 = await rowsFor([['snodas_depth', 'modeled snow depth'], ['snodas_swe', 'modeled snow water']]); if (r0.length && r0.some(r => !/>0 in</.test(r))) sec.push('<div style="margin-top:6px;color:#666">Snowpack (SNODAS)</div><table>' + r0.join('') + '</table>');
-    const r2 = await rowsFor(fc); if (r2.length) sec.push('<div style="margin-top:6px;color:#666">NWS forecast</div><table>' + r2.join('') + '</table>');
+    const r2 = await rowsFor(fc); if (r2.length) sec.push('<div style="margin-top:6px;color:#666">NOAA forecast</div><table>' + r2.join('') + '</table>');
     render('<div style="color:#666">loading stations…</div>');
     // nearest stations, gauge, avalanche zone
     await new Promise(res => stData ? res() : loadScript('data/stations.js', () => { stData = window.STATIONS || stData; res(); }, res));
@@ -1034,7 +1043,7 @@
   // ---------- "make this my default": remember the current view and every control on this device ----------
   const DEF_KEY = 'radar.default';
   const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lyBasins', 'lyRivers', 'lyStf', 'lyAlerts'];
-  const DEF_SELECTS = ['stModeSel', 'accumSrc', 'snodasSel', 'basinSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
+  const DEF_SELECTS = ['accumSrc', 'snodasSel', 'basinSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
   function defaultInfo() {
@@ -1049,7 +1058,7 @@
     d.checks = {}; DEF_CHECKS.forEach(id => { if ($(id)) d.checks[id] = $(id).checked; });
     d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
     d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
-    d.stWin = stWin;
+    d.stWin = stWin; d.stMode = stMode;
     d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
     defaultInfo();
@@ -1059,8 +1068,10 @@
     const d = readDefault(); if (!d) return;
     if (d.base && bases[d.base]) { const r = document.querySelector('input[name=base][value="' + d.base + '"]'); if (r && !r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); } }
     for (const id in d.ranges || {}) { const el = $(id); if (el) { el.value = d.ranges[id]; el.dispatchEvent(new Event('input')); } }
-    for (const id in d.selects || {}) { const el = $(id); if (el && el.value !== d.selects[id]) { el.value = d.selects[id]; if (id === 'stModeSel' || id === 'rvModeSel') el.dispatchEvent(new Event('change')); } }
+    for (const id in d.selects || {}) { const el = $(id); if (el && el.value !== d.selects[id]) { el.value = d.selects[id]; if (id === 'rvModeSel') el.dispatchEvent(new Event('change')); } }
     if (d.stWin) stWin = String(d.stWin);
+    const sm = d.stMode || (d.selects || {}).stModeSel;     // older saves kept the mode in a dropdown
+    if (sm && sm !== stMode) setStMode(sm);
     DEF_CHECKS.forEach(id => { const el = $(id); const want = !!(d.checks || {})[id]; if (el && el.checked !== want) { el.checked = want; el.dispatchEvent(new Event('change')); } });
     document.querySelectorAll('.grp').forEach(g => { if (g.querySelector('.body > .opt > input:checked')) g.classList.remove('closed'); });
     if (window.updateGroupCounts) window.updateGroupCounts();
