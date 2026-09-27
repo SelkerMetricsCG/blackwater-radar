@@ -76,6 +76,9 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - The research behind the curated list (sources, URL patterns, terms, Chris's 2026-09-27 decisions) is in
   `cams_research/` (`sources_notes.md`; `make_extra.py` rebuilds the list from `combined.json`). Left out on
   purpose: YouTube thumbnails, ipcamlive/webcam.io cams (owner consent needed), SeeJH, Ambient Weather.
+- Exception (Chris, 2026-09-27): Mission Ridge's three cams are YouTube live only, so they are hand-added to
+  `webcams_extra.json` as `i.ytimg.com/vi/<id>/maxresdefault_live.jpg` (no timestamp; a `make_extra.py` rebuild drops
+  them). If one goes blank, its stream restarted with a new id: read the ids from missionridge.com/mountain-report/.
 - NPS cams: `python cams_research/refresh_nps.py` refreshes them with Chris's key from `nps.env` (gitignored).
 
 ## Rules
