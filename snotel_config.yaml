@@ -1,20 +1,27 @@
 # New-snow (storm total) parameters for the SNOTEL layer, Weather stations and the "New snow"
 # interpolation. Read by newsnow.load_config(); the file is the configuration that actually runs.
 # Source categories (verification protocol): measured / fitted from data / literature / library default /
-# judgment call. "provisional" values are placeholders until Chris approves the snotel_check/ results.
-approved:            # date Chris approved the values below; empty = not yet approved
+# judgment call. Method card: snotel_check/METHOD.md.
+approved:            # date Chris approved the values below; empty = not yet approved (he asked for no stop on 2026-09-27)
 parameters:
   noise_floor_in:
-    value: 1.0
+    value: 2.5
     units: in
-    source: judgment call (provisional)
-    derived: placeholder; to be fitted from dry-spell storm totals at the five test sites (snotel_check/)
+    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; awaiting his review)
+    derived: >-
+      just above the pooled dry-spell p95 of the smoothed storm total, 2.0 in (p90 2.0, p99 3.0; 158 Dec-Mar
+      2025-26 windows with no SWE and no precip rise at Stevens, Paradise, Alpine Meadows, Blewett, Mt Hood;
+      snotel_check/out/summary.txt). 2 of 158 dry windows still pass (16 at 2.0); 76 windows with a 2 in rise read 0.
+      Alternative not chosen: 2.0 in.
     used_in: newsnow.new_snow, snotel.py BC windows
   despike_width:
-    value: 1
+    value: 3
     units: hourly samples, odd (1 = off)
-    source: judgment call (provisional)
-    derived: off until snotel_check/ shows whether one-hour spikes change storm totals
+    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; awaiting his review)
+    derived: >-
+      one-hour dips (often at 00:00) fake storms (Mt Hood 2026-04-20: raw 49 in, smoothed 0); raw and smoothed
+      totals differ on storm days at all five test sites; smoothed totals of real storms unchanged on 63 of 87 windows,
+      1 in lower on 19, 2-4 in lower on 5 (ANOMALY_LOG.md). Alternative not chosen: 1 (off).
     used_in: newsnow.new_snow
   start_slack_h:
     value: 1
