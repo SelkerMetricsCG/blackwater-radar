@@ -1236,6 +1236,21 @@
   radar.addTo(map);
   applyData();          // opens on the latest scan; press Play to run the loop from the oldest
   // ---------- "make this my default": remember the current view and every control on this device ----------
+  // BEGIN migrateDefault (tests/test_map_defaults.py runs this block under node)
+  function migrateDefault(d) {
+    // saves from before 2026-09-27 had "Snowpack by basin" (lyBasins, basinSel) and SNOTEL modes in Weather stations
+    if (!d) return d;
+    d.checks = d.checks || {}; d.selects = d.selects || {};
+    const sm = d.stMode || d.selects.stModeSel;
+    if (!('lySnotel' in d.checks)) {
+      if (d.checks.lyBasins) { d.checks.lySnotel = true; d.snMode = 'basins'; d.snEl = d.selects.basinSel === 'prec' ? 'prec' : 'swe'; }
+      else if (d.checks.lyStations && (sm === 'swe_pct' || sm === 'wy_pct')) { d.checks.lySnotel = true; d.checks.lyStations = false; d.snMode = 'stations'; d.snEl = sm === 'wy_pct' ? 'prec' : 'swe'; }
+    }
+    if (sm) d.stMode = { swe_pct: 'precip', wy_pct: 'precip', swe: 'snow' }[sm] || sm;
+    delete d.checks.lyBasins; delete d.selects.basinSel; delete d.selects.stModeSel;
+    return d;
+  }
+  // END migrateDefault
   const DEF_KEY = 'radar.default';
   const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAlerts'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
@@ -1254,20 +1269,25 @@
     d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
     d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
     d.stWin = stWin; d.stMode = stMode;
+    d.snMode = snMode; d.snEl = snEl; d.snWin = snWin; d.snDepth = snDepth;
     d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
     defaultInfo();
   };
   $('clearDefault').onclick = () => { try { localStorage.removeItem(DEF_KEY); } catch (e) {} defaultInfo(); };
   function applyDefault() {
-    const d = readDefault(); if (!d) return;
+    const d = migrateDefault(readDefault()); if (!d) return;
     if (d.base && bases[d.base]) { const r = document.querySelector('input[name=base][value="' + d.base + '"]'); if (r && !r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); } }
     for (const id in d.ranges || {}) { const el = $(id); if (el) { el.value = d.ranges[id]; el.dispatchEvent(new Event('input')); } }
     for (const id in d.selects || {}) { const el = $(id); if (el && el.value !== d.selects[id]) { el.value = d.selects[id]; if (id === 'rvModeSel') el.dispatchEvent(new Event('change')); } }
     if (d.stWin) stWin = String(d.stWin);
     const sm = d.stMode || (d.selects || {}).stModeSel;     // older saves kept the mode in a dropdown
     if (sm && sm !== stMode) setStMode(sm);
-    DEF_CHECKS.forEach(id => { const el = $(id); const want = !!(d.checks || {})[id]; if (el && el.checked !== want) { el.checked = want; el.dispatchEvent(new Event('change')); } });
+    if (d.snMode) snMode = d.snMode;
+    if (d.snEl) setSnEl(d.snEl);
+    if (d.snWin) snWin = String(d.snWin);
+    if (d.snDepth) snDepth = String(d.snDepth);
+    DEF_CHECKS.forEach(id => { const el = $(id); if (el && el.closest('.opt') && el.closest('.opt').hidden) return; const want = !!(d.checks || {})[id]; if (el && el.checked !== want) { el.checked = want; el.dispatchEvent(new Event('change')); } });
     document.querySelectorAll('.grp').forEach(g => { if (g.querySelector('.body > .opt > input:checked')) g.classList.remove('closed'); });
     if (window.updateGroupCounts) window.updateGroupCounts();
     const v = (d.views || {})[window.REGION];
