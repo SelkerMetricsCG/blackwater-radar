@@ -2,12 +2,12 @@
 # interpolation. Read by newsnow.load_config(); the file is the configuration that actually runs.
 # Source categories (verification protocol): measured / fitted from data / literature / library default /
 # judgment call. Method card: snotel_check/METHOD.md.
-approved:            # date Chris approved the values below; empty = not yet approved (he asked for no stop on 2026-09-27)
+approved: 2026-09-27  # Chris, in chat, after reviewing snotel_check/ figures and summary (15:34 PDT)
 parameters:
   noise_floor_in:
     value: 2.5
     units: in
-    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; awaiting his review)
+    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; approved by Chris 2026-09-27)
     derived: >-
       just above the pooled dry-spell p95 of the smoothed storm total, 2.0 in (p90 2.0, p99 3.0; 158 Dec-Mar
       2025-26 windows with no SWE and no precip rise at Stevens, Paradise, Alpine Meadows, Blewett, Mt Hood;
@@ -17,7 +17,7 @@ parameters:
   despike_width:
     value: 3
     units: hourly samples, odd (1 = off)
-    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; awaiting his review)
+    source: fitted from data (chosen by Claude under Chris's 2026-09-27 "no stop" instruction; approved by Chris 2026-09-27)
     derived: >-
       one-hour dips (often at 00:00) fake storms (Mt Hood 2026-04-20: raw 49 in, smoothed 0); raw and smoothed
       totals differ on storm days at all five test sites; smoothed totals of real storms unchanged on 63 of 87 windows,
