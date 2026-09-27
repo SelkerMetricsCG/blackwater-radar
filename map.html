@@ -73,6 +73,7 @@
   #toggle { position:absolute; top:12px; left:12px; z-index:1001; display:none; }
   .stlabel { background:rgba(255,255,255,.92); border:1px solid #999; color:#111; font-weight:600; font-size:11px; padding:1px 4px; border-radius:3px; box-shadow:none; }
   .stlabel::before { display:none; }
+  .stlab { position:absolute; left:0; bottom:16px; transform:translateX(-50%); white-space:nowrap; opacity:.95; pointer-events:none; user-select:none; }
   .fzlabel { background:#1b2a6b; color:#fff; border-color:#fff; font-size:12px; padding:1px 5px; transform:translate(-50%,-50%); white-space:nowrap; }
 
   #bar { position:absolute; left:0; right:0; bottom:0; height:88px; background:var(--panel); border-top:1px solid var(--line); padding:10px 14px; z-index:1000; }
@@ -535,12 +536,27 @@
     html += '<div style="color:#666;margin-top:4px">' + (s.last ? 'last report ' + s.last : '') + (link ? (s.last ? ' · ' : '') + '<a href="' + link + '" target="_blank" rel="noopener">station page</a>' : '') + '</div></div>';
     return html;
   }
+  // Values show as labels from zoom 9, only on stations in view, drawn as plain markers: permanent
+  // tooltips on all 1,047 PNW precip stations froze every zoom for 1.4-4 s (measured 2026-09-27),
+  // since Leaflet measures each tooltip as it opens. Pans and zooms relabel.
+  const stLabelLayer = L.layerGroup();
+  let stLabels = [];      // [latlng, label, label marker while shown] for each station with a value
+  function labelStations() {
+    const show = map.hasLayer(stLayer) && map.getZoom() >= 9, b = map.getBounds().pad(.1);
+    for (const l of stLabels) {
+      const on = show && b.contains(l[0]);
+      if (on && !l[2]) stLabelLayer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { stLabelLayer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  map.on('moveend', labelStations);      // fires after zooms too
   function renderStations() {
-    stLayer.clearLayers();
+    stLayer.clearLayers(); stLabelLayer.clearLayers();
+    stLayer.addLayer(stLabelLayer);
+    stLabels = [];
     if (!stData) return;
     const pctMode = stMode === 'swe_pct' || stMode === 'wy_pct', tempMode = stMode === 'temp', windMode = stMode === 'wind';
     const bins = pctMode ? BASIN_BINS.slice().reverse() : tempMode ? TEMP_BINS : windMode ? WIND_BINS : (stMode === 'snow' ? SNOW_BINS : RAIN_BINS);
-    const showLabels = map.getZoom() >= 9;
     let n = 0;
     for (const s of stData.stations) {
       let v;
@@ -563,13 +579,15 @@
           m = L.circleMarker([s.lat, s.lon], { radius: r, color: '#111', weight: 1, fillColor: fill, fillOpacity: .9 });
         }
         const lbl = pctMode ? v + '%' : tempMode ? v + '°' : windMode ? (!s.wind.spd && !s.wind.gust ? 'calm' : (s.wind.spd != null ? s.wind.spd : '') + (s.wind.gust ? 'g' + s.wind.gust : '')) : fmt(v);
-        m.bindTooltip(String(lbl), { permanent: showLabels, direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+        m.bindTooltip(String(lbl), { direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+        stLabels.push([m.getLatLng(), String(lbl), null]);
       }
       // hover (or tap) shows everything the station reports
       m.bindPopup(() => stationCard(s), { maxWidth: 300 });
       m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
       stLayer.addLayer(m);
     }
+    labelStations();
     const winsEl = $('stWins'); winsEl.innerHTML = '';
     if (!pctMode && !tempMode && !windMode) (stData.windows || []).forEach(w => {
       const b = document.createElement('button'); b.className = 'chip' + (String(w) === stWin ? ' on' : ''); b.textContent = w + 'h';
@@ -708,7 +726,7 @@
   $('rvModeSel').onchange = e => { rvMode = e.target.value; renderRivers(); };
   $('lyRivers').onchange = e => { if (e.target.checked) { rvLayer.addTo(map); if (!rvData) loadRivers(); else renderRivers(); } else map.removeLayer(rvLayer); };
   setInterval(() => { if (map.hasLayer(rvLayer)) loadRivers(); }, 15 * 60 * 1000);
-  map.on('zoomend', () => { if (map.hasLayer(stLayer)) renderStations(); if (map.hasLayer(rvLayer)) renderRivers(); });
+  map.on('zoomend', () => { if (map.hasLayer(rvLayer)) renderRivers(); });
 
   // ---------- webcams ----------
   const camLayer = L.featureGroup(), wedgeLayer = L.layerGroup();
