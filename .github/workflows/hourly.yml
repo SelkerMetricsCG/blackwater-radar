@@ -13,7 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         region: [pnw, sierra, utco, imw, ne]
-        include:
+        include:                    # each region on the time zone most of its land is in; Pacific by default
+          - region: utco
+            tz: America/Denver
+          - region: imw
+            tz: America/Denver
           - region: ne
             tz: America/New_York
     # one hourly job per region at a time; radar runs are independent (they never touch the same files)

@@ -7,8 +7,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## What lives here
 - **The public weather map**: one Leaflet page, `map.html`, for five regions (`pnw` default, `sierra`,
   `utco`, `imw`, `ne`; defined in `region.py`). `ne` (New England & NY, added 2026-09-26) differs:
-  GOES-East satellite (`"goes": "East"`), CONUS NDFD grid, no SNOTEL (so no basin snowpack), Eastern-time
-  labels (TZ set per region in both workflows); every other region runs on Pacific time.
+  GOES-East satellite (`"goes": "East"`), CONUS NDFD grid, no SNOTEL (so no basin snowpack).
+  Each region's frame names and labels use the time zone most of its land is in, set per region in both
+  workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
   freezing level, SNODAS, basin snowpack, rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
 - **Two passengers that use the same Actions and R2 setup:**
@@ -32,6 +33,9 @@ GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09
 Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers. Its secret
 `GH_TOKEN` is a fine-grained token (this repo only, Actions read/write) that Chris made; when it expires the
 dispatches fail (visible in the Worker's logs) and the GitHub schedules, kept on as a backstop, are all that runs.
+The token expires 2027-09-27 (renewal steps in `cron/worker.js`). The last step of `capture.yml` is a watchdog: on a
+GitHub-scheduled run it fails if the Worker has not started a run for an hour, so GitHub emails Chris. Caveat: GitHub
+disables `schedule:` triggers after 60 days without a commit, and then the watchdog stops running too.
 Deploy it with `npx wrangler deploy` from `cron/`.
 
 Data goes to the public R2 bucket `radar` (https://radar-files.blackwaterlabs.org) under `<region>/`.

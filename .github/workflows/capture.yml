@@ -14,6 +14,10 @@ jobs:
   radar:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read            # the radar-cron watchdog lists this workflow's runs
+    # each region runs on the time zone most of its land is in (frame names and labels); Pacific unless set below
     env:
       TZ: America/Los_Angeles
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -36,12 +40,30 @@ jobs:
         run: REGION=sierra python cloud.py radar
       - name: utco
         if: always()
+        env:
+          TZ: America/Denver
         run: REGION=utco python cloud.py radar
       - name: imw
         if: always()
+        env:
+          TZ: America/Denver
         run: REGION=imw python cloud.py radar
       - name: ne
         if: always()
         env:
-          TZ: America/New_York          # frame names and labels in Eastern time for this region
+          TZ: America/New_York
         run: REGION=ne python cloud.py radar
+      # Runs started by GitHub's own schedule are the fallback. If Worker radar-cron (cron/) has not started a run
+      # for an hour, its GitHub token has most likely expired: fail, so GitHub emails Chris about the failed run.
+      - name: radar-cron watchdog
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow capture.yml --event workflow_dispatch --limit 1 --json createdAt -q '.[0].createdAt')
+          age=$(( $(date +%s) - $(date -d "${last:-1970-01-01T00:00:00Z}" +%s) ))
+          if [ "$age" -gt 3600 ]; then
+            echo "::error::Worker radar-cron has not started a radar run for $((age / 3600)) h (last: ${last:-never}), so the map only updates every few hours. Its GitHub token has probably expired: regenerate the radar-cron token at github.com/settings/personal-access-tokens, then in radar/cron run: npx wrangler secret put GH_TOKEN"
+            exit 1
+          fi
+          echo "radar-cron last started a radar run at $last"
