@@ -25,6 +25,7 @@ cams_research/nps_img_cache.json
 
 # rivers dashboard: local analysis outputs (everything lands in R2)
 rivers/out/
+snotel_check/out/
 
 # slope-angle build: downloads, 3 m DEMs, tiles (tens of GB)
 slope/work/
