@@ -35,7 +35,7 @@ FRAMES = region.frames_dir()
 DATA = region.data_dir()
 RETAIN_H = 30                      # rolling archive: keep this many hours of scans
 STATE_PREFIX = region.prefix() + "state/"
-STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
+STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "snotel_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
                "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js"]
 STAMP = re.compile(r"[rs](\d{8}_\d{4})\.")
 

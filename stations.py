@@ -2,13 +2,14 @@
 Precipitation and snow station layer for the map.
 
 Pulls the last ~25 hours from:
-  * NRCS SNOTEL (AWDB API): hourly precipitation, snow depth, snow water equivalent
+  * NRCS SNOTEL, from snotel.py (one pull per run, shared with the SNOTEL layer)
   * NWS HADS gauges for the SEW, OTX, PDT, PQR forecast offices (precip accumulators,
     increments, snow depth, snow water equivalent)
   * CoCoRaHS daily 24 h reports for central and western Washington counties
   * NWS airport observations (hourly precipitation)
 and writes data/stations.js  ->  window.STATIONS = {...}
 with totals for 1, 3, 6, 12 and 24 hour windows per station.
+New snow from depth sensors (SNOTEL, HADS SD) is newsnow.py's storm total.
 
 Run standalone:  python stations.py
 """
@@ -22,6 +23,7 @@ import time
 import urllib.parse
 import urllib.request
 
+import newsnow
 import region
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -115,106 +117,8 @@ def _save_cache(c):
 def snotel(now, log):
     if not region.cfg()["snotel_states"]:          # e.g. New England: no SNOTEL network
         return []
-    cache = _cache()
-    if "snotel" not in cache:
-        url = ("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/stations?"
-               "stationTriplets=%s&activeOnly=true" % ",".join(("*:%s:SNTL" % st) if st != "BC" else "*:BC:*" for st in region.cfg()["snotel_states"]))
-        st = json.loads(fetch(url))
-        cache["snotel"] = [{"id": s["stationTriplet"], "name": s["name"], "lat": s["latitude"], "lon": s["longitude"],
-                            "elev": s.get("elevation")} for s in st if in_window(s["latitude"], s["longitude"])]
-        _save_cache(cache)
-    meta = {s["id"]: s for s in cache["snotel"]}
-    us = [k for k in meta if ":BC:" not in k]
-    bc = [k for k in meta if ":BC:" in k]
-    begin = (now - dt.timedelta(hours=26)).strftime("%Y-%m-%d %H:00")
-    end = (now + dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:00")
-    out = []
-
-    def harvest(rows, daily):
-        for s in rows:
-            m = meta.get(s["stationTriplet"])
-            if not m:
-                continue
-            series = {}
-            for e in s["data"]:
-                code = e["stationElement"]["elementCode"]
-                vals = []
-                for v in e["values"]:
-                    if v.get("value") is None:
-                        continue
-                    fmt = "%Y-%m-%d" if daily else "%Y-%m-%d %H:%M"
-                    vals.append((dt.datetime.strptime(v["date"], fmt), float(v["value"])))
-                if vals:
-                    series[code] = sorted(vals)
-            if not series:
-                continue
-            rec = {"id": m["id"], "name": m["name"], "src": "SNOTEL", "lat": m["lat"], "lon": m["lon"],
-                   "elev": m.get("elev"), "precip": {}, "snow": {}, "swe": {}}
-            if daily:
-                # BC pillows: daily values only -> report 24 h change
-                for code, key in (("PREC", "precip"), ("SNWD", "snow"), ("WTEQ", "swe")):
-                    v = series.get(code)
-                    if v and len(v) >= 2:
-                        rec[key] = {24: round(v[-1][1] - v[-2][1], 2)}
-                        rec["last"] = v[-1][0].strftime("%m-%d")
-                if series.get("SNWD"):
-                    rec["depth"] = series["SNWD"][-1][1]
-            else:
-                if "TOBS" in series:
-                    tv = [(t, v) for t, v in series["TOBS"] if -60 < v < 130 and t > now - dt.timedelta(hours=25)]
-                    if tv:
-                        rec["temp"] = {"now": round(tv[-1][1]), "max": round(max(v for _, v in tv)), "min": round(min(v for _, v in tv)),
-                                       "spark": [round(v) for _, v in tv[-25:]], "t": tv[-1][0].strftime("%I:%M %p").lstrip("0")}
-                if "PREC" in series:
-                    rec["precip"] = window_totals(series["PREC"], now, "accum")
-                    rec["last"] = series["PREC"][-1][0].strftime("%I:%M %p").lstrip("0")
-                if "SNWD" in series:
-                    sd = window_totals(series["SNWD"], now, "accum")
-                    # depth can also drop (settling/melt): keep signed change
-                    sd = {w: (round(series["SNWD"][-1][1] - [v for t, v in series["SNWD"] if t <= now - dt.timedelta(hours=w)][-1], 1)
-                              if [v for t, v in series["SNWD"] if t <= now - dt.timedelta(hours=w)] else None) for w in WINDOWS}
-                    rec["snow"] = sd
-                    rec["depth"] = series["SNWD"][-1][1]
-                if "WTEQ" in series:
-                    rec["swe"] = window_totals(series["WTEQ"], now, "accum")
-                    rec["swe_total"] = series["WTEQ"][-1][1]
-            out.append(rec)
-
-    for i in range(0, len(us), 60):
-        q = urllib.parse.urlencode({"stationTriplets": ",".join(us[i:i + 60]), "elements": "PREC,SNWD,WTEQ,TOBS",
-                                    "duration": "HOURLY", "beginDate": begin, "endDate": end})
-        harvest(json.loads(fetch("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data?" + q)), False)
-    for i in range(0, len(bc), 60):
-        q = urllib.parse.urlencode({"stationTriplets": ",".join(bc[i:i + 60]), "elements": "PREC,SNWD,WTEQ",
-                                    "duration": "DAILY", "beginDate": (now - dt.timedelta(days=2)).strftime("%Y-%m-%d"),
-                                    "endDate": now.strftime("%Y-%m-%d")})
-        harvest(json.loads(fetch("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data?" + q)), True)
-    # snowpack relative to the 1991-2020 median (yesterday's end-of-day value)
-    by_id = {r["id"]: r for r in out}
-    day = (now - dt.timedelta(days=1)).strftime("%Y-%m-%d")
-    for i in range(0, len(us), 60):
-        q = urllib.parse.urlencode({"stationTriplets": ",".join(us[i:i + 60]), "elements": "WTEQ,PREC", "duration": "DAILY",
-                                    "beginDate": day, "endDate": day, "centralTendencyType": "MEDIAN"})
-        try:
-            rows = json.loads(fetch("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data?" + q))
-        except Exception as e:  # noqa: BLE001
-            log("snotel medians chunk failed: %r" % e)
-            continue
-        for s in rows:
-            r = by_id.get(s["stationTriplet"])
-            if not r:
-                continue
-            for e in s["data"]:
-                code = e["stationElement"]["elementCode"]
-                for v in e["values"]:
-                    val, med = v.get("value"), v.get("median")
-                    if val is None or med is None:
-                        continue
-                    key = "swe" if code == "WTEQ" else "wy"
-                    r[key + "_median"] = med
-                    r[key + "_pct"] = round(100.0 * val / med) if med > 0 else None
-                    if key == "wy":
-                        r["wy_total"] = val
+    import snotel as sn                               # one NRCS pull per run, shared with the SNOTEL layer
+    out = sn.stations_records(WINDOWS, log)
     log("snotel: %d stations" % len(out))
     return out
 
@@ -278,8 +182,7 @@ def hads(now, log):
         if "SD" in pes:
             s = sorted(pes["SD"])
             rec["depth"] = s[-1][1]
-            rec["snow"] = {w: (round(s[-1][1] - [v for t, v in s if t <= now - dt.timedelta(hours=w)][-1], 1)
-                               if [v for t, v in s if t <= now - dt.timedelta(hours=w)] else None) for w in WINDOWS}
+            rec["snow"] = newsnow.new_snow([p for p in s if p[1] >= 0], now, WINDOWS, newsnow.load_config())
         if "SW" in pes:
             rec["swe"] = window_totals(sorted(pes["SW"]), now, "accum")
         if any(v is not None for v in rec["precip"].values()) or rec["snow"]:

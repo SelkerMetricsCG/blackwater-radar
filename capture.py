@@ -236,6 +236,11 @@ def capture_all():
     hourly_due = FORCE_HOURLY if FORCE_HOURLY is not None else (dt.datetime.now().minute < 15 or not os.path.exists(st_file))
     if hourly_due:
         try:
+            import snotel
+            ok.append("snotel %d" % snotel.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("snotel FAILED: %r" % e)
+        try:
             import stations
             ok.append("stations %d" % stations.build(log))
         except Exception as e:  # noqa: BLE001

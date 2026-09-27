@@ -47,3 +47,14 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
 - **Decision:** none. The coverage rule (`start_slack_h`, `end_slack_h`) makes such windows show "no reading" rather
   than a wrong number. Consequence to know: at gap-prone sites the new-snow value can be missing during the biggest storms.
 - **Status:** open, informational.
+
+## 2026-09-27: soil moisture reading exactly 0.0 % at 26 sensor depths
+- **Seen:** local SNOTEL build 2026-09-27 ~10:30 PDT (pnw): 26 site/depth pairs report exactly 0.0 % volumetric water,
+  e.g. Beaver Pass 2 and 4 in, Park Creek Ridge 2, 4 and 20 in, Chemult Alternate 20 in, Tipton 20 in, Mores Creek
+  Summit 8 and 20 in, Soldier R.S. 20 in.
+- **Hypotheses:** (1) failed or out-of-range sensor reporting its floor; predicts exactly 0.0 for long stretches,
+  including wet periods, and at depths that stay moist. (2) real, very dry soil after the summer; predicts small
+  non-zero values that respond to rain, shallow depths first. Exactly 0.0 at 20 in favours (1) at those sensors.
+- **Test to run:** each sensor's record through last winter's wet season (a failed sensor stays at 0.0).
+- **Decision:** none yet. The map shows the values as reported (spec judgment call: Chris decides whether to hide them).
+- **Status:** open, for Chris.

@@ -5,7 +5,8 @@ One pull per run:
   * US SNOTEL, hourly, the last 74 h: snow depth, SWE, precipitation, air temperature, and soil moisture
     and soil temperature at 2, 4, 8, 20 and 40 in
   * NRCS SCAN soil-climate sites, hourly, same window (the map shows them only for soil)
-  * BC snow pillows, daily, the last 4 days
+  * BC automated snow pillows (network MSNT), daily, the last 4 days; shown only while current (AWDB's BC
+    daily values ran two days behind on 2026-09-27)
   * daily SWE and water-year precipitation medians (1991-2020) for yesterday
 Writes data/snotel.js -> window.SNOTEL and keeps the pull in memory, so stations.py takes SNOTEL in its
 own 1-24 h format (stations_records) without a second pull.
@@ -70,7 +71,8 @@ def site_meta(log):
         pass
     sites, failed = [], False
     for st in region.cfg()["snotel_states"]:
-        for net in (["*"] if st == "BC" else ["SNTL", "SCAN"]):
+        # BC: only the automated pillows (MSNT) report daily; snow courses (SNOW), USGS and COOP sites are monthly
+        for net in (["MSNT"] if st == "BC" else ["SNTL", "SCAN"]):
             try:
                 rows = fetch(API + "stations?stationTriplets=*:%s:%s&activeOnly=true" % (st, net))
             except Exception as e:  # noqa: BLE001
