@@ -621,6 +621,7 @@
     basinLayer.clearLayers(); basinLayer.addData(basinData);
     const k = $('basinSel').value;
     const n = basinData.features.filter(f => f.properties[k + '_pct'] != null).length;
+    if (basinData.note) { $('basinInfo').innerHTML = '<div class="muted">' + basinData.note + '</div>'; return; }
     $('basinInfo').innerHTML = '<div class="muted">' + (n ? n + ' basins with values' : 'no values yet this season') + ' · as of ' + (basinData.date || '') + '</div>' +
       legendHtml(BASIN_BINS.slice().reverse(), x => x === 0 ? '<50' : x + '%') + '<div class="note" style="margin-top:18px">percent of 1991–2020 median, HUC6 basins, US only</div>';
   }

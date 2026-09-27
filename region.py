@@ -44,6 +44,17 @@ REGIONS = {
         "cocorahs_states": ["MT", "ID", "WY"], "ndfd": "nrockies",
         "asos": ["KBZN", "KHLN", "KBTM", "KMSO", "KGTF", "KBIL", "KWYS", "KJAC", "KCOD", "KIDA", "KSUN", "KLVM", "KDLN", "KRIW", "KPIH"],
     },
+    # east of GOES-West's view; no SNOTEL sites; the NDFD "neast" sector stops short of western NY, so CONUS.
+    # The window ends at 67.5 W, so Maine's coast east of Machias (Calais, Eastport, Lubec) is just outside it.
+    "ne": {
+        "name": "New England & NY", "tiles": (35, 39, 44, 48),
+        "home": [44.1, -72.4, 7], "focus": (43.0, 45.3, -74.6, -70.2),
+        "states": ["ME", "VT", "NH", "RI", "MA", "CT", "NY"], "snotel_states": [],
+        "cocorahs_states": ["ME", "VT", "NH", "RI", "MA", "CT", "NY"], "ndfd": "conus", "goes": "East",
+        "asos": ["KBTV", "KMPV", "KRUT", "KMWN", "KHIE", "KBML", "KLEB", "KCON", "KMHT", "KPSM", "KPWM", "KAUG", "KBGR",
+                 "KCAR", "KBHB", "KBOS", "KORH", "KPVD", "KBDL", "KPSF", "KALB", "KGFL", "KSLK", "KPBG", "KART", "KSYR",
+                 "KROC", "KBUF", "KBGM", "KJFK"],
+    },
 }
 
 KEY = os.environ.get("REGION", "pnw").lower()

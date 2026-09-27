@@ -42,6 +42,17 @@ def fetch(url, timeout=120, tries=2):
     raise last
 
 
+STATE_CODES = set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND "
+                  "OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC BC".split())
+
+
+def site_name(raw):
+    """USGS names are upper case: title-case them, but keep a trailing state code upper ('..., WA', '... NY')."""
+    name = raw.title()
+    head, _, last = name.rpartition(" ")
+    return head + " " + last.upper() if head and last.upper() in STATE_CODES else name
+
+
 def parse_iv(payload, sites):
     """Merge a USGS IV JSON payload into sites[siteno] = {name, lat, lon, flow:[(t,v)], stage:[(t,v)]}"""
     d = json.loads(payload)
@@ -53,7 +64,7 @@ def parse_iv(payload, sites):
         if not key:
             continue
         loc = info["geoLocation"]["geogLocation"]
-        s = sites.setdefault(sid, {"id": sid, "name": info["siteName"].title().replace(" Wa", " WA").replace(" Or", " OR").replace(" Id", " ID"),
+        s = sites.setdefault(sid, {"id": sid, "name": site_name(info["siteName"]),
                                    "lat": loc["latitude"], "lon": loc["longitude"], "flow": [], "stage": []})
         for v in ts["values"][0]["value"]:
             if v["value"] in ("-999999", "", None):

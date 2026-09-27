@@ -78,6 +78,15 @@ def huc6_polygons(log):
 
 
 def build(log=print):
+    if not [s for s in region.cfg()["snotel_states"] if s != "BC"]:     # e.g. New England: no SNOTEL network
+        data = {"type": "FeatureCollection", "features": [], "note": "no SNOTEL sites in this region",
+                "updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time())}
+        os.makedirs(DATA, exist_ok=True)
+        with open(OUT + ".tmp", "w", encoding="utf-8") as f:
+            f.write("window.BASINS = %s;\n" % json.dumps(data, separators=(",", ":")))
+        os.replace(OUT + ".tmp", OUT)
+        log("basins: no SNOTEL states in this region")
+        return 0
     g = huc6_polygons(log)
     # stations with HUC codes (from the station cache written by stations.py, or fresh)
     url = ("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/stations?"

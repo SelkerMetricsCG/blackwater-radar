@@ -5,10 +5,12 @@ github.com/SelkerMetricsCG/blackwater-radar); `README.txt` is partly stale (it s
 Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). Trust this file over it.
 
 ## What lives here
-- **The public weather map**: one Leaflet page, `map.html`, for four regions (`pnw` default, `sierra`,
-  `utco`, `imw`; defined in `region.py`). Radar and satellite loops, rain/snow totals, weather stations,
-  webcams, NOAA (NDFD) forecast, NWAC, freezing level, SNODAS, basin snowpack, rivers, USBR snow-to-flow,
-  NWS alerts, click-anywhere point values.
+- **The public weather map**: one Leaflet page, `map.html`, for five regions (`pnw` default, `sierra`,
+  `utco`, `imw`, `ne`; defined in `region.py`). `ne` (New England & NY, added 2026-09-26) differs:
+  GOES-East satellite (`"goes": "East"`), CONUS NDFD grid, no SNOTEL (so no basin snowpack), Eastern-time
+  labels (TZ set per region in both workflows); every other region runs on Pacific time.
+  Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
+  freezing level, SNODAS, basin snowpack, rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
 - **Two passengers that use the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -20,7 +22,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
 |---|---|---|
-| `capture.yml` | every 15 min | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
+| `capture.yml` | every 15 min (in practice GitHub starts it every 2–6 h: 40 runs 2026-09-20 to 09-26) | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
 | `hourly.yml` | minute 4 each hour, one job per region | `python cloud.py hourly`: stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `solsat.yml` | 16:40 UTC daily | `python solsat.py` → bucket `roaring-data` |
@@ -63,6 +65,9 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 
 ## Gotchas
 - `core.autocrlf=true`, no `.gitattributes`: files are LF in the index; git's CRLF warnings are harmless.
+- `capture.capture_all()` run locally **uploads to the live bucket** whenever `r2.env` exists (`r2sync.sync`
+  at the end), with frame names in this PC's Pacific time. To test a region without publishing, call the
+  job modules' `build()` directly, or run with `r2.env` renamed.
 - `capture.py` run locally stops at 10:00 or when a STOP file appears (`start_capture.cmd` is legacy;
   capture runs on Actions now).
 - Slope from a DEM: compute it in true ground metres (UTM). In web-mercator metres it under-reads by

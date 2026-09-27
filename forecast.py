@@ -1,5 +1,5 @@
 """
-NWS forecast overlays (NDFD, Pacific Northwest grid, 2.5 km):
+NWS forecast overlays (NDFD, the region's sector grid, or CONUS where no sector fits):
   rain and snow totals for the next 24 and 48 hours, peak wind gust in the next
   24 hours, today's high and tonight's low.
 

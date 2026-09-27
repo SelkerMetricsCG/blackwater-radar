@@ -113,6 +113,8 @@ def _save_cache(c):
 
 # ---------------------------------------------------------------- SNOTEL
 def snotel(now, log):
+    if not region.cfg()["snotel_states"]:          # e.g. New England: no SNOTEL network
+        return []
     cache = _cache()
     if "snotel" not in cache:
         url = ("https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/stations?"

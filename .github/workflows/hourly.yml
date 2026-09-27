@@ -12,13 +12,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        region: [pnw, sierra, utco, imw]
+        region: [pnw, sierra, utco, imw, ne]
+        include:
+          - region: ne
+            tz: America/New_York
     # one hourly job per region at a time; radar runs are independent (they never touch the same files)
     concurrency:
       group: hourly-${{ matrix.region }}
       cancel-in-progress: false
     env:
-      TZ: America/Los_Angeles
+      TZ: ${{ matrix.tz || 'America/Los_Angeles' }}
       REGION: ${{ matrix.region }}
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

@@ -40,3 +40,8 @@ jobs:
       - name: imw
         if: always()
         run: REGION=imw python cloud.py radar
+      - name: ne
+        if: always()
+        env:
+          TZ: America/New_York          # frame names and labels in Eastern time for this region
+        run: REGION=ne python cloud.py radar

@@ -1,5 +1,6 @@
 """
-GOES-West GeoColor satellite frames for the map window, from NASA GIBS
+GOES GeoColor satellite frames for the map window, from NASA GIBS (GOES-West unless the
+region sets "goes": "East")
 (Web Mercator tiles, 10-minute imagery, roughly an hour behind real time).
 
 Saves frames/sat/s<YYYYMMDD_HHMM>.jpg (local time in the name, 1280x1280) for
@@ -20,7 +21,7 @@ import region
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(region.frames_dir(), "sat")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-LAYER = "GOES-West_ABI_GeoColor"
+LAYER = "GOES-%s_ABI_GeoColor" % region.cfg().get("goes", "West")
 Z, X0, X1, Y0, Y1 = region.window()
 T = 256
 STEP_MIN = 20
