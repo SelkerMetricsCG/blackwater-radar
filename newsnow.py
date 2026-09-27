@@ -49,11 +49,13 @@ def storm_total(values, floor, despike_width=1):
 
 def window_values(series, t_end, hours, start_slack_h=1, end_slack_h=3):
     """series: sorted [(datetime, value)]. The reading at or just before the window start plus every
-    reading inside it; None when the record doesn't reach the start (within start_slack_h) or its
-    latest reading is more than end_slack_h old."""
+    reading inside it; None when no reading falls inside the window, the record doesn't reach the start
+    (within start_slack_h), or its latest reading is more than end_slack_h old."""
     t0 = t_end - dt.timedelta(hours=hours)
     lead = [p for p in series if p[0] <= t0]
     body = [p for p in series if t0 < p[0] <= t_end]
+    if not body:
+        return None
     pts = ([lead[-1]] if lead else []) + body
     if not pts or abs((pts[0][0] - t0).total_seconds()) > start_slack_h * 3600:
         return None

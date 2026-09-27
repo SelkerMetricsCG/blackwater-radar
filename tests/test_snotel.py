@@ -89,6 +89,74 @@ def test_stations_records_keep_the_old_format():
     assert rec["swe_pct"] == 90 and rec["wy_pct"] == 124 and rec["depth"] == 50
 
 
+def test_one_hour_precip_without_a_new_reading_is_none():
+    # readings end 15:00 UTC; at 16:10 the 1 h window (15:10-16:10) has no reading, so no total (not 0.0)
+    ser = stevens()
+    assert snotel.accum_change(ser.get("PREC"), NOW + dt.timedelta(minutes=40), 1, CFG) is None
+
+
+def test_stale_bc_pillows_stay_out_of_stations_records():
+    bc = dict(SITE, id="2A06P:BC:MSNT", net="BC")
+    rows = awdb("2A06P:BC:MSNT", {"SNWD": [80, 86, 92], "WTEQ": [20.0, 20.5, 21.0]}, dt.datetime(2026, 1, 6), daily=True)
+    ser = snotel.parse(rows, {"2A06P:BC:MSNT": -8.0}, True)["2A06P:BC:MSNT"]      # last value Jan 8: 55 h old
+    snotel._LAST.update(t=time.time(), sites=[bc], series={bc["id"]: ser}, med={}, now=NOW)
+    assert snotel.stations_records([1, 3, 6, 12, 24], log=lambda *a: None, cfg=CFG) == []
+
+
+def test_bc_24h_change_needs_consecutive_days():
+    bc = dict(SITE, id="2A06P:BC:MSNT", net="BC")
+    rows = awdb("2A06P:BC:MSNT", {"SNWD": [80, None, 92], "WTEQ": [20.0, None, 21.0]}, dt.datetime(2026, 1, 8), daily=True)
+    ser = snotel.parse(rows, {"2A06P:BC:MSNT": -8.0}, True)["2A06P:BC:MSNT"]      # Jan 8 and Jan 10 only
+    snotel._LAST.update(t=time.time(), sites=[bc], series={bc["id"]: ser}, med={}, now=NOW)
+    (rec,) = snotel.stations_records([1, 3, 6, 12, 24], log=lambda *a: None, cfg=CFG)
+    assert rec["snow"] == {} and rec["swe"] == {} and rec["depth"] == 92
+
+
+def test_swe_percent_survives_a_stale_hourly_reading():
+    # the hourly pillow reading is 5.5 h old, but yesterday's daily value and its median are in the file
+    rec = snotel.site_record(SITE, stevens(), MED, NOW + dt.timedelta(hours=5), CFG)
+    assert "swe" not in rec
+    assert rec["swe_day"] == 13.5 and rec["swe_pct"] == 90
+
+
+def test_an_awdb_outage_keeps_the_last_good_file(tmp_path, monkeypatch):
+    out = tmp_path / "snotel.js"
+    out.write_text("window.SNOTEL = {\"sites\": [1]};", encoding="utf-8")
+    monkeypatch.setattr(snotel, "OUT", str(out))
+    monkeypatch.setattr(snotel.region, "cfg", lambda: {"snotel_states": ["WA"]})
+    monkeypatch.setattr(snotel.newsnow, "load_config", lambda: CFG)
+    monkeypatch.setattr(snotel, "site_meta", lambda log: [SITE])
+    monkeypatch.setattr(snotel, "pull", lambda *a, **k: {})
+    monkeypatch.setattr(snotel, "medians", lambda *a, **k: {})
+    try:
+        snotel.build(log=lambda *a: None)
+        raised = False
+    except RuntimeError:
+        raised = True
+    assert raised and out.read_text(encoding="utf-8") == "window.SNOTEL = {\"sites\": [1]};"
+
+
+def test_missing_medians_are_flagged_in_the_file(tmp_path, monkeypatch):
+    out = tmp_path / "snotel.js"
+    monkeypatch.setattr(snotel, "OUT", str(out))
+    monkeypatch.setattr(snotel.region, "cfg", lambda: {"snotel_states": ["WA"]})
+    monkeypatch.setattr(snotel.newsnow, "load_config", lambda: CFG)
+    monkeypatch.setattr(snotel, "site_meta", lambda log: [SITE])
+    monkeypatch.setattr(snotel, "pull", lambda *a, **k: {SITE["id"]: stevens()})
+    monkeypatch.setattr(snotel, "medians", lambda *a, **k: {})
+    snotel.build(log=lambda *a: None)
+    text = out.read_text(encoding="utf-8")
+    assert json.loads(text[len("window.SNOTEL = "):].rstrip().rstrip(";"))["note"]
+
+
+def test_pull_stops_at_the_deadline(monkeypatch):
+    calls = []
+    monkeypatch.setattr(snotel, "fetch", lambda *a, **k: calls.append(a) or [])
+    snotel.pull([SITE], NOW, lambda *a: None, deadline=time.time() - 1)
+    snotel.medians([SITE], "2026-01-09", lambda *a: None, deadline=time.time() - 1)
+    assert calls == []
+
+
 def test_region_without_snotel_writes_a_note(tmp_path, monkeypatch):
     out = tmp_path / "snotel.js"
     monkeypatch.setattr(snotel, "OUT", str(out))

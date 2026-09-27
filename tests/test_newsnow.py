@@ -73,6 +73,12 @@ def test_window_needs_a_recent_reading():
     assert newsnow.window_values(s, T0 + dt.timedelta(hours=13), 6) is None         # 4 h old
 
 
+def test_a_window_with_no_reading_after_its_start_is_empty():
+    # last reading at T0 + 9 h, run at T0 + 10.1 h: the 1 h window starts after it and holds nothing new
+    s = hourly([40] * 10)
+    assert newsnow.window_values(s, T0 + dt.timedelta(hours=10, minutes=6), 1) is None
+
+
 def test_a_gap_inside_the_window_does_not_break_it():
     s = hourly([40] * 6) + hourly([48] * 6, start=T0 + dt.timedelta(hours=12))     # 6 h gap, then 8 in more
     assert newsnow.new_snow(s, T0 + dt.timedelta(hours=17), [12], CFG) == {12: 8.0}

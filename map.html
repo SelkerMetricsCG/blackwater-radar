@@ -671,11 +671,24 @@
     if (snEl === 'new') return (s.new || {})[snWin];
     const d = (s.soil || {})[snDepth]; return d ? (snEl === 'sms' ? d.m : d.t) : null;
   }
-  function snMissing(s) {       // NRCS iMap symbols: 'obs' observation missing, 'med' median missing
-    if (snEl === 'swe') return s.swe == null ? 'obs' : s.swe_pct == null ? 'med' : null;
-    if (snEl === 'prec') return s.wy == null ? 'obs' : s.wy_pct == null ? 'med' : null;
-    return snValue(s) == null ? 'obs' : null;
+  // BEGIN snMissingKind (tests/test_map_snotel.py runs this block under node)
+  function snMissingKind(s, el, win, depth) {
+    // NRCS iMap symbols: 'obs' = observation missing, 'med' = median missing, null = a value to colour
+    if (el === 'swe' || el === 'prec') {
+      const pct = el === 'swe' ? s.swe_pct : s.wy_pct, med = el === 'swe' ? s.swe_med : s.wy_med;
+      const seen = el === 'swe' ? (s.swe != null || s.swe_day != null) : s.wy != null;
+      if (pct != null) return null;
+      if (med > 0 || !seen) return 'obs';     // a median but no daily value to compare with, or nothing at all
+      return 'med';                           // a reading, but its median is 0 or missing
+    }
+    let v;
+    if (el === 'depth') v = s.depth;
+    else if (el === 'new') v = (s.new || {})[win || '24'];
+    else { const d = (s.soil || {})[depth || '2']; v = d ? (el === 'sms' ? d.m : d.t) : null; }
+    return v == null ? 'obs' : null;
   }
+  // END snMissingKind
+  function snMissing(s) { return snMissingKind(s, snEl, snWin, snDepth); }
   function snColor(v) {
     if (snEl === 'swe' || snEl === 'prec') return basinColor(v);
     if (snEl === 'depth') return v < 1 ? '#8891a0' : binColor(v, DEPTH_BINS);
@@ -692,7 +705,14 @@
   function snCard(s) {
     const row = (k, v) => '<div>' + k + ': ' + v + '</div>';
     let h = '<div style="font:13px system-ui;min-width:230px"><b>' + s.name + '</b> <span style="color:#666">' + ({ SNTL: 'SNOTEL', SCAN: 'SCAN soil site', BC: 'BC snow pillow' }[s.net] || s.net) + (s.elev ? ' · ' + Math.round(s.elev).toLocaleString() + ' ft' : '') + '</span>';
-    if (s.swe != null) h += row('Snow water equivalent', '<b>' + fmt(s.swe) + ' in</b>' + (s.swe_pct != null ? ', <b>' + s.swe_pct + '%</b> of median (' + fmt(s.swe_med) + ' in)' : s.swe_med === 0 ? ', no snow normally on this date' : ''));
+    if (s.swe != null || s.swe_day != null) {
+      const parts = [];
+      if (s.swe != null) parts.push('<b>' + fmt(s.swe) + ' in</b> now');
+      if (s.swe_pct != null) parts.push('yesterday ' + fmt(s.swe_day) + ' in, <b>' + s.swe_pct + '%</b> of median (' + fmt(s.swe_med) + ' in)');
+      else if (s.swe_med === 0) parts.push('no snow normally on this date');
+      else if (s.swe == null) parts.push('yesterday ' + fmt(s.swe_day) + ' in');
+      h += row('Snow water equivalent', parts.join('; '));
+    }
     if (s.depth != null) h += row('Snow depth', '<b>' + Math.round(s.depth) + ' in</b>');
     const nw = SN_WINS.filter(w => (s.new || {})[w] != null);
     if (nw.length) h += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:6px 0 2px"><tr><td style="padding:1px 6px 1px 0;color:#666">New snow</td>' + nw.map(w => '<th style="padding:1px 6px;font-weight:600">' + w + 'h</th>').join('') + '</tr><tr><td></td>' + nw.map(w => '<td style="padding:1px 6px;text-align:right">' + fmt(s.new[w]) + '</td>').join('') + '</tr></table><div style="font-size:11px;color:#666">inches, storm total</div>';
@@ -756,8 +776,8 @@
       new: 'inches, storm total: the biggest rise in snow depth in the last ' + snWin + ' h', sms: 'percent water by volume, ' + snDepth + ' in deep', sto: '°F, ' + snDepth + ' in deep' }[snEl];
     let head;
     if (!snData) head = 'loading…';
-    else if (snData.note) head = snData.note;
-    else head = [wantStations ? n + ' of ' + shown + ' sites report this' : '', wantBasins && basinData && basinData.features ? basinData.features.filter(f => f.properties[basinEl + '_pct'] != null).length + ' basins with values' : '', 'as of ' + (snData.updated || '')].filter(Boolean).join(' · ');
+    else if (!(snData.sites || []).length && snData.note) head = snData.note;
+    else head = [snData.note || '', wantStations ? n + ' of ' + shown + ' sites report this' : '', wantBasins && basinData && basinData.features ? basinData.features.filter(f => f.properties[basinEl + '_pct'] != null).length + ' basins with values' : '', 'as of ' + (snData.updated || '')].filter(Boolean).join(' · ');
     $('snInfo').innerHTML = '<div class="muted">' + head + (snMode === 'basins' ? ' · depth, new snow and soil are stations only' : '') + '</div>' + legendHtml(bins, legFmt) +
       '<div class="note" style="margin-top:18px">' + unit + ' · ⊖ no reading · ⊗ no median · <a href="https://nwcc-apps.sc.egov.usda.gov/imap/" target="_blank" rel="noopener">NRCS map</a></div>';
   }

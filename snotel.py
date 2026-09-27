@@ -39,6 +39,7 @@ PULL_H = 74
 BC_FRESH_H = 36          # a BC daily value is current if it is at most this old
 HOURLY = "SNWD,WTEQ,PREC,TOBS," + ",".join("%s:-%d" % (c, d) for c in ("SMS", "STO") for d in SOIL_DEPTHS)
 CHUNK = 60
+DEADLINE_S = 8 * 60      # stop starting new AWDB requests after this long, so a hung API can't eat the hourly job
 BASE_KEYS = {"id", "name", "net", "lat", "lon", "elev", "t"}
 _LAST = {"t": 0, "sites": None, "series": None, "med": None, "now": None}
 
@@ -114,7 +115,14 @@ def parse(rows, tz_of, daily):
     return out
 
 
-def pull(sites, now_utc, log):
+def _late(deadline, log, what):
+    if deadline is not None and time.time() > deadline:
+        log("snotel: deadline passed, skipping %s" % what)
+        return True
+    return False
+
+
+def pull(sites, now_utc, log, deadline=None):
     tz_of = {s["id"]: s["tz"] for s in sites}
     us = [s["id"] for s in sites if s["net"] != "BC"]
     bc = [s["id"] for s in sites if s["net"] == "BC"]
@@ -123,6 +131,8 @@ def pull(sites, now_utc, log):
     end = (now_utc + dt.timedelta(hours=2)).strftime("%Y-%m-%d %H:00")
     series = {}
     for i in range(0, len(us), CHUNK):
+        if _late(deadline, log, "hourly chunk %d" % (i // CHUNK)):
+            break
         q = urllib.parse.urlencode({"stationTriplets": ",".join(us[i:i + CHUNK]), "elements": HOURLY,
                                     "duration": "HOURLY", "beginDate": begin, "endDate": end})
         try:
@@ -130,6 +140,8 @@ def pull(sites, now_utc, log):
         except Exception as e:  # noqa: BLE001
             log("snotel hourly chunk %d failed: %r" % (i // CHUNK, e))
     for i in range(0, len(bc), CHUNK):
+        if _late(deadline, log, "BC chunk"):
+            break
         q = urllib.parse.urlencode({"stationTriplets": ",".join(bc[i:i + CHUNK]), "elements": "SNWD,WTEQ,PREC",
                                     "duration": "DAILY", "beginDate": (now_utc - dt.timedelta(days=4)).strftime("%Y-%m-%d"),
                                     "endDate": now_utc.strftime("%Y-%m-%d")})
@@ -140,11 +152,13 @@ def pull(sites, now_utc, log):
     return series
 
 
-def medians(sites, day, log):
+def medians(sites, day, log, deadline=None):
     """{triplet: {"swe": (value, median), "wy": (value, median)}} for `day` (yesterday)"""
     ids = [s["id"] for s in sites if s["net"] == "SNTL"]
     out = {}
     for i in range(0, len(ids), CHUNK):
+        if _late(deadline, log, "medians chunk %d" % (i // CHUNK)):
+            break
         q = urllib.parse.urlencode({"stationTriplets": ",".join(ids[i:i + CHUNK]), "elements": "WTEQ,PREC",
                                     "duration": "DAILY", "beginDate": day, "endDate": day, "centralTendencyType": "MEDIAN"})
         try:
@@ -207,6 +221,8 @@ def site_record(site, ser, med, now_utc, cfg):
         depth = latest([p for p in ser.get("SNWD", []) if p[1] >= 0], now_utc, fresh_h)
         if swe is not None:
             rec["swe"] = swe
+        if "swe" in m:
+            rec["swe_day"] = m["swe"][0]         # yesterday's daily value: the one the percent compares
         if "swe" in m and m["swe"][1] is not None:
             rec["swe_med"] = m["swe"][1]
             if pct(*m["swe"]) is not None:
@@ -257,10 +273,15 @@ def build(log=print):
         return 0
     cfg = newsnow.load_config()
     t0 = time.time()
+    deadline = t0 + DEADLINE_S
     sites = site_meta(log)
-    series = pull(sites, now_utc, log)
+    series = pull(sites, now_utc, log, deadline)
+    if sites and not series:
+        # AWDB returned nothing: keep the last good snotel.js (on R2) rather than publish an empty one
+        _LAST.update(t=time.time(), sites=sites, series={}, med={}, now=now_utc)
+        raise RuntimeError("snotel: no data returned for %d sites" % len(sites))
     day = (dt.datetime.now() - dt.timedelta(days=1)).strftime("%Y-%m-%d")
-    med = medians(sites, day, log)
+    med = medians(sites, day, log, deadline)
     recs, why = [], collections.Counter()
     for s in sites:
         ser = series.get(s["id"])
@@ -271,8 +292,11 @@ def build(log=print):
             why["nothing current"] += 1
         else:
             recs.append(r)
-    _write({"updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time()), "date": day,
-            "windows": WINDOWS, "soil_depths": [2, 8, 20], "sites": recs})
+    data = {"updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time()), "date": day,
+            "windows": WINDOWS, "soil_depths": [2, 8, 20], "sites": recs}
+    if not med and any(s["net"] == "SNTL" for s in sites):
+        data["note"] = "NRCS medians not available this hour, so no percent of median"
+    _write(data)
     _LAST.update(t=time.time(), sites=sites, series=series, med=med, now=now_utc)
     log("snotel: %d sites requested, %d written %s, dropped %s, %.0f s, %d KB"
         % (len(sites), len(recs), dict(collections.Counter(r["net"] for r in recs)), dict(why) or "none",
@@ -298,12 +322,17 @@ def stations_records(windows, log=print, cfg=None):
         rec = {"id": s["id"], "name": s["name"], "src": "SNOTEL", "lat": s["lat"], "lon": s["lon"], "elev": s["elev"],
                "precip": {}, "snow": {}, "swe": {}}
         snwd = [p for p in ser.get("SNWD", []) if p[1] >= 0]
-        if s["net"] == "BC":        # daily pillows: 24 h change only
+        if s["net"] == "BC":        # daily pillows: 24 h change only, and only while current
+            last_t = max(v[-1][0] for v in ser.values() if v)
+            if (now_utc - last_t).total_seconds() > BC_FRESH_H * 3600:
+                continue
+            day = lambda v: len(v) >= 2 and v[-1][0] >= now_utc - dt.timedelta(hours=BC_FRESH_H) \
+                and v[-1][0] - v[-2][0] == dt.timedelta(days=1)
             for key, code in (("precip", "PREC"), ("swe", "WTEQ")):
                 v = ser.get(code, [])
-                if len(v) >= 2:
+                if day(v):
                     rec[key] = {24: round(max(0.0, v[-1][1] - v[-2][1]), 2)}
-            if len(snwd) >= 2:
+            if day(snwd):
                 rec["snow"] = {24: newsnow.storm_total([snwd[-2][1], snwd[-1][1]], cfg["noise_floor_in"], 1)}
             if snwd:
                 rec["last"] = snwd[-1][0].strftime("%m-%d")
