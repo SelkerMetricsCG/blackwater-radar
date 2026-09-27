@@ -22,11 +22,17 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
 |---|---|---|
-| `capture.yml` | every 15 min (in practice GitHub starts it every 2–6 h: 40 runs 2026-09-20 to 09-26) | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
-| `hourly.yml` | minute 4 each hour, one job per region | `python cloud.py hourly`: stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
+| `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
+| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `solsat.yml` | 16:40 UTC daily | `python solsat.py` → bucket `roaring-data` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
+
+GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
+Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers. Its secret
+`GH_TOKEN` is a fine-grained token (this repo only, Actions read/write) that Chris made; when it expires the
+dispatches fail (visible in the Worker's logs) and the GitHub schedules, kept on as a backstop, are all that runs.
+Deploy it with `npx wrangler deploy` from `cron/`.
 
 Data goes to the public R2 bucket `radar` (https://radar-files.blackwaterlabs.org) under `<region>/`.
 `cloud.py` rebuilds state from R2 each run and prunes scans older than 30 h. `r2sync.py` sets

@@ -1,5 +1,6 @@
 """
-NWAC avalanche forecast zones (via the avalanche.org public API).
+Avalanche forecast zones of every center that touches the map window (NWAC, Sawtooth, CAIC,
+Mount Washington, ...), via the avalanche.org public API.
 
 Writes data/avalanche.js -> window.AVALANCHE = GeoJSON FeatureCollection with
 danger level, color, travel advice, dates and a link per zone. Off season the
@@ -21,7 +22,7 @@ OUT = os.path.join(DATA, "avalanche.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 URL = "https://api.avalanche.org/v2/public/products/map-layer"
 KEEP = ("name", "danger", "danger_level", "travel_advice", "start_date", "end_date", "link", "color",
-        "fillOpacity", "off_season", "center", "warning")
+        "fillOpacity", "off_season", "center", "center_id", "center_link", "warning")
 
 
 def build(log=print):

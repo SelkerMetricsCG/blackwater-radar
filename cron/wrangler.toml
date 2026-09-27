@@ -1,0 +1,10 @@
+name = "radar-cron"
+main = "worker.js"
+compatibility_date = "2026-09-13"
+workers_dev = false          # no public URL: the Worker only runs on its crons
+
+[triggers]
+crons = ["*/15 * * * *", "4 * * * *"]    # capture.yml every 15 min, hourly.yml at minute 4 (see worker.js)
+
+[observability]
+enabled = true               # keeps invocation logs, so a failed dispatch is visible in the dashboard

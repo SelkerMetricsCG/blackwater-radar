@@ -187,7 +187,7 @@
     <div class="subwrap" data-for="lyFcst">
       <div class="sub" id="fcInfo" style="display:block"></div>
     </div>
-    <label class="opt"><input type="checkbox" id="lyAvy"> NWAC avalanche forecast</label>
+    <label class="opt"><input type="checkbox" id="lyAvy"> <span id="avyTitle">Avalanche forecast</span></label>
     <div class="subwrap" data-for="lyAvy">
       <div class="sub" id="avyInfo" style="display:block"></div>
     </div>
@@ -761,7 +761,8 @@
   $('lyCams').onchange = e => { if (e.target.checked) { camLayer.addTo(map); wedgeLayer.addTo(map); if (!camData) loadCams(); else renderCams(); } else { map.removeLayer(camLayer); map.removeLayer(wedgeLayer); } };
   setInterval(() => { if (map.hasLayer(camLayer)) loadCams(); }, 15 * 60 * 1000);
 
-  // ---------- NWAC avalanche forecast ----------
+  // ---------- avalanche forecast (every center in the window, via avalanche.org) ----------
+  if (REG.avy) $('avyTitle').textContent = REG.avy + ' avalanche forecast';
   const avyLayer = L.geoJSON(null, {
     style: f => ({ color: f.properties.color || '#888', weight: 1.5, fillColor: f.properties.color || '#888', fillOpacity: (f.properties.danger_level > 0 ? .28 : .10) }),
     onEachFeature: (f, l) => {
@@ -771,7 +772,7 @@
         (p.danger || 'no rating') + (p.warning ? ' · <b style="color:#dc2626">' + p.warning + '</b>' : '') + '</div>' +
         (p.travel_advice ? '<div style="font-size:12px;margin:4px 0">' + p.travel_advice + '</div>' : '') +
         (p.start_date ? '<div style="color:#666;font-size:12px">valid ' + p.start_date.slice(0, 10) + ' to ' + (p.end_date || '').slice(0, 10) + '</div>' : '') +
-        (p.link ? '<div style="margin-top:6px"><a href="' + p.link + '" target="_blank" rel="noopener">Full NWAC forecast →</a></div>' : '') + '</div>');
+        (p.link ? '<div style="margin-top:6px"><a href="' + p.link + '" target="_blank" rel="noopener">' + (p.center ? p.center + ' forecast' : 'Full forecast') + ' →</a></div>' : '') + '</div>');
     }
   });
   function loadAvy() {
@@ -779,7 +780,10 @@
       const g = window.AVALANCHE; if (!g) return;
       avyLayer.clearLayers(); avyLayer.addData(g);
       const off = g.features.every(f => f.properties.off_season || f.properties.danger_level < 0);
-      $('avyInfo').innerHTML = '<div class="muted">' + (off ? 'off season: no ratings issued' : 'danger by zone; click a zone') + ' · <a href="https://nwac.us/" target="_blank" rel="noopener" style="color:#9cf">nwac.us</a></div>';
+      const centers = {};     // center name -> its home page (older files lack center_link: use a zone link)
+      g.features.forEach(f => { const p = f.properties; if (p.center && !centers[p.center]) centers[p.center] = p.center_link || p.link; });
+      $('avyInfo').innerHTML = '<div class="muted">' + (off ? 'off season: no ratings issued' : 'danger by zone; click a zone') + '</div>' +
+        '<div class="muted" style="margin-top:4px">' + Object.keys(centers).sort().map(c => centers[c] ? '<a href="' + centers[c] + '" target="_blank" rel="noopener" style="color:#9cf">' + c + '</a>' : c).join(' · ') + '</div>';
     }, () => { $('avyInfo').innerHTML = '<div class="muted">forecast not available yet</div>'; });
   }
   $('lyAvy').onchange = e => { if (e.target.checked) { avyLayer.addTo(map); loadAvy(); } else map.removeLayer(avyLayer); };
@@ -972,7 +976,7 @@
       if (!pop.isOpen()) return;
       pop.setContent('<div class="pt" style="font:13px system-ui;min-width:250px;max-height:60vh;overflow:auto">' + sec.join('') + (extra || '') + '</div>');
     };
-    // header: elevation, sun, NWAC zone
+    // header: elevation, sun, avalanche zone
     const elev = sample(await getGrid('elev'), ll);
     const sun = sunTimes(ll.lat, ll.lng);
     let head = '<div style="font-weight:600">' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4) + (elev != null ? ' · ' + Math.round(elev).toLocaleString() + ' ft' : '') + '</div>';
@@ -1007,7 +1011,7 @@
     await new Promise(res => rvData ? res() : loadScript('data/rivers.js', () => { rvData = window.RIVERS || rvData; res(); }, res));
     if (rvData) { const g = nearest(rvData.sites, ll, s => s.flow != null); if (g && g.km < 40) sec.push('<div style="margin-top:6px;color:#666">Nearest gauge</div><div>' + g.s.name.replace(/, (WA|OR|ID|MT)$/, '') + ' <span style="color:#666">(' + g.km.toFixed(0) + ' km)</span>: <b>' + g.s.flow.toLocaleString() + ' cfs</b>' + (g.s.pctmed != null ? ', ' + g.s.pctmed + '% of normal' : '') + (g.s.chg24 != null ? ', ' + (g.s.chg24 > 0 ? '+' : '') + g.s.chg24 + '% / 24 h' : '') + '</div>'); }
     await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
-    if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">NWAC</a>' : '') + '</div>'); }
+    if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">' + (z.properties.center_id || 'forecast') + '</a>' : '') + '</div>'); }
     render('<div style="color:#666">loading hourly forecast…</div>');
     // NWS hourly point forecast (US only)
     try {
