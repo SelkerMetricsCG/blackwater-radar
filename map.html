@@ -740,8 +740,8 @@
   const camSrc = v => v.img + (v.img.includes('?') ? '&' : '?') + 't=' + Date.now();
   function camPopup(c) {
     const views = c.views || [{ name: c.name, img: c.img, ts: c.ts }], v = views[0], src = camSrc(v);
-    const kind = c.kind === 'road' ? 'road camera' : c.kind === 'fire' ? 'fire camera' + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '')
-      : (CAM_KIND[c.kind] || ['camera'])[0] + (c.stake ? ', snow stake' : '');
+    const kind = c.kind === 'road' ? 'road camera' : c.kind === 'fire' ? (c.src === 'FAA' ? 'FAA airport camera' : 'fire camera') + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '')
+      : (CAM_KIND[c.kind] ? CAM_KIND[c.kind][0] + ' camera' : 'camera') + (c.stake ? ', snow stake' : '');
     const credit = /alertwest\.live/.test(c.link || '') ? esc(c.src) + ' via <a href="' + esc(c.link) + '" target="_blank" rel="noopener">AlertWest</a>'
       : '<a href="' + esc(c.link || '#') + '" target="_blank" rel="noopener">' + esc(c.owner || c.src || 'source') + '</a>' + (c.src && c.owner && !c.owner.includes(c.src) ? ' · ' + esc(c.src) : '');
     const btns = views.length < 2 ? '' : '<div class="camviews" style="margin:5px 0 0;display:flex;flex-wrap:wrap;gap:4px">' + views.map((w, i) =>

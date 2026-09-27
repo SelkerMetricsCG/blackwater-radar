@@ -20,6 +20,8 @@ cache/
 
 # SolSat portal credentials (Chris pastes these)
 solsat.env
+nps.env
+cams_research/nps_img_cache.json
 solsat/
 
 # rivers dashboard: local analysis outputs (everything lands in R2)

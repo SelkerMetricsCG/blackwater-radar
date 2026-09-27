@@ -61,6 +61,18 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   added to `DEF_CHECKS` / `DEF_SELECTS` (or saved explicitly, like `stMode` and `stWin`), and old saved
   keys should keep restoring.
 
+## Webcams (`webcams.py`, rebuilt by the hourly job)
+- Sources: AlertWest (fire PTZ cams plus the DOT road, FAA and utility cams it aggregates; road vs fire comes
+  from the agency in `src`, see `DOT_SRC`); USGS river (HIVIS), USGS volcano (Ashcam) and NOAA buoy cams pulled
+  live each run; `webcams_extra.json`, the curated conditions cams (ski, water, town, park), each fetched once
+  per run and dropped if it doesn't return an image (entries marked `robots` are never fetched, only hotlinked).
+- Road cams within `SITE_M` (250 m) become one marker with `views`; road sites are thinned to one per
+  `RURAL_KM` (3 km), or `URBAN_KM` (10 km) inside the hand-set metro circles in `URBAN`.
+- The research behind the curated list (sources, URL patterns, terms, Chris's 2026-09-27 decisions) is in
+  `cams_research/` (`sources_notes.md`; `make_extra.py` rebuilds the list from `combined.json`). Left out on
+  purpose: YouTube thumbnails, ipcamlive/webcam.io cams (owner consent needed), SeeJH, Ambient Weather.
+- NPS cams: `python cams_research/refresh_nps.py` refreshes them with Chris's key from `nps.env` (gitignored).
+
 ## Rules
 - Free tier only: GitHub Actions, R2, Workers. Do not scrape NWAC (its API is for approved researchers);
   Synoptic is paid; never reuse tokens found in web pages.
