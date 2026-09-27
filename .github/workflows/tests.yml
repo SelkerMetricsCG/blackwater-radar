@@ -1,6 +1,6 @@
 name: tests
 
-# Unit tests for solsat.py (tests/). No secrets, no network: everything the
+# Unit tests (tests/). No secrets, no network: everything the
 # tests need is stdlib + pytest, so the heavy scientific stack in
 # requirements.txt (eccodes, xarray, ...) is not installed here.
 on:

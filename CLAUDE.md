@@ -12,13 +12,13 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
   freezing level, SNODAS, basin snowpack, rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
-- **Two passengers that use the same Actions and R2 setup:**
+- **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
     `rivers/sync_analysis.bat`.
-  - `solsat.py`: daily Roaring Creek DOE telemetry pull into the private bucket `roaring-data`, read by both
-    Roaring Creek sites. Changing it affects the Roaring project (`BlackwaterLabs/roaring`). `tests/` covers
-    only this script (pytest, network blocked in conftest).
+- The Roaring Creek SolSat telemetry pull (`solsat.py`) moved to the roaring repo (private
+  `SelkerMetricsCG/roaring`) on 2026-09-27; nothing here feeds `roaring-data` any more.
+- `tests/`: pytest, network blocked in `conftest.py`; currently the webcam tests.
 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
@@ -26,7 +26,6 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
-| `solsat.yml` | 16:40 UTC daily | `python solsat.py` → bucket `roaring-data` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
@@ -80,7 +79,8 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 ## Rules
 - Free tier only: GitHub Actions, R2, Workers. Do not scrape NWAC (its API is for approved researchers);
   Synoptic is paid; never reuse tokens found in web pages.
-- `r2.env` and `solsat.env` are private and gitignored: never print or commit them.
+- `r2.env` and `nps.env` are private and gitignored: never print or commit them, and leave `*.env` out of
+  any grep whose output is shown.
 - Station windows (`stations.py WINDOWS = [1, 3, 6, 12, 24]`) are shared by every station source, the
   interpolation (`interp.py`) and the map's window chips. SNOTEL hourly data is pulled for the last 26 h only.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
@@ -102,3 +102,4 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-14: `solsat.py`; `rivers/` daily analysis (Peshastin default gauge; Plain, Icicle, ENSO added).
 - 2026-09-25/26: pytest suite for `solsat.py` (PR #1, the only merge).
 - 2026-09-26: layer-panel reorder; slope-angle layer from WA lidar started (see `HANDOFF.md`).
+- 2026-09-27: `solsat.py`, its tests and workflow moved to the roaring repo.
