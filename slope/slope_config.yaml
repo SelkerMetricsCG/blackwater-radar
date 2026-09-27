@@ -1,0 +1,55 @@
+# Slope-angle layer (WA Cascades): every parameter build_slope.py reads.
+# Source categories: measured / convention / Chris's decision / library default / judgment call.
+# Library defaults and judgment calls need Chris's sign-off; record the date under `approved`.
+
+area:
+  name: wa-cascades
+  # Chris's decision 2026-09-26 ("WA Cascades to start"); edges are a judgment call. The east edge sits at
+  # 120.0 W so every cell is in UTM zone 10; the west edge takes in Mt St Helens and the Baker foothills.
+  bbox_lonlat: [-122.2, 46.0, -120.0, 49.0]      # west, south, east, north (degrees)
+  crs: EPSG:26910          # NAD83 / UTM 10N, the grid of the USGS 1 m DEMs; slope is computed in these ground metres
+  cell_m: 10000            # convention: USGS 1 m DEMs come in 10 km squares on this grid
+
+source:
+  lidar_dataset: "Digital Elevation Model (DEM) 1 meter"               # USGS 3DEP, lidar bare earth (TNM API name)
+  fallback_dataset: "National Elevation Dataset (NED) 1/3 arc-second"  # USGS ~10 m, only where no lidar
+  # judgment call: newest flight wins where flights overlap, older flights fill its gaps.
+  # Alternative not chosen: best quality level first.
+  flight_priority: newest_first
+  # judgment call: how the 10 m fallback is put on the 3 m grid. Alternative: cubic.
+  fallback_resampling: bilinear
+
+dem:
+  res_m: 3                 # Chris's decision 2026-09-26, from the Enchantments 1 / 3 / 10 m test
+  # judgment call: each 3 m cell is the mean of the 1 m cells in it. Alternatives: nearest (keeps
+  # boulder-scale noise), cubic.
+  lidar_resampling: average
+  valid_range_m: [-100, 4500]   # sanity bounds for WA elevations (Rainier 4392 m); outside -> flagged in accounting
+
+slope:
+  algorithm: Horn          # library default of gdaldem slope; alternative ZevenbergenThorne (smoother)
+  compute_edges: true      # choice: slope on the outermost pixels too (only matters at the area edge)
+  # convention: CalTopo's slope-angle classes 27-29, 30-31, 32-34, 35-45, 46-50, 51-59, 60+ (lower bounds).
+  # judgment call: a pixel is in a band when its slope is at least the lower bound (26.6 deg is not shaded).
+  # Alternative: round to the nearest degree first (26.6 -> 27, shaded); CalTopo's rule is not published.
+  bands_deg: [27, 30, 32, 35, 46, 51, 60]
+  # judgment call: read off Chris's CalTopo screenshot (2026-09-26) with saturation restored.
+  colors: [f1f87d, f5cc49, f48d2a, e31d0c, 700ac3, 210abd, 1a1a1a]
+
+tiles:
+  # judgment call: 3 m data is ~1.6 m per pixel at zoom 16 (47.5 N); closer zooms enlarge zoom 16.
+  # Below zoom 11 the map hides the layer.
+  zoom_min: 11
+  zoom_max: 16
+  # judgment call; the gdal2tiles default is average, which mixes band colours with transparent pixels
+  # into darker edges. near keeps pure band colours.
+  resampling: near
+  exclude_empty: true      # skip tiles with nothing steeper than 27 degrees
+  processes: 8
+
+work:
+  dir: work                # radar/slope/work, gitignored
+  download_workers: 4
+  keep_downloads: false    # delete each 1 m file once its cell is built
+
+approved: {}               # parameter -> date Chris signed it off
