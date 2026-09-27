@@ -1,0 +1,42 @@
+# New-snow (storm total) parameters for the SNOTEL layer, Weather stations and the "New snow"
+# interpolation. Read by newsnow.load_config(); the file is the configuration that actually runs.
+# Source categories (verification protocol): measured / fitted from data / literature / library default /
+# judgment call. "provisional" values are placeholders until Chris approves the snotel_check/ results.
+approved:            # date Chris approved the values below; empty = not yet approved
+parameters:
+  noise_floor_in:
+    value: 1.0
+    units: in
+    source: judgment call (provisional)
+    derived: placeholder; to be fitted from dry-spell storm totals at the five test sites (snotel_check/)
+    used_in: newsnow.new_snow, snotel.py BC windows
+  despike_width:
+    value: 1
+    units: hourly samples, odd (1 = off)
+    source: judgment call (provisional)
+    derived: off until snotel_check/ shows whether one-hour spikes change storm totals
+    used_in: newsnow.new_snow
+  start_slack_h:
+    value: 1
+    units: h
+    source: judgment call
+    derived: the reading used as the window's start may be up to 1 h from it (one missed hourly report)
+    used_in: newsnow.window_values
+  end_slack_h:
+    value: 3
+    units: h
+    source: judgment call
+    derived: the latest reading may be up to 3 h old; report latency to be measured in the Task 5 local run
+    used_in: newsnow.window_values, snotel.py freshness of latest values
+  max_new_base_in:
+    value: 6.0
+    units: in
+    source: judgment call (carried over from stations.py build(), in use since 2026-09-13)
+    derived: new snow above base + per_h x window hours is treated as a sensor fault
+    used_in: newsnow.new_snow
+  max_new_per_h_in:
+    value: 1.0
+    units: in per window hour
+    source: judgment call (carried over from stations.py build(), in use since 2026-09-13)
+    derived: see max_new_base_in
+    used_in: newsnow.new_snow

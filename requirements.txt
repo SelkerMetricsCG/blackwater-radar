@@ -8,3 +8,4 @@ xarray
 matplotlib
 shapely
 pytest
+pyyaml
