@@ -163,10 +163,13 @@ def hads(now, log):
             sid, pe, ts, val = p[1].strip(), p[2].strip(), p[3].strip(), p[4].strip()
             if sid not in meta or pe not in ("PC", "PP", "SD", "SW"):
                 continue
+            # parse before touching the defaultdict: series[sid][pe] would otherwise be created empty by a
+            # blank value (Colorado VCRC2 sent only blanks on 2026-09-27) and s[-1] below failed every HADS station
             try:
-                series[sid][pe].append((local(dt.datetime.strptime(ts, "%Y-%m-%d %H:%M")), float(val)))
+                point = (local(dt.datetime.strptime(ts, "%Y-%m-%d %H:%M")), float(val))
             except ValueError:
                 continue
+            series[sid][pe].append(point)
     out = []
     for sid, pes in series.items():
         m = meta[sid]
