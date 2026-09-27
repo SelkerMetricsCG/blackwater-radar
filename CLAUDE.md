@@ -7,11 +7,11 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## What lives here
 - **The public weather map**: one Leaflet page, `map.html`, for five regions (`pnw` default, `sierra`,
   `utco`, `imw`, `ne`; defined in `region.py`). `ne` (New England & NY, added 2026-09-26) differs:
-  GOES-East satellite (`"goes": "East"`), CONUS NDFD grid, no SNOTEL (so no basin snowpack).
+  GOES-East satellite (`"goes": "East"`), CONUS NDFD grid, no SNOTEL (so no SNOTEL layer).
   Each region's frame names and labels use the time zone most of its land is in, set per region in both
   workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
-  freezing level, SNODAS, basin snowpack, rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
+  freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
 - **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -24,7 +24,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | Workflow | When | Does |
 |---|---|---|
 | `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
-| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
+| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
 
@@ -55,7 +55,7 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 
 ## map.html conventions
 - Data comes in by `<script>` tags with a `?t=` cache-buster (the bucket has no CORS header). Globals:
-  `RADAR_DATA`, `STATIONS`, `BASINS`, `RIVERS`, `MRMS`, `SNODAS`, `FORECAST`, `FREEZING`, `ALERTS`,
+  `RADAR_DATA`, `STATIONS`, `SNOTEL`, `BASINS`, `RIVERS`, `MRMS`, `SNODAS`, `FORECAST`, `FREEZING`, `ALERTS`,
   `AVALANCHE`, `WEBCAMS`, `VALUES`.
 - Panel: groups are `.sec.grp`; a layer is a `label.opt` checkbox followed by a `.subwrap data-for=<id>`
   that opens only while it is on. The group badge counts `.body > .opt > input:checked`, so sub-controls
@@ -84,7 +84,11 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - `r2.env` and `nps.env` are private and gitignored: never print or commit them, and leave `*.env` out of
   any grep whose output is shown.
 - Station windows (`stations.py WINDOWS = [1, 3, 6, 12, 24]`) are shared by every station source, the
-  interpolation (`interp.py`) and the map's window chips. SNOTEL hourly data is pulled for the last 26 h only.
+  interpolation (`interp.py`) and the map's window chips.
+- SNOTEL is pulled once per hourly run by `snotel.py` (74 h hourly incl. soil sensors, SCAN soil sites, BC automated
+  pillows daily); `stations.py` takes its records from there. New snow from any depth sensor is `newsnow.py`'s storm
+  total; its parameters are in `snotel_config.yaml`, the method check in `snotel_check/` (method card `METHOD.md`),
+  anomalies in `ANOMALY_LOG.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -105,3 +109,4 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-25/26: pytest suite for `solsat.py` (PR #1, the only merge).
 - 2026-09-26: layer-panel reorder; slope-angle layer from WA lidar started (see `HANDOFF.md`).
 - 2026-09-27: `solsat.py`, its tests and workflow moved to the roaring repo.
+- 2026-09-27: SNOTEL layer (spec `docs/superpowers/specs/2026-09-27-snotel-layer-design.md`); new snow as a storm total.
