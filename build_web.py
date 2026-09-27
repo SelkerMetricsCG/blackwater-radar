@@ -30,6 +30,7 @@ for key, c in region.REGIONS.items():
     x0, x1, y0, y1 = c["tiles"]
     regions[key] = {"name": c["name"], "home": c["home"],
                     "bounds": [[region.tile_lat(y1 + 1), region.tile_lon(x0)], [region.tile_lat(y0), region.tile_lon(x1 + 1)]]}
+    regions[key]["snotel"] = bool(c.get("snotel_states"))
     if c.get("avy"):
         regions[key]["avy"] = c["avy"]
 html = html.replace(marker, '<meta name="radar-base" content="%s/">\n<script>window.REGIONS = %s;</script>' % (base, json.dumps(regions)))

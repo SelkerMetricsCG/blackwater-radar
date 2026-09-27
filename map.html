@@ -632,9 +632,145 @@
   $('snodasSel').onchange = renderSnodas;
   $('lySnodas').onchange = e => { if (e.target.checked) { snodasOv.addTo(map); if (!snodasData) loadSnodas(); else renderSnodas(); } else map.removeLayer(snodasOv); };
 
-  // ---------- SNOTEL layer: see Task 7 ----------
+  // ---------- SNOTEL: stations, HUC6 basins or both, like the NRCS interactive map ----------
   const BASIN_BINS = [[150, '#1d2f9e'], [130, '#3d8bd6'], [110, '#7fd3f5'], [90, '#4caf50'], [70, '#f2d33a'], [50, '#f08c1e'], [0, '#d32f2f']];
   function basinColor(p) { if (p == null) return '#9e9e9e'; for (const [lo, c] of BASIN_BINS) if (p >= lo) return c; return '#d32f2f'; }
+  // snow depth uses the SNODAS depth legend (snodas.py DEPTH_BINS)
+  const DEPTH_BINS = [[1, '#deebf7'], [6, '#c6dbef'], [12, '#9ecae1'], [24, '#6baed6'], [36, '#4292c6'], [48, '#2171b5'], [72, '#08519c'], [96, '#08306b'], [120, '#4a1486'], [180, '#8c1478']];
+  // soil moisture, % water by volume: judgment call (muted brown to teal), for Chris to confirm
+  const SMS_BINS = [[0, '#8c6d46'], [10, '#b89a6a'], [20, '#d9c89e'], [30, '#9cc3b8'], [40, '#5f9e94'], [50, '#2f6f68']];
+  const SN_WINS = ['12', '24', '36', '48', '60', '72'], SN_DEPTHS = ['2', '8', '20'];
+  const SN_BASIN_EL = { swe: 'swe', prec: 'prec' };          // elements with an NRCS basin index
+  map.createPane('snBasins'); map.getPane('snBasins').style.zIndex = 350;     // basins under every marker
+  let snData = null, basinData = null, snMode = 'stations', snEl = 'swe', snWin = '24', snDepth = '2';
+  const snLayer = L.layerGroup(), snLabelLayer = L.layerGroup();
+  let snLabels = [];      // [latlng, label, label marker while shown], as for Weather stations (see labelStations)
+  const snBasinLayer = L.geoJSON(null, {
+    pane: 'snBasins',
+    style: f => { const v = f.properties[SN_BASIN_EL[snEl] + '_pct']; return { color: '#333', weight: 1, fillColor: basinColor(v), fillOpacity: v == null ? .12 : .45 }; },
+    onEachFeature: (f, l) => {
+      const p = f.properties, v = p[SN_BASIN_EL[snEl] + '_pct'];
+      if (v != null) l.bindTooltip(v + '%', { permanent: true, direction: 'center', className: 'bslabel', interactive: false });
+      l.bindPopup('<div style="font:13px system-ui;min-width:200px"><b>' + p.name + '</b> <span style="color:#666">basin ' + p.huc6 + '</span>' +
+        '<div style="margin:4px 0">Snow water equivalent: ' + (p.swe_pct == null ? (p.swe_n ? 'no snow on this date normally' : 'no sites') : '<b>' + p.swe_pct + '% of median</b>' + (p.swe_in != null ? ' (' + p.swe_in + ' in avg)' : '')) + (p.swe_n ? ', ' + p.swe_n + ' sites' : '') + '</div>' +
+        '<div>Water-year precipitation: ' + (p.prec_pct == null ? 'no value' : '<b>' + p.prec_pct + '% of median</b>') + '</div>' +
+        '<div style="color:#666;font-size:12px;margin-top:4px">NRCS SNOTEL, ' + (basinData ? basinData.date : '') + ' · <a href="https://nwcc-apps.sc.egov.usda.gov/imap/" target="_blank" rel="noopener">NRCS map</a></div></div>');
+    }
+  });
+  const snGroup = L.layerGroup([snBasinLayer, snLayer, snLabelLayer]);
+  function snShows(s) {
+    if (snEl === 'sms' || snEl === 'sto') return !!s.soil;
+    if (s.net === 'SCAN') return false;
+    if (snEl === 'new' && s.net === 'BC') return ['24', '48', '72'].includes(snWin);
+    return true;
+  }
+  function snValue(s) {
+    if (snEl === 'swe') return s.swe_pct;
+    if (snEl === 'prec') return s.wy_pct;
+    if (snEl === 'depth') return s.depth;
+    if (snEl === 'new') return (s.new || {})[snWin];
+    const d = (s.soil || {})[snDepth]; return d ? (snEl === 'sms' ? d.m : d.t) : null;
+  }
+  function snMissing(s) {       // NRCS iMap symbols: 'obs' observation missing, 'med' median missing
+    if (snEl === 'swe') return s.swe == null ? 'obs' : s.swe_pct == null ? 'med' : null;
+    if (snEl === 'prec') return s.wy == null ? 'obs' : s.wy_pct == null ? 'med' : null;
+    return snValue(s) == null ? 'obs' : null;
+  }
+  function snColor(v) {
+    if (snEl === 'swe' || snEl === 'prec') return basinColor(v);
+    if (snEl === 'depth') return v < 1 ? '#8891a0' : binColor(v, DEPTH_BINS);
+    if (snEl === 'new') return v <= 0 ? '#8891a0' : binColor(v, SNOW_BINS);
+    return binColor(v, snEl === 'sms' ? SMS_BINS : TEMP_BINS);
+  }
+  function snLabel(v) { return (snEl === 'swe' || snEl === 'prec') ? v + '%' : snEl === 'sms' ? Math.round(v) + '%' : snEl === 'sto' ? Math.round(v) + '°' : snEl === 'depth' ? String(Math.round(v)) : fmt(v); }
+  function snSymbol(kind) {    // ⊖ observation missing, ⊗ median missing
+    const inner = kind === 'obs' ? '<path d="M3 8 H13" stroke="#333" stroke-width="1.5"/>' : '<path d="M4.5 4.5 L11.5 11.5 M11.5 4.5 L4.5 11.5" stroke="#333" stroke-width="1.5"/>';
+    return L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8],
+      html: '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#fff" fill-opacity=".85" stroke="#333" stroke-width="1.5"/>' + inner + '</svg>' });
+  }
+  function snLink(s) { const m = /^(\d+):/.exec(s.id); return s.net !== 'BC' && m ? 'https://wcc.sc.egov.usda.gov/nwcc/site?sitenum=' + m[1] : null; }
+  function snCard(s) {
+    const row = (k, v) => '<div>' + k + ': ' + v + '</div>';
+    let h = '<div style="font:13px system-ui;min-width:230px"><b>' + s.name + '</b> <span style="color:#666">' + ({ SNTL: 'SNOTEL', SCAN: 'SCAN soil site', BC: 'BC snow pillow' }[s.net] || s.net) + (s.elev ? ' · ' + Math.round(s.elev).toLocaleString() + ' ft' : '') + '</span>';
+    if (s.swe != null) h += row('Snow water equivalent', '<b>' + fmt(s.swe) + ' in</b>' + (s.swe_pct != null ? ', <b>' + s.swe_pct + '%</b> of median (' + fmt(s.swe_med) + ' in)' : s.swe_med === 0 ? ', no snow normally on this date' : ''));
+    if (s.depth != null) h += row('Snow depth', '<b>' + Math.round(s.depth) + ' in</b>');
+    const nw = SN_WINS.filter(w => (s.new || {})[w] != null);
+    if (nw.length) h += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:6px 0 2px"><tr><td style="padding:1px 6px 1px 0;color:#666">New snow</td>' + nw.map(w => '<th style="padding:1px 6px;font-weight:600">' + w + 'h</th>').join('') + '</tr><tr><td></td>' + nw.map(w => '<td style="padding:1px 6px;text-align:right">' + fmt(s.new[w]) + '</td>').join('') + '</tr></table><div style="font-size:11px;color:#666">inches, storm total</div>';
+    if (s.wy != null) h += row('Water-year precipitation', fmt(s.wy) + ' in' + (s.wy_pct != null ? ', <b>' + s.wy_pct + '%</b> of median' : ''));
+    if (s.p24 != null) h += row('Precipitation, last 24 h', fmt(s.p24) + ' in');
+    if (s.temp) h += row('Temperature', '<b>' + s.temp.now + '°F</b>' + (s.temp.max != null ? ' <span style="color:#666">(24 h ' + s.temp.min + '° to ' + s.temp.max + '°)</span>' : '')) + tempSpark(s.temp.spark);
+    const ds = Object.keys(s.soil || {}).sort((a, b) => a - b);
+    if (ds.length) h += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:6px 0 2px"><tr><th style="text-align:left;padding:1px 6px 1px 0;font-weight:600">Soil</th><th style="padding:1px 6px;font-weight:600">moisture</th><th style="padding:1px 6px;font-weight:600">temp</th></tr>' +
+      ds.map(d => '<tr><td style="padding:1px 6px 1px 0;color:#666">' + d + ' in</td><td style="padding:1px 6px;text-align:right">' + (s.soil[d].m != null ? s.soil[d].m.toFixed(1) + '%' : '–') + '</td><td style="padding:1px 6px;text-align:right">' + (s.soil[d].t != null ? Math.round(s.soil[d].t) + '°F' : '–') + '</td></tr>').join('') + '</table>';
+    const link = snLink(s), when = s.t ? (s.net === 'BC' ? new Date(s.t * 1000).toLocaleDateString() : new Date(s.t * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) : '';
+    h += '<div style="color:#666;margin-top:4px">' + (when ? 'last report ' + when : '') + (link ? (when ? ' · ' : '') + '<a href="' + link + '" target="_blank" rel="noopener">station page</a>' : '') + '</div></div>';
+    return h;
+  }
+  function labelSnotel() {
+    const show = map.hasLayer(snGroup) && map.getZoom() >= 9, b = map.getBounds().pad(.1);
+    for (const l of snLabels) {
+      const on = show && b.contains(l[0]);
+      if (on && !l[2]) snLabelLayer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { snLabelLayer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  map.on('moveend', labelSnotel);
+  function setSnEl(v) { const r = document.querySelector('input[name=snEl][value="' + v + '"]'); if (r) { r.checked = true; snEl = v; } }
+  function renderSnotel() {
+    snLayer.clearLayers(); snBasinLayer.clearLayers(); snLabelLayer.clearLayers(); snLabels = [];
+    const basinEl = SN_BASIN_EL[snEl], wantBasins = snMode !== 'stations' && !!basinEl, wantStations = snMode !== 'basins';
+    document.querySelectorAll('#snEls label[data-st-only]').forEach(l => l.classList.toggle('off', snMode === 'basins'));
+    document.querySelectorAll('#snModes .chip').forEach(c => c.classList.toggle('on', c.dataset.mode === snMode));
+    if (wantBasins && basinData && !basinData.note) snBasinLayer.addData(basinData);
+    let n = 0, shown = 0;
+    if (wantStations && snData) {
+      for (const s of snData.sites || []) {
+        if (!snShows(s)) continue;
+        shown++;
+        const miss = snMissing(s), v = snValue(s);
+        let m;
+        if (miss) m = L.marker([s.lat, s.lon], { icon: snSymbol(miss) });
+        else {
+          n++;
+          m = L.circleMarker([s.lat, s.lon], { radius: 5, color: '#111', weight: 1, fillColor: snColor(v), fillOpacity: .9 });
+          m.bindTooltip(snLabel(v), { direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+          snLabels.push([m.getLatLng(), snLabel(v), null]);
+        }
+        m.bindPopup(() => snCard(s), { maxWidth: 320 });
+        m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
+        snLayer.addLayer(m);
+      }
+    }
+    labelSnotel();
+    const wEl = $('snWins'); wEl.innerHTML = '';
+    const isSoil = snEl === 'sms' || snEl === 'sto';
+    const chips = snEl === 'new' ? SN_WINS.map(w => [w, w + 'h']) : isSoil ? SN_DEPTHS.map(d => [d, d + ' in']) : [];
+    chips.forEach(([k, t]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (k === (snEl === 'new' ? snWin : snDepth) ? ' on' : ''); b.textContent = t;
+      b.onclick = () => { if (snEl === 'new') snWin = k; else snDepth = k; renderSnotel(); }; wEl.appendChild(b);
+    });
+    const pctEl = snEl === 'swe' || snEl === 'prec';
+    const bins = pctEl ? BASIN_BINS.slice().reverse() : snEl === 'depth' ? DEPTH_BINS : snEl === 'new' ? SNOW_BINS : snEl === 'sms' ? SMS_BINS : TEMP_BINS;
+    const legFmt = pctEl ? (x => x === 0 ? '<50' : x + '%') : snEl === 'sms' ? (x => x + '%') : snEl === 'new' ? fmt : (x => String(x));
+    const unit = { swe: 'percent of 1991–2020 median, yesterday', prec: 'water-year precipitation, percent of 1991–2020 median, yesterday', depth: 'inches, latest hourly reading',
+      new: 'inches, storm total: the biggest rise in snow depth in the last ' + snWin + ' h', sms: 'percent water by volume, ' + snDepth + ' in deep', sto: '°F, ' + snDepth + ' in deep' }[snEl];
+    let head;
+    if (!snData) head = 'loading…';
+    else if (snData.note) head = snData.note;
+    else head = [wantStations ? n + ' of ' + shown + ' sites report this' : '', wantBasins && basinData && basinData.features ? basinData.features.filter(f => f.properties[basinEl + '_pct'] != null).length + ' basins with values' : '', 'as of ' + (snData.updated || '')].filter(Boolean).join(' · ');
+    $('snInfo').innerHTML = '<div class="muted">' + head + (snMode === 'basins' ? ' · depth, new snow and soil are stations only' : '') + '</div>' + legendHtml(bins, legFmt) +
+      '<div class="note" style="margin-top:18px">' + unit + ' · ⊖ no reading · ⊗ no median · <a href="https://nwcc-apps.sc.egov.usda.gov/imap/" target="_blank" rel="noopener">NRCS map</a></div>';
+  }
+  function loadSnotel() {
+    let left = 2; const done = () => { if (--left === 0) renderSnotel(); };
+    loadScript('data/snotel.js', () => { snData = window.SNOTEL || snData; done(); }, () => { snData = snData || { note: 'SNOTEL data not available yet', sites: [] }; done(); });
+    loadScript('data/basins.js', () => { basinData = window.BASINS || basinData; done(); }, done);
+  }
+  $('lySnotel').onchange = e => { if (e.target.checked) { snGroup.addTo(map); if (!snData) loadSnotel(); else renderSnotel(); } else map.removeLayer(snGroup); };
+  document.querySelectorAll('#snModes .chip').forEach(c => c.onclick = () => { snMode = c.dataset.mode; if (snMode === 'basins' && !SN_BASIN_EL[snEl]) setSnEl('swe'); renderSnotel(); });
+  document.querySelectorAll('input[name=snEl]').forEach(r => r.addEventListener('change', () => { snEl = r.value; renderSnotel(); }));
+  setInterval(() => { if (map.hasLayer(snGroup)) loadSnotel(); }, 15 * 60 * 1000);
+  if (REG.snotel === false) { $('snOpt').hidden = true; document.querySelector('.subwrap[data-for=lySnotel]').hidden = true; }
 
   // ---------- rivers ----------
   const rvLayer = L.layerGroup();
