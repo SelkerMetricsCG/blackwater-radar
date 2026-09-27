@@ -48,6 +48,18 @@ def test_despike_keeps_a_real_step():
     assert newsnow.storm_total([40, 40, 46, 46, 46], floor=1.0, despike_width=3) == 6.0
 
 
+def test_despike_does_not_lift_the_start_of_a_steady_rise():
+    # 4 in an hour from the first reading: smoothing must not raise the starting depth
+    assert newsnow.storm_total([40, 44, 48, 52], floor=1.0, despike_width=3) == 12.0
+
+
+def test_a_dip_on_the_window_start_reading_is_smoothed_away():
+    # a one-hour dip exactly at the window's first reading must not become a 10 in "rise"
+    s = hourly([50] * 5 + [40] + [50] * 14)       # dip at T0 + 5 h; flat otherwise
+    cfg = dict(CFG, despike_width=3)
+    assert newsnow.new_snow(s, T0 + dt.timedelta(hours=17), [12], cfg) == {12: 0.0}
+
+
 def test_window_needs_a_reading_near_its_start():
     s = hourly([40] * 5 + [44] * 20)          # T0 .. T0+24 h
     t_end = T0 + dt.timedelta(hours=24)

@@ -22,14 +22,15 @@ def load_config(path=CONFIG):
 
 
 def despike(values, width):
-    """Centred running median over `width` samples (odd; 1 = off); the ends use the samples they have."""
+    """Centred running median over `width` samples (odd; 1 = off). Near the ends the window shrinks
+    symmetrically, so the first and last values are kept as they are (a one-sided window would lift a
+    rising record's first value and understate the rise)."""
     if width <= 1 or len(values) < 3:
         return list(values)
-    h = width // 2
-    out = []
-    for i in range(len(values)):
-        win = sorted(values[max(0, i - h): i + h + 1])
-        out.append(win[len(win) // 2])
+    h, n, out = width // 2, len(values), []
+    for i in range(n):
+        k = min(h, i, n - 1 - i)
+        out.append(sorted(values[i - k: i + k + 1])[k])
     return out
 
 
@@ -61,11 +62,18 @@ def window_values(series, t_end, hours, start_slack_h=1, end_slack_h=3):
     return [v for _, v in pts]
 
 
+def despike_series(series, width):
+    """despike() over a whole [(time, value)] record, so a window's first reading is smoothed with its
+    real neighbours rather than treated as an end"""
+    return list(zip([t for t, _ in series], despike([v for _, v in series], width)))
+
+
 def new_snow(series, t_end, windows, cfg):
     """{window hours: storm total (in), or None without coverage or above the plausibility cap}"""
+    smooth = despike_series(series, cfg["despike_width"])
     out = {}
     for w in windows:
-        vals = window_values(series, t_end, w, cfg["start_slack_h"], cfg["end_slack_h"])
-        v = None if vals is None else storm_total(vals, cfg["noise_floor_in"], cfg["despike_width"])
+        vals = window_values(smooth, t_end, w, cfg["start_slack_h"], cfg["end_slack_h"])
+        v = None if vals is None else storm_total(vals, cfg["noise_floor_in"])
         out[w] = None if v is None or v > cfg["max_new_base_in"] + cfg["max_new_per_h_in"] * w else v
     return out
