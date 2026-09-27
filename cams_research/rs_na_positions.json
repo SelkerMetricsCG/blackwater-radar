@@ -1,0 +1,530 @@
+[
+ {
+  "name": "Palisades Tahoe - Alpine Summit",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Ski resorts",
+  "link": "https://palisadestahoe.roundshot.com/alpine/",
+  "picture": "https://backend.roundshot.com/cams/250/thumbnail",
+  "lat": 39.1508583,
+  "lon": -120.2483056,
+  "boxes": [
+   "sierra"
+  ]
+ },
+ {
+  "name": "Alyeska Resort",
+  "status": "working",
+  "date": "26.09.2026 17:00",
+  "category": "Ski resorts",
+  "link": "https://alyeskaresort.roundshot.com/glacierbowl/",
+  "picture": "https://backend.roundshot.com/cams/602/thumbnail",
+  "lat": 60.96212,
+  "lon": -149.071666,
+  "boxes": []
+ },
+ {
+  "name": "Anakeesta",
+  "status": "broken",
+  "date": "28.07.2026 15:10",
+  "category": "Tourism associations",
+  "link": "https://anakeesta.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/1097/thumbnail",
+  "lat": 35.710093,
+  "lon": -83.504083,
+  "boxes": []
+ },
+ {
+  "name": "IID - Anza-Borrego",
+  "status": "broken",
+  "date": "02.07.2026 06:10",
+  "category": "Weather cams",
+  "link": "https://iid.roundshot.com/anza-borrego/",
+  "picture": "https://backend.roundshot.com/cams/7c489eeced76dff9294e39d9925bed1b/thumbnail",
+  "lat": 33.1654917,
+  "lon": -116.159317,
+  "boxes": [
+   "sierra"
+  ]
+ },
+ {
+  "name": "Aspen - Aspen Highlands",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/highlands/",
+  "picture": "https://backend.roundshot.com/cams/89/thumbnail",
+  "lat": 39.141886,
+  "lon": -106.87349,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Aspen - Aspen Mountain",
+  "status": "idle",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/aspen/",
+  "picture": "https://backend.roundshot.com/cams/91/thumbnail",
+  "lat": 39.151425,
+  "lon": -106.8195694,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Killington - Base Lodge",
+  "status": "working",
+  "date": "26.09.2026 21:00",
+  "category": "Ski resorts",
+  "link": "https://killington.roundshot.com/baselodge/",
+  "picture": "https://backend.roundshot.com/cams/2017/thumbnail",
+  "lat": 43.617453,
+  "lon": -72.803429,
+  "boxes": []
+ },
+ {
+  "name": "Lone Mountain Land - Big Sky Moonlight Basin",
+  "status": "working",
+  "date": "26.09.2026 18:50",
+  "category": "Villages",
+  "link": "https://lonemountainland.roundshot.com/moonlightbasin/",
+  "picture": "https://backend.roundshot.com/cams/1038/thumbnail",
+  "lat": 45.308362,
+  "lon": -111.417844,
+  "boxes": [
+   "imw"
+  ]
+ },
+ {
+  "name": "Lone Mountain Land - Big Sky Spanish Peaks",
+  "status": "working",
+  "date": "26.09.2026 18:50",
+  "category": "Villages",
+  "link": "https://lonemountainland.roundshot.com/spanishpeaks/",
+  "picture": "https://backend.roundshot.com/cams/1039/thumbnail",
+  "lat": 45.249448,
+  "lon": -111.372538,
+  "boxes": [
+   "imw"
+  ]
+ },
+ {
+  "name": "Lone Mountain Land - Big Sky Town Center",
+  "status": "working",
+  "date": "26.09.2026 18:50",
+  "category": "Villages",
+  "link": "https://lonemountainland.roundshot.com/towncenter/",
+  "picture": "https://backend.roundshot.com/cams/1037/thumbnail",
+  "lat": 45.260311,
+  "lon": -111.306579,
+  "boxes": [
+   "imw"
+  ]
+ },
+ {
+  "name": "Aspen - Buttermilk",
+  "status": "idle",
+  "date": "26.09.2026 18:50",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/buttermilk/",
+  "picture": "https://backend.roundshot.com/cams/87/thumbnail",
+  "lat": 39.1820778,
+  "lon": -106.8753861,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Dean Le Baron - Casey Key Gulf",
+  "status": "idle",
+  "date": "26.09.2026 19:40",
+  "category": "Seaside resort",
+  "link": "https://deanlebaron.roundshot.com/caseykeygulf/",
+  "picture": "https://backend.roundshot.com/cams/1999/thumbnail",
+  "lat": 27.166732405205,
+  "lon": -82.491304204267,
+  "boxes": []
+ },
+ {
+  "name": "Dean Le Baron - Casey Key Tower",
+  "status": "idle",
+  "date": "26.09.2026 19:40",
+  "category": "Seaside resort",
+  "link": "https://deanlebaron.roundshot.com/caseykeytower/",
+  "picture": "https://backend.roundshot.com/cams/2000/thumbnail",
+  "lat": 27.166701,
+  "lon": -82.490168,
+  "boxes": []
+ },
+ {
+  "name": "Crystal Mountain Resort - Crystal Mountain Summit",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Ski resorts",
+  "link": "https://crystalmountainresort.roundshot.com/summit/",
+  "picture": "https://backend.roundshot.com/cams/1011/thumbnail",
+  "lat": 46.937713,
+  "lon": -121.500405,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "Fairmont Banff Springs",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Hotels",
+  "link": "https://fairmont.roundshot.com/banff-springs/",
+  "picture": "https://backend.roundshot.com/cams/733/thumbnail",
+  "lat": 51.163913,
+  "lon": -115.560504,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "Fairmont Chateau Lake Louise",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Hotels",
+  "link": "https://fairmont.roundshot.com/lake-louise/",
+  "picture": "https://backend.roundshot.com/cams/1185/thumbnail",
+  "lat": 51.417093,
+  "lon": -116.216983,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "Boyne Resorts - Gatlinburg Skybridge",
+  "status": "broken",
+  "date": "09.09.2026 13:50",
+  "category": "Tourism associations",
+  "link": "https://gatlinburgskylift.roundshot.com/skybridge/",
+  "picture": "https://backend.roundshot.com/cams/991/thumbnail",
+  "lat": 35.715513,
+  "lon": -83.520003,
+  "boxes": []
+ },
+ {
+  "name": "Jasper Marmot - Jasper SkyTram",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://jasperskytram.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/718/thumbnail",
+  "lat": 52.836381,
+  "lon": -118.126072,
+  "boxes": []
+ },
+ {
+  "name": "Limelight Hotels - Limelight Ketchum",
+  "status": "working",
+  "date": "26.09.2026 18:50",
+  "category": "Hotels",
+  "link": "https://limelighthotels.roundshot.com/ketchum/",
+  "picture": "https://backend.roundshot.com/cams/803/thumbnail",
+  "lat": 43.679077,
+  "lon": -114.363174,
+  "boxes": [
+   "pnw",
+   "imw"
+  ]
+ },
+ {
+  "name": "Limelight Hotels - Limelight Snowmass",
+  "status": "idle",
+  "date": "26.09.2026 18:50",
+  "category": "Hotels",
+  "link": "https://limelighthotels.roundshot.com/snowmass/",
+  "picture": "https://backend.roundshot.com/cams/850/thumbnail",
+  "lat": 39.208777,
+  "lon": -106.947668,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Lodge at Whitefish Lake",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Hotels",
+  "link": "https://lodgeatwhitefishlake.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/1394/thumbnail",
+  "lat": 48.43138,
+  "lon": -114.342673,
+  "boxes": [
+   "pnw",
+   "imw"
+  ]
+ },
+ {
+  "name": "Lutsen Mountains",
+  "status": "idle",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://lutsen.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/823/thumbnail",
+  "lat": 47.663028,
+  "lon": -90.708748,
+  "boxes": []
+ },
+ {
+  "name": "Jasper Marmot - Marmot Basin",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://skimarmot.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/719/thumbnail",
+  "lat": 52.799501,
+  "lon": -118.115165,
+  "boxes": []
+ },
+ {
+  "name": "Arizona DEQ - Phoenix",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Weather cams",
+  "link": "https://azdeq.roundshot.com/phoenix/",
+  "picture": "https://backend.roundshot.com/cams/1615/thumbnail",
+  "lat": 33.448772,
+  "lon": -112.087583,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Aspen - Power of Four",
+  "status": "idle",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/power-of-four/",
+  "picture": "https://backend.roundshot.com/cams/90/thumbnail",
+  "lat": 39.225782,
+  "lon": -106.836158,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Ski Lake Louise - Ptarmigan",
+  "status": "working",
+  "date": "26.09.2026 18:50",
+  "category": "Ski resorts",
+  "link": "https://skilouise.roundshot.com/ptarmigan/",
+  "picture": "https://backend.roundshot.com/cams/585/thumbnail",
+  "lat": 51.4542278,
+  "lon": -116.1248861,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "Jackson Hole - Rendezvous Lodge",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://jacksonhole.roundshot.com/rendezvous-lodge/",
+  "picture": "https://backend.roundshot.com/cams/553/thumbnail",
+  "lat": 43.6013667,
+  "lon": -110.8542333,
+  "boxes": [
+   "imw"
+  ]
+ },
+ {
+  "name": "Telluride - Revelation Bowl",
+  "status": "broken",
+  "date": "11.09.2026 19:40",
+  "category": "Ski resorts",
+  "link": "https://tellurideskiresort.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/983/thumbnail",
+  "lat": 37.898801,
+  "lon": -107.822689,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "City of Revelstoke - Revelstoke Airport",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Airports",
+  "link": "https://revelstoke.roundshot.com/airport/",
+  "picture": "https://backend.roundshot.com/cams/2232/thumbnail",
+  "lat": 50.959903,
+  "lon": -118.176424,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "IID - Salton South",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Weather cams",
+  "link": "https://iid.roundshot.com/salton-south/",
+  "picture": "https://backend.roundshot.com/cams/c45767f2311f4df4c094686fdbb1c7f0/thumbnail",
+  "lat": 33.199962,
+  "lon": -115.612132,
+  "boxes": [
+   "sierra"
+  ]
+ },
+ {
+  "name": "Palisades Tahoe - Silverado",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Ski resorts",
+  "link": "https://palisadestahoe.roundshot.com/silverado/",
+  "picture": "https://backend.roundshot.com/cams/249/thumbnail",
+  "lat": 39.1957194,
+  "lon": -120.2669306,
+  "boxes": [
+   "sierra"
+  ]
+ },
+ {
+  "name": "Schweitzer Mountain Resort - Sky House",
+  "status": "working",
+  "date": "26.09.2026 17:50",
+  "category": "Ski resorts",
+  "link": "https://schweitzer.roundshot.com/skyhouse/",
+  "picture": "https://backend.roundshot.com/cams/792/thumbnail",
+  "lat": 48.379609,
+  "lon": -116.633699,
+  "boxes": [
+   "pnw",
+   "imw"
+  ]
+ },
+ {
+  "name": "Snowbird",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://snowbird.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/1003/thumbnail",
+  "lat": 40.560311,
+  "lon": -111.645217,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Aspen - Snowmass Mountain",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/snowmass/",
+  "picture": "https://backend.roundshot.com/cams/88/thumbnail",
+  "lat": 39.168912,
+  "lon": -106.926635,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Aspen - Snowmass Sams Knob",
+  "status": "idle",
+  "date": "26.09.2026 18:50",
+  "category": "Ski resorts",
+  "link": "https://aspen.roundshot.com/snowmass-samsknob/",
+  "picture": "https://backend.roundshot.com/cams/797/thumbnail",
+  "lat": 39.187251,
+  "lon": -106.972525,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Big Bear Mountain Resort - Snow Valley",
+  "status": "working",
+  "date": "26.09.2026 18:00",
+  "category": "Ski resorts",
+  "link": "https://bigbearmountainresort.roundshot.com/snow-valley/",
+  "picture": "https://backend.roundshot.com/cams/2145/thumbnail",
+  "lat": 34.204093,
+  "lon": -117.036301,
+  "boxes": [
+   "sierra"
+  ]
+ },
+ {
+  "name": "Space Needle - Space Needle Seattle",
+  "status": "working",
+  "date": "26.09.2026 17:50",
+  "category": "Cities",
+  "link": "https://spaceneedle.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/241/thumbnail",
+  "lat": 47.620508,
+  "lon": -122.349298,
+  "boxes": [
+   "pnw"
+  ]
+ },
+ {
+  "name": "Jackson Hole - Summit",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://jacksonhole.roundshot.com/summit/",
+  "picture": "https://backend.roundshot.com/cams/848/thumbnail",
+  "lat": 43.596475,
+  "lon": -110.869061,
+  "boxes": [
+   "imw"
+  ]
+ },
+ {
+  "name": "City of Montrose - Sunset Mesa",
+  "status": "idle",
+  "date": "26.09.2026 18:50",
+  "category": "Cities",
+  "link": "https://cityofmontrose.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/1312/thumbnail",
+  "lat": 38.456217,
+  "lon": -107.87817,
+  "boxes": [
+   "utco"
+  ]
+ },
+ {
+  "name": "Tin Top Texas",
+  "status": "idle",
+  "date": "26.09.2026 19:20",
+  "category": "Weather cams",
+  "link": "https://tintop.roundshot.com/",
+  "picture": "https://backend.roundshot.com/cams/06bf5ed437245daf0542118bdc4fbb60/thumbnail",
+  "lat": 32.542018,
+  "lon": -97.83126,
+  "boxes": []
+ },
+ {
+  "name": "University of Alabama Huntsville - UAH - SWIRLL",
+  "status": "idle",
+  "date": "26.09.2026 18:42",
+  "category": "Schools",
+  "link": "https://uah.roundshot.com/swirll/",
+  "picture": "https://backend.roundshot.com/cams/485/thumbnail",
+  "lat": 34.725184,
+  "lon": -86.646432,
+  "boxes": []
+ },
+ {
+  "name": "Whitefish Mountain Resort - Whitefish Summit",
+  "status": "working",
+  "date": "26.09.2026 19:00",
+  "category": "Ski resorts",
+  "link": "https://skiwhitefish.roundshot.com/summit/",
+  "picture": "https://backend.roundshot.com/cams/849/thumbnail",
+  "lat": 48.502564,
+  "lon": -114.341033,
+  "boxes": [
+   "pnw",
+   "imw"
+  ]
+ }
+]

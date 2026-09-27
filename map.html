@@ -728,6 +728,39 @@
     }
     return L.polygon(pts, { color: '#0ea5e9', weight: 1, fillOpacity: .18, interactive: false });
   }
+  // conditions cameras (ski areas, water, rivers, towns, parks): label, colour, glyph
+  const CAM_KIND = { ski: ['ski area', '#5d7fa3', '❄︎'], water: ['water', '#3f8a86', '≈'], river: ['river', '#4f74a8', '~'],
+                     town: ['town', '#8b6f9c', '⌂'], park: ['park or volcano', '#6b8a57', '▲'] };
+  const condDot = (col, g, px) => '<span style="display:inline-block;width:' + px + 'px;height:' + px + 'px;border-radius:50%;background:' + col + ';border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);color:#fff;font:bold ' + (px - 8) + 'px/' + (px - 4) + 'px system-ui;text-align:center;vertical-align:middle;box-sizing:border-box">' + g + '</span>';
+  const condIcon = {};
+  for (const [k, [, col, g]] of Object.entries(CAM_KIND)) condIcon[k] = L.divIcon({ className: '', iconSize: [20, 20], iconAnchor: [10, 10], popupAnchor: [0, -10], html: condDot(col, g, 20) });
+  const camIcon = c => c.kind === 'fire' ? fireIcon(c.pan) : c.kind === 'road' ? roadIcon : (condIcon[c.kind] || roadIcon);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const camAge = ts => { if (!ts) return ''; const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return ' · image ' + (m < 90 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days') + ' old at last refresh'; };
+  const camSrc = v => v.img + (v.img.includes('?') ? '&' : '?') + 't=' + Date.now();
+  function camPopup(c) {
+    const views = c.views || [{ name: c.name, img: c.img, ts: c.ts }], v = views[0], src = camSrc(v);
+    const kind = c.kind === 'road' ? 'road camera' : c.kind === 'fire' ? 'fire camera' + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '')
+      : (CAM_KIND[c.kind] || ['camera'])[0] + (c.stake ? ', snow stake' : '');
+    const credit = /alertwest\.live/.test(c.link || '') ? esc(c.src) + ' via <a href="' + esc(c.link) + '" target="_blank" rel="noopener">AlertWest</a>'
+      : '<a href="' + esc(c.link || '#') + '" target="_blank" rel="noopener">' + esc(c.owner || c.src || 'source') + '</a>' + (c.src && c.owner && !c.owner.includes(c.src) ? ' · ' + esc(c.src) : '');
+    const btns = views.length < 2 ? '' : '<div class="camviews" style="margin:5px 0 0;display:flex;flex-wrap:wrap;gap:4px">' + views.map((w, i) =>
+      '<button type="button" data-i="' + i + '" title="' + esc(w.name) + '" style="font:12px system-ui;padding:2px 8px;border-radius:5px;border:1px solid #bbb;cursor:pointer;background:' + (i ? '#fff' : '#e5e7eb') + '">' + (i + 1) + '</button>').join('') + '</div>';
+    return '<div style="font:13px system-ui;width:min(80vw,440px)"><b>' + esc(c.name) + '</b> <span style="color:#666">' + kind + (views.length > 1 ? ' · ' + views.length + ' views' : '') + '</span>' + btns +
+      '<div style="margin:6px 0"><a class="camlink" href="' + esc(src) + '" target="_blank" rel="noopener"><img class="camimg" src="' + esc(src) + '" alt="' + esc(v.name) + '" style="width:100%;border-radius:6px;background:#eee"></a>' +
+      (views.length > 1 ? '<div class="camcap" style="color:#444;font-size:12px;margin-top:2px">' + esc(v.name) + '</div>' : '') + '</div>' +
+      '<div style="color:#666;font-size:12px">' + credit + '<span class="camage">' + camAge(v.ts) + '</span></div></div>';
+  }
+  function wireCamPopup(c, el) {  // view buttons on a grouped camera
+    if (!c.views || !el) return;
+    el.querySelectorAll('.camviews button').forEach(b => b.onclick = () => {
+      const v = c.views[+b.dataset.i], src = camSrc(v), img = el.querySelector('.camimg');
+      img.src = src; img.alt = v.name; el.querySelector('.camlink').href = src;
+      el.querySelector('.camcap').textContent = v.name;
+      el.querySelector('.camage').textContent = camAge(v.ts);
+      el.querySelectorAll('.camviews button').forEach(x => { x.style.background = x === b ? '#e5e7eb' : '#fff'; });
+    });
+  }
   function renderCams() {
     if (camPopupOpen) return;
     camLayer.clearLayers(); wedgeLayer.clearLayers();
@@ -738,23 +771,19 @@
       if (!b.contains([c.lat, c.lon])) continue;
       if (z < 9 && c.kind === 'road') continue;
       n++;
-      const m = L.marker([c.lat, c.lon], { icon: c.kind === 'fire' ? fireIcon(c.pan) : roadIcon });
-      m.bindTooltip(c.name + (c.kind === 'fire' && c.pan != null ? ' · facing ' + Math.round(c.pan) + '°' : ''), { direction: 'top', offset: [0, -12] });
+      const m = L.marker([c.lat, c.lon], { icon: camIcon(c) });
+      m.bindTooltip(esc(c.name) + (c.kind === 'fire' && c.pan != null ? ' · facing ' + Math.round(c.pan) + '°' : '') + (c.views ? ' · ' + c.views.length + ' views' : ''), { direction: 'top', offset: [0, -12] });
       if (c.kind === 'fire' && c.pan != null) {
         let w = null;
         m.on('mouseover', () => { w = wedge(c, 12).addTo(wedgeLayer); });
         m.on('mouseout', () => { if (w) { wedgeLayer.removeLayer(w); w = null; } });
       }
-      m.bindPopup(() => {
-        const src = c.img + '?t=' + Date.now();
-        const age = c.ts ? Math.round((Date.now() / 1000 - c.ts) / 60) : null;
-        return '<div style="font:13px system-ui;width:min(80vw,440px)"><b>' + c.name + '</b> <span style="color:#666">' + (c.kind === 'road' ? 'road camera' : 'fire camera') + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '') + '</span>' +
-          '<div style="margin:6px 0"><a href="' + src + '" target="_blank" rel="noopener"><img src="' + src + '" alt="' + c.name + '" style="width:100%;border-radius:6px;background:#eee"></a></div>' +
-          '<div style="color:#666;font-size:12px">' + (c.src || '') + ' via <a href="' + (c.link || '#') + '" target="_blank" rel="noopener">AlertWest</a>' + (age != null ? ' · image ' + age + ' min old at last refresh' : '') + '</div></div>';
-      }, { maxWidth: 480 });
+      m.bindPopup(() => camPopup(c), { maxWidth: 480 });
+      m.on('popupopen', e => wireCamPopup(c, e.popup.getElement()));
       camLayer.addLayer(m);
     }
-    $('camInfo').innerHTML = '<div class="muted">' + n + ' in view · arrows are fire cameras (hover for the view cone), squares are road cameras (zoom in)</div>';
+    $('camInfo').innerHTML = '<div class="muted">' + n + ' in view · arrows are fire cameras (hover for the view cone), squares are road cameras (zoom in), dots are conditions cameras: ' +
+      Object.values(CAM_KIND).map(([label, col, g]) => condDot(col, g, 16) + ' ' + label).join(', ') + '</div>';
   }
   map.on('moveend', () => { if (map.hasLayer(camLayer)) renderCams(); });
   function loadCams() { loadScript('data/webcams.js', () => { camData = window.WEBCAMS || camData; renderCams(); }, () => { $('camInfo').innerHTML = '<div class="muted">camera list not available yet</div>'; }); }
