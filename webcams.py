@@ -4,7 +4,8 @@ Webcam layer, inside the map window:
   aggregates. Road vs fire comes from the agency (`src`), not the camera name.
 - Pulled live each run: USGS river cameras (HIVIS), USGS volcano cameras (Ashcam), NOAA buoy cameras.
 - webcams_extra.json: curated conditions cameras (ski areas, water, towns, national parks). Each is
-  fetched once per run (except those marked robots) and left out if it doesn't return an image.
+  fetched once per run (except those marked robots) to log problems and take its Last-Modified time; only
+  a Brownrice offline card drops one (see drops()). Prune dead ones from a PC: cams_research/prune_extra.py.
 
 Road cameras are grouped by pole (cameras within SITE_M share one marker and every view is kept) and
 thinned to one site per RURAL_KM, or per URBAN_KM inside the metro circles in URBAN.
@@ -211,9 +212,8 @@ def ndbc():
 # ---------------------------------------------------------------- curated extras
 def check_image(url):
     """(state, last-modified epoch, reason) for one image URL. state is "ok"; "gone" when the host says so
-    (404/410, not an image, Brownrice's offline card); or "unreachable" (refused, timed out, 5xx). Several
-    hosts (Cloudflare sites among them) refuse cloud runners like GitHub Actions but serve viewers' browsers
-    fine, so only "gone" should drop a camera."""
+    (404/410, not an image, Brownrice's offline card); or "unreachable" (refused, timed out, 5xx). From a
+    cloud runner these can be wrong: see drops()."""
     sep = "&" if "?" in url else "?"
     req = urllib.request.Request(url + sep + "t=%d" % int(time.time()),
                                  headers={"User-Agent": CHECK_UA, "Referer": REFERER, "Accept": "image/*"})
@@ -240,6 +240,14 @@ def check_image(url):
         return "unreachable", None, type(e).__name__
 
 
+def drops(state, why):
+    """Whether a curated camera is left out this run. From a cloud runner a dead camera and a refused one look
+    the same (glacier.org and lakewenatcheeinfo.com answer GitHub's runners as if the image were gone, and
+    Cloudflare sites refuse them, yet all load in a browser), so only Brownrice's offline card, which
+    Brownrice serves to anyone, drops a camera. Dead cameras are pruned from a PC instead."""
+    return state == "gone" and why == "offline card"
+
+
 def extras(check=True, log=print):
     cams = [c for c in json.load(open(EXTRA, encoding="utf-8"))["cams"] if inside(c["lat"], c["lon"])]
     todo = [c for c in cams if check and not c.get("robots")]
@@ -248,12 +256,12 @@ def extras(check=True, log=print):
     out, gone, unreachable = [], 0, {}
     for c in cams:
         state, ts, why = results.get(id(c), ("ok", None, ""))
-        if state == "unreachable":
-            host = re.sub(r"^https?://([^/]+).*$", r"\1", c["img"])
-            unreachable[host + " " + why] = unreachable.get(host + " " + why, 0) + 1
-        if state == "gone":
+        if drops(state, why):
             gone += 1
             continue
+        if state != "ok":
+            host = re.sub(r"^https?://([^/]+).*$", r"\1", c["img"])
+            unreachable[host + " " + why] = unreachable.get(host + " " + why, 0) + 1
         rec = {"id": "x" + hashlib.md5(c["img"].encode()).hexdigest()[:10], "name": c["name"], "lat": c["lat"],
                "lon": c["lon"], "img": c["img"], "ts": ts, "kind": c["kind"], "src": c.get("provider") or "",
                "owner": c.get("owner") or c.get("provider") or "", "link": c.get("page") or ""}
@@ -261,7 +269,7 @@ def extras(check=True, log=print):
             rec["stake"] = True
         out.append(rec)
     if gone:
-        log("webcams: %d curated cameras left out (host says the image is gone)" % gone)
+        log("webcams: %d curated cameras left out (Brownrice stream offline)" % gone)
     if unreachable:
         log("webcams: kept %d curated cameras this runner couldn't load: %s" % (
             sum(unreachable.values()), ", ".join("%s x%d" % kv for kv in sorted(unreachable.items()))))

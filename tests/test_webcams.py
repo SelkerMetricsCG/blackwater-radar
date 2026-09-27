@@ -91,3 +91,10 @@ def test_check_image_drops_only_what_the_host_says_is_gone(monkeypatch):
     assert webcams.check_image("https://player.brownrice.com/snapshot/x")[0] == "gone"
     monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(_Resp(b"\xff\xd8\xff\xe0")))
     assert webcams.check_image("https://x/a.jpg")[0] == "ok"
+
+
+def test_only_a_brownrice_offline_card_drops_a_curated_camera():
+    assert webcams.drops("gone", "offline card")
+    for state, why in (("gone", "HTTP 404"), ("gone", "not an image"), ("unreachable", "HTTP 403"),
+                       ("unreachable", "TimeoutError"), ("ok", "")):
+        assert not webcams.drops(state, why)

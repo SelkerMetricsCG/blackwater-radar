@@ -67,8 +67,10 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 ## Webcams (`webcams.py`, rebuilt by the hourly job)
 - Sources: AlertWest (fire PTZ cams plus the DOT road, FAA and utility cams it aggregates; road vs fire comes
   from the agency in `src`, see `DOT_SRC`); USGS river (HIVIS), USGS volcano (Ashcam) and NOAA buoy cams pulled
-  live each run; `webcams_extra.json`, the curated conditions cams (ski, water, town, park), each fetched once
-  per run and dropped if it doesn't return an image (entries marked `robots` are never fetched, only hotlinked).
+  live each run; `webcams_extra.json`, the curated conditions cams (ski, water, town, park). The hourly job
+  fetches each once and logs failures by host but drops only Brownrice offline cards: several hosts refuse or
+  404 GitHub's runners while serving browsers (entries marked `robots` are never fetched, only hotlinked).
+  Prune dead ones from a PC: `python cams_research/prune_extra.py` (lists), `--apply` (removes).
 - Road cams within `SITE_M` (250 m) become one marker with `views`; road sites are thinned to one per
   `RURAL_KM` (3 km), or `URBAN_KM` (10 km) inside the hand-set metro circles in `URBAN`.
 - The research behind the curated list (sources, URL patterns, terms, Chris's 2026-09-27 decisions) is in
