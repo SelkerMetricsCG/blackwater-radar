@@ -24,6 +24,7 @@ import math
 import os
 import re
 import time
+import urllib.error
 import urllib.request
 
 import region
@@ -209,7 +210,10 @@ def ndbc():
 
 # ---------------------------------------------------------------- curated extras
 def check_image(url):
-    """(ok, last-modified epoch) for one image URL, fetched the way a viewer's browser would."""
+    """(state, last-modified epoch, reason) for one image URL. state is "ok"; "gone" when the host says so
+    (404/410, not an image, Brownrice's offline card); or "unreachable" (refused, timed out, 5xx). Several
+    hosts (Cloudflare sites among them) refuse cloud runners like GitHub Actions but serve viewers' browsers
+    fine, so only "gone" should drop a camera."""
     sep = "&" if "?" in url else "?"
     req = urllib.request.Request(url + sep + "t=%d" % int(time.time()),
                                  headers={"User-Agent": CHECK_UA, "Referer": REFERER, "Accept": "image/*"})
@@ -220,16 +224,20 @@ def check_image(url):
             lm = r.headers.get("Last-Modified")
             is_img = ctype.startswith("image/") or head[:2] == b"\xff\xd8" or head[:4] == b"\x89PNG" or head[8:12] == b"WEBP"
             if "brownrice.com" in url and head[:4] == b"\x89PNG":
-                return False, None  # Brownrice serves a PNG "offline" card for a dead stream
+                return "gone", None, "offline card"
+            if not is_img:
+                return "gone", None, "not an image"
             ts = None
             if lm:
                 try:
                     ts = int(email.utils.parsedate_to_datetime(lm).timestamp())
                 except (TypeError, ValueError):
                     pass
-            return r.status == 200 and is_img, ts
-    except Exception:
-        return False, None
+            return "ok", ts, ""
+    except urllib.error.HTTPError as e:
+        return ("gone" if e.code in (404, 410) else "unreachable"), None, "HTTP %d" % e.code
+    except Exception as e:
+        return "unreachable", None, type(e).__name__
 
 
 def extras(check=True, log=print):
@@ -237,11 +245,14 @@ def extras(check=True, log=print):
     todo = [c for c in cams if check and not c.get("robots")]
     with cf.ThreadPoolExecutor(16) as ex:
         results = dict(zip((id(c) for c in todo), ex.map(lambda c: check_image(c["img"]), todo)))
-    out, failed = [], 0
+    out, gone, unreachable = [], 0, {}
     for c in cams:
-        ok, ts = results.get(id(c), (True, None))
-        if not ok:
-            failed += 1
+        state, ts, why = results.get(id(c), ("ok", None, ""))
+        if state == "unreachable":
+            host = re.sub(r"^https?://([^/]+).*$", r"\1", c["img"])
+            unreachable[host + " " + why] = unreachable.get(host + " " + why, 0) + 1
+        if state == "gone":
+            gone += 1
             continue
         rec = {"id": "x" + hashlib.md5(c["img"].encode()).hexdigest()[:10], "name": c["name"], "lat": c["lat"],
                "lon": c["lon"], "img": c["img"], "ts": ts, "kind": c["kind"], "src": c.get("provider") or "",
@@ -249,8 +260,11 @@ def extras(check=True, log=print):
         if c.get("stake"):
             rec["stake"] = True
         out.append(rec)
-    if failed:
-        log("webcams: %d curated cameras left out (no image this run)" % failed)
+    if gone:
+        log("webcams: %d curated cameras left out (host says the image is gone)" % gone)
+    if unreachable:
+        log("webcams: kept %d curated cameras this runner couldn't load: %s" % (
+            sum(unreachable.values()), ", ".join("%s x%d" % kv for kv in sorted(unreachable.items()))))
     return out
 
 

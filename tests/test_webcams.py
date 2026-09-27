@@ -50,3 +50,44 @@ def test_site_with_more_views_wins_the_spacing():
 def test_other_kinds_are_never_thinned():
     skis = [cam(i, 47.0 + i * 0.5 / 111.2, -121.0, kind="ski") for i in range(4)]
     assert len(webcams.thin(webcams.group(skis))) == 4
+
+
+class _Resp:
+    def __init__(self, body, ctype="image/jpeg"):
+        self.body, self.headers, self.status = body, {"Content-Type": ctype}, 200
+
+    def read(self, n=-1):
+        return self.body[:n]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _urlopen_returning(result):
+    def fake(req, timeout=None):
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return fake
+
+
+def test_check_image_keeps_cameras_the_runner_is_refused(monkeypatch):
+    import urllib.error
+    for err in (urllib.error.HTTPError("u", 403, "Forbidden", {}, None), TimeoutError()):
+        monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(err))
+        assert webcams.check_image("https://x/a.jpg")[0] == "unreachable"
+
+
+def test_check_image_drops_only_what_the_host_says_is_gone(monkeypatch):
+    import urllib.error
+    monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(urllib.error.HTTPError("u", 404, "Not Found", {}, None)))
+    assert webcams.check_image("https://x/a.jpg")[0] == "gone"
+    monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(_Resp(b"<html>", "text/html")))
+    assert webcams.check_image("https://x/a.jpg")[0] == "gone"
+    monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(_Resp(b"\x89PNG\r\n\x1a\n", "image/png")))
+    assert webcams.check_image("https://player.brownrice.com/snapshot/x")[0] == "gone"
+    monkeypatch.setattr(webcams.urllib.request, "urlopen", _urlopen_returning(_Resp(b"\xff\xd8\xff\xe0")))
+    assert webcams.check_image("https://x/a.jpg")[0] == "ok"

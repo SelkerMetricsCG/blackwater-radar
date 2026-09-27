@@ -6,8 +6,8 @@ radar/nps.env (gitignored) as a single line  NPS_API_KEY=...  and run from radar
 
     python cams_research/refresh_nps.py
 
-Replaces every entry whose provider is "NPS webcams" and keeps everything else as it is. Covers every
-region in region.py (including ne). Takes a few minutes the first time: each camera's page is read once
+Replaces every entry whose provider is "NPS webcams" and keeps everything else as it is; each image is
+fetched once from this PC and left out if it doesn't load. Covers every region in region.py (including ne). Takes a few minutes the first time: each camera's page is read once
 to find its image, and the answers are cached in cams_research/nps_img_cache.json.
 """
 import json
@@ -41,8 +41,18 @@ def main():
         boxes[key] = (region.tile_lat(y1 + 1), region.tile_lat(y0), region.tile_lon(x0), region.tile_lon(x1 + 1))
     build_feeds.BOXES = boxes
 
+    import concurrent.futures as cf
+    import webcams
+    listed = build_feeds.nps()
+    # checked from this PC, not a cloud runner, so a failure here means the camera is really down
+    with cf.ThreadPoolExecutor(12) as ex:
+        states = list(ex.map(lambda c: webcams.check_image(c["img"])[0], listed))
+    dead = [c["name"] for c, s in zip(listed, states) if s != "ok"]
+    if dead:
+        print("left out, no image now: %s" % "; ".join(dead))
     fresh = [{"name": c["name"], "kind": "park", "lat": c["lat"], "lon": c["lon"], "img": c["img"],
-              "page": c["page"], "owner": c["owner"], "provider": "NPS webcams"} for c in build_feeds.nps()]
+              "page": c["page"], "owner": c["owner"], "provider": "NPS webcams"}
+             for c, s in zip(listed, states) if s == "ok"]
     d = json.load(open(EXTRA, encoding="utf-8"))
     kept = [c for c in d["cams"] if c.get("provider") != "NPS webcams"]
     old = len(d["cams"]) - len(kept)
