@@ -178,3 +178,134 @@ def to_airq(store, newest, now):
     g = store.get("grid")
     return {"updated": dt.datetime.fromtimestamp(now).strftime("%a %b %d %I:%M %p"), "updated_t": int(now),
             "hours": hours, "grid": {"t": g["t"], "file": g["file"]} if g else None, "stations": stations}
+
+
+def fetch(url):
+    """-> (bytes, Last-Modified). The five region steps of one Actions job share each download for CACHE_MAX_AGE_S."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    path = os.path.join(CACHE_DIR, hashlib.sha1(url.encode()).hexdigest())
+    if os.path.exists(path) and os.path.exists(path + ".lm") and time.time() - os.path.getmtime(path) < CACHE_MAX_AGE_S:
+        with open(path, "rb") as f, open(path + ".lm", encoding="utf-8") as g:
+            return f.read(), g.read()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=TIMEOUT) as r:
+            body, lm = r.read(), r.headers.get("Last-Modified") or ""
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 404):          # S3 answers 403 for a key that does not exist
+            raise NotPosted(url) from e
+        raise
+    with open(path + ".lm", "w", encoding="utf-8") as g:
+        g.write(lm)
+    with open(path + ".tmp", "wb") as f:
+        f.write(body)
+    os.replace(path + ".tmp", path)
+    return body, lm
+
+
+def head_last_modified(url):
+    req = urllib.request.Request(url, headers={"User-Agent": UA}, method="HEAD")
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+        return r.headers.get("Last-Modified") or ""
+
+
+def hourly_url(t):
+    d = dt.datetime.fromtimestamp(t, dt.timezone.utc)
+    return "%s/%s/%s/HourlyAQObs_%s.dat" % (AIRNOW, d.strftime("%Y"), d.strftime("%Y%m%d"), d.strftime("%Y%m%d%H"))
+
+
+def load_store():
+    try:
+        with open(STORE, encoding="utf-8") as f:
+            s = json.load(f)
+        if isinstance(s, dict) and s.get("v") == 1:
+            return s
+    except (OSError, ValueError):
+        pass
+    return {"v": 1}
+
+
+def _write(path, text):
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(path + ".tmp", path)
+
+
+def _name(url):
+    return url.rsplit("/", 1)[-1]
+
+
+def build_grid(store, log=print):
+    """replaced in Task 3"""
+    return False
+
+
+def build(log=print, now=None):
+    t_start = time.time()
+    now = now or time.time()
+    bbox = region.bbox()
+    store = load_store()
+    have = set(store.get("have", []))
+    top = int(now) // 3600 * 3600 - 3600          # newest hour AirNow could have posted (UTC hour start)
+    got = []
+    for t in (top, top - 3600, top - 7200):       # the two newest posted hours, every run (AirNow revises the older one)
+        if len(got) == 2:
+            break
+        try:
+            body, _ = fetch(hourly_url(t))
+        except NotPosted:
+            continue
+        except Exception as e:  # noqa: BLE001
+            log("airquality: %s failed: %r" % (_name(hourly_url(t)), e))
+            continue
+        merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
+        got.append(t)
+    newest = max(got) if got else None
+    n_back = 0
+    if newest is not None:
+        have.update(got)
+        for t in range(newest - 3600, newest - KEEP_H * 3600, -3600):
+            if n_back >= BACKFILL_PER_RUN or time.time() - t_start > DEADLINE_S:
+                break
+            if t in have:
+                continue
+            try:
+                body, _ = fetch(hourly_url(t))
+                merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
+            except NotPosted:
+                pass                                   # a missing old hour stays missing; don't ask again
+            except Exception as e:  # noqa: BLE001
+                log("airquality: backfill %s failed: %r" % (_name(hourly_url(t)), e))
+                continue
+            have.add(t)
+            n_back += 1
+    temps = []
+    try:
+        texts = [fetch(AIRFIRE + fn)[0].decode("utf-8", "replace") for fn in
+                 ("airnow_PM2.5_latest_meta.csv", "airnow_PM2.5_latest_data.csv", "airnow_PM2.5_nowcast_latest_data.csv")]
+        temps = [r for r in parse_airfire(*texts) if in_window(r["lat"], r["lon"], bbox)]
+        merge(store, temps, True, bbox)
+    except Exception as e:  # noqa: BLE001
+        log("airquality: AirFire temporary monitors failed: %r" % e)
+    t_temp = max((r["t"] for r in temps), default=None)
+    if newest is None and t_temp is None:
+        raise RuntimeError("no AirNow or AirFire data this run; keeping the last good file")
+    newest = max(t for t in (newest, t_temp) if t is not None)
+    store["have"] = sorted(have)
+    prune(store, newest)
+    try:
+        grid = "new" if build_grid(store, log) else "unchanged"
+    except Exception as e:  # noqa: BLE001
+        grid = "FAILED %r" % e
+    airq = to_airq(store, newest, now)
+    _write(OUT, "window.AIRQ = %s;\n" % json.dumps(airq, separators=(",", ":")))
+    _write(STORE, json.dumps(store, separators=(",", ":")))
+    n_temp = sum(1 for s in airq["stations"] if s["temp"])
+    log("airquality: %d stations (%d temporary), newest %sZ, %d backfilled, grid %s" % (
+        len(airq["stations"]), n_temp, dt.datetime.fromtimestamp(newest, dt.timezone.utc).strftime("%H"), n_back, grid))
+    return len(airq["stations"])
+
+
+if __name__ == "__main__":
+    t0 = time.time()
+    build()
+    print("done in %.0fs" % (time.time() - t0))

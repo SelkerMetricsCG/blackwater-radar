@@ -135,3 +135,131 @@ def test_to_airq_aligns_72_hours_ending_at_newest():
 def test_to_airq_of_an_empty_store_is_valid():
     a = airquality.to_airq({"v": 1}, T00, T00 + 5400)
     assert a["stations"] == [] and a["grid"] is None and len(a["hours"]) == 72
+
+
+# ---------- build(): fetch, backfill, keep last good ----------
+import urllib.error          # noqa: E402
+
+NOW = T00 + 2 * 3600 + 1800          # 02:30 UTC: 01 UTC may not be posted yet, 00 and 23 are
+LM = "Mon, 28 Sep 2026 01:44:48 GMT"
+
+
+def serve(files, calls=None):
+    """fake airquality.fetch: url -> text (or an Exception to raise); anything else is not posted"""
+    def fetch(url):
+        if calls is not None:
+            calls.append(url)
+        v = files.get(url)
+        if v is None:
+            raise airquality.NotPosted(url)
+        if isinstance(v, Exception):
+            raise v
+        return v.encode(), LM
+    return fetch
+
+
+def af_urls(meta, raw, nc):
+    return {airquality.AIRFIRE + "airnow_PM2.5_latest_meta.csv": meta,
+            airquality.AIRFIRE + "airnow_PM2.5_latest_data.csv": raw,
+            airquality.AIRFIRE + "airnow_PM2.5_nowcast_latest_data.csv": nc}
+
+
+def seattle(t, aqi, pm="8.0"):
+    return hourly(t, [row("530330080", "Seattle-10th & Weller", "47.5965", "-122.3197", when(t), str(aqi), pm)])
+
+
+@pytest.fixture
+def job(tmp_path, monkeypatch):
+    monkeypatch.setattr(airquality, "OUT", str(tmp_path / "airquality.js"))
+    monkeypatch.setattr(airquality, "STORE", str(tmp_path / "aq_cache.json"))
+    monkeypatch.setattr(airquality.region, "bbox", lambda: BBOX)
+    monkeypatch.setattr(airquality, "build_grid", lambda store, log=print: False)
+    return tmp_path
+
+
+def read_airq(path):
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("window.AIRQ = ")
+    return json.loads(text[len("window.AIRQ = "):].rstrip().rstrip(";"))
+
+
+def test_first_run_writes_permanent_and_temporary_monitors(job, monkeypatch):
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    files.update(af_urls(*airfire([T00, T00 + 3600, T00 + 7200], [("9", "8.4"), ("2", "4.3"), ("NA", "4.3")])))
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    assert airquality.build(log=lambda *a: None, now=NOW) == 2
+    a = read_airq(job / "airquality.js")
+    assert a["hours"][-1] == T00 + 3600                     # newest: the temporary monitor's 01 UTC hour
+    by = {s["id"]: s for s in a["stations"]}
+    assert by["530330080"]["aqi"][-3:] == [40, 44, None]
+    assert by["d_tmp"]["aqi"][-2:] == [47, 24] and by["d_tmp"]["temp"] is True   # NowCast 8.4 and 4.3 ug/m3
+    assert "d_far" not in by                               # outside the window
+
+
+def test_unposted_top_hour_falls_back(job, monkeypatch):
+    calls = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files, calls))
+    airquality.build(log=lambda *a: None, now=NOW)
+    hourly_calls = [u for u in calls if "HourlyAQObs" in u]
+    assert hourly_calls[:3] == [airquality.hourly_url(T00 + 3600), airquality.hourly_url(T00), airquality.hourly_url(T00 - 3600)]
+
+
+def test_backfill_is_capped_per_run_and_remembered(job, monkeypatch):
+    calls = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files, calls))
+    airquality.build(log=lambda *a: None, now=NOW)
+    first = [u for u in calls if "HourlyAQObs" in u]
+    assert len(first) == 3 + airquality.BACKFILL_PER_RUN      # 01 (not posted), 00, 23, then 24 older hours
+    calls.clear()
+    airquality.build(log=lambda *a: None, now=NOW + 900)
+    second = [u for u in calls if "HourlyAQObs" in u]
+    assert airquality.hourly_url(T00 - 3 * 3600) not in second   # asked last run: not again
+    assert len(second) == 3 + airquality.BACKFILL_PER_RUN        # the next 24 missing hours
+
+
+def test_second_run_takes_the_revised_hour(job, monkeypatch):
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    airquality.build(log=lambda *a: None, now=NOW)
+    files[airquality.hourly_url(T00)] = seattle(T00, 47, "9.9")
+    airquality.build(log=lambda *a: None, now=NOW + 900)
+    s = read_airq(job / "airquality.js")["stations"][0]
+    assert s["aqi"][-1] == 47 and s["pm"][-1] == 9.9
+
+
+def test_everything_down_keeps_the_last_good_file(job, monkeypatch):
+    out = job / "airquality.js"
+    out.write_text('window.AIRQ = {"stations": [1]};\n', encoding="utf-8")
+    monkeypatch.setattr(airquality, "fetch", serve({}))
+    with pytest.raises(RuntimeError):
+        airquality.build(log=lambda *a: None, now=NOW)
+    assert out.read_text(encoding="utf-8") == 'window.AIRQ = {"stations": [1]};\n'
+
+
+def test_airfire_down_still_writes_permanent_monitors(job, monkeypatch):
+    logs = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44)}
+    files.update({u: urllib.error.URLError("timed out") for u in af_urls("", "", "")})
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert any("AirFire" in m and "failed" in m for m in logs)
+
+
+def test_grid_failure_still_writes_stations(job, monkeypatch):
+    logs = []
+
+    def broken(store, log=print):
+        raise RuntimeError("cfgrib exploded")
+    monkeypatch.setattr(airquality, "build_grid", broken)
+    monkeypatch.setattr(airquality, "fetch", serve({airquality.hourly_url(T00): seattle(T00, 44)}))
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert "grid FAILED" in logs[-1]
+
+
+def test_corrupt_store_starts_fresh(job, monkeypatch):
+    (job / "aq_cache.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(airquality, "fetch", serve({airquality.hourly_url(T00): seattle(T00, 44)}))
+    assert airquality.build(log=lambda *a: None, now=NOW) == 1
+    assert json.loads((job / "aq_cache.json").read_text(encoding="utf-8"))["v"] == 1
