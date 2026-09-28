@@ -1217,6 +1217,108 @@
   function hotsNear(rows, lat, lon, km, maxAgeH) { let n = 0; for (const h of rows || []) if (h[2] <= maxAgeH && fireDist(lat, lon, h[0], h[1]) <= km) n++; return n; }
   function fireNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 15 * 60 * 1000; }
   // END fireHelpers
+  // ---------- Smoke & fires: fires (markers, in-view labels, perimeters, cards) ----------
+  const fireLayer = L.layerGroup(), fireLabelLayer = L.layerGroup(), perimLayer = L.layerGroup(), hotLayer = L.layerGroup();
+  let fireData = null, fireLoadedAt = 0, fireLabels = [], perimData = null, perimLoadedAt = 0;
+  function fireMarkerIcon(f) {
+    const s = [14, 20, 28][fireSize(f.acres)] - (f.active ? 0 : 4), c = FIRE_COL[f.type] || FIRE_COL.WF;
+    const svg = '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" style="opacity:' + (f.active ? 1 : .45) + '"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-10z" fill="' + c + '" stroke="#222" stroke-width="1"/></svg>';
+    return L.divIcon({ className: '', html: svg, iconSize: [s, s], iconAnchor: [s / 2, s], popupAnchor: [0, -s] });
+  }
+  function labelFires() {
+    const show = map.hasLayer(fireLayer) && map.getZoom() >= 8, b = map.getBounds().pad(.1);
+    for (const l of fireLabels) {
+      const on = show && b.contains(l[0]);
+      if (on && !l[2]) fireLabelLayer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + fireEsc(l[1]) + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { fireLabelLayer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  map.on('moveend', labelFires);
+  function fireCard(f) {
+    const nowS = Date.now() / 1000, c = FIRE_COL[f.type] || FIRE_COL.WF;
+    let h = '<div style="font:13px system-ui;min-width:240px;max-width:320px"><b>' + fireEsc(f.name) + '</b> <span style="background:' + c + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:11px">' + fireTypeName(f.type) + '</span>' + (f.active ? '' : ' <span style="color:#666;font-size:11px">quiet</span>') +
+      '<div style="color:#666">' + fireEsc([f.county, f.state].filter(Boolean).join(', ')) + (f.note ? ' · fire of note' : '') + '</div>';
+    if (f.acres != null) {
+      h += '<div style="margin:6px 0"><span style="font-size:20px;font-weight:700">' + Math.round(f.acres).toLocaleString() + '</span> acres' + (f.contained != null ? ', <b>' + f.contained + '%</b> contained' : '') + '</div>';
+      if (f.contained != null) h += '<div style="height:5px;background:#eee;border-radius:3px"><div style="width:' + Math.min(100, f.contained) + '%;height:5px;background:#3f7d58;border-radius:3px"></div></div>';
+    } else h += '<div style="margin:6px 0;color:#666">size not reported</div>';
+    const rows = [];
+    if (f.discovered) rows.push('discovered ' + new Date(f.discovered * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' }));
+    if (f.modified) rows.push('last update ' + fireAgo(f.modified, nowS));
+    if (f.stage) rows.push(fireEsc(f.stage === 'OC' ? 'out of control' : f.stage === 'BH' ? 'being held' : f.stage === 'UC' ? 'under control' : f.stage));
+    if (f.org) rows.push(fireEsc(f.org));
+    if (f.behaviour) rows.push('behaviour ' + fireEsc(f.behaviour.toLowerCase()));
+    if (f.personnel) rows.push(f.personnel.toLocaleString() + ' personnel');
+    if (f.hot24) rows.push('<b>' + f.hot24 + '</b> hotspot' + (f.hot24 > 1 ? 's' : '') + ' in the last 24 h');
+    if (f.perim && perimData) {
+      let bestAge = null;
+      for (const x of perimData.features) { if (x.properties.id === f.id && x.properties.age_h != null && (bestAge == null || x.properties.age_h < bestAge)) bestAge = x.properties.age_h; }
+      if (bestAge != null) rows.push('perimeter mapped ' + fireAgo(nowS - bestAge * 3600, nowS));
+    }
+    h += '<div style="margin-top:4px">' + rows.join(' · ') + '</div>';
+    if (f.desc) h += '<div style="margin-top:4px;font-size:12px;max-height:80px;overflow:auto">' + fireEsc(f.desc) + '</div>';
+    if (f.url) h += '<div style="margin-top:4px;font-size:12px"><a href="' + fireEsc(f.url) + '" target="_blank" rel="noopener">agency page</a></div>';
+    h += '<div style="font-size:11px;color:#666;margin-top:4px">Source: ' + (f.src === 'wfigs' ? 'NIFC (WFIGS)' : 'CWFIF (Natural Resources Canada)' + (f.bcws ? ', BC Wildfire Service' : '')) + '.</div></div>';
+    return h;
+  }
+  function renderPerims() {
+    perimLayer.clearLayers();
+    if (!perimData || !map.hasLayer(fireLayer)) return;
+    const byId = {}; if (fireData) for (const f of fireData.fires) byId[f.id] = f;
+    L.geoJSON(perimData, { style: () => ({ color: PERIM_COL, weight: 1.5, fillOpacity: .12 }), interactive: true,
+      onEachFeature: (ft, l) => {
+        const p = ft.properties, owner = byId[p.id];
+        l.bindTooltip(fireEsc(p.name) + (p.acres ? ' · ' + Math.round(p.acres).toLocaleString() + ' ac' : '') + (p.age_h != null ? ' · mapped ' + fireAgo(Date.now() / 1000 - p.age_h * 3600, Date.now() / 1000) : '') + (owner && owner.name !== p.name ? ' · part of ' + fireEsc(owner.name) : ''), { sticky: true });
+      } }).addTo(perimLayer);
+  }
+  function renderFires() {
+    fireLayer.clearLayers(); fireLabelLayer.clearLayers(); fireLayer.addLayer(perimLayer); fireLayer.addLayer(fireLabelLayer); fireLabels = [];
+    if (!fireData) return;
+    const hideQuiet = $('fireQuiet').checked; let n = 0, na = 0, nrx = 0;
+    for (const f of fireData.fires) {
+      if (f.active) na++; if (f.type === 'RX') nrx++;
+      if (hideQuiet && !f.active) continue;
+      n++;
+      const m = L.marker([f.lat, f.lon], { icon: fireMarkerIcon(f), zIndexOffset: f.active ? 200 : 0 });
+      m.bindPopup(() => fireCard(f), { maxWidth: 340 });
+      m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
+      fireLayer.addLayer(m);
+      if (f.active) fireLabels.push([m.getLatLng(), f.name, null]);
+    }
+    renderPerims(); labelFires();
+    $('fireInfo').innerHTML = '<div class="muted">' + na + ' active of ' + fireData.fires.length + ' · ' + nrx + ' prescribed' + (hideQuiet ? '' : ' · showing ' + n) + ' · updated ' + fireData.updated + '</div>' +
+      '<div class="note">Fires reported by US and Canadian agencies (NIFC, CWFIF, BC Wildfire Service). Sizes and containment are the agencies\' latest reports; perimeters come from mapping flights and can be days old. Grey: prescribed burns; faded: quiet.</div>';
+  }
+  function loadPerims() { loadScript('data/perimeters.js', () => { perimData = window.PERIMS || perimData; perimLoadedAt = Date.now(); renderPerims(); }, () => {}); }
+  function loadFires() {
+    loadScript('data/fires.js', () => {
+      fireData = window.FIRES || fireData; fireLoadedAt = Date.now();
+      if (map.hasLayer(fireLayer)) { renderFires(); if (fireNeedsLoad(perimData, perimLoadedAt, Date.now())) loadPerims(); }
+      if (map.hasLayer(hotLayer)) renderHot();
+    }, () => { $('fireInfo').innerHTML = $('hotInfo').innerHTML = '<div class="muted">fire data not available yet</div>'; });
+  }
+  $('lyFires').onchange = e => { if (e.target.checked) { fireLayer.addTo(map); if (fireNeedsLoad(fireData, fireLoadedAt, Date.now())) loadFires(); else { renderFires(); if (fireNeedsLoad(perimData, perimLoadedAt, Date.now())) loadPerims(); } } else map.removeLayer(fireLayer); };
+  $('fireQuiet').onchange = () => { if (map.hasLayer(fireLayer)) renderFires(); };
+  // ---------- Smoke & fires: satellite hotspots ----------
+  function renderHot() {
+    hotLayer.clearLayers();
+    if (!fireData) return;
+    const byId = {}; for (const f of fireData.fires) byId[f.id] = f;
+    let n = 0, ng = 0;
+    for (const h of fireData.hotspots) {
+      const a = hotAge(h[2]); if (a < 0) continue;
+      n++; if (h[3] === 'G') ng++;
+      const m = L.circleMarker([h[0], h[1]], { radius: h[3] === 'G' ? 4 : 3, color: HOT_BINS[a][1], weight: 1.2, fillColor: HOT_BINS[a][1], fillOpacity: h[6] ? 0 : .8 });
+      const f = h[5] && byId[h[5]];
+      m.bindTooltip((h[3] === 'G' ? 'GOES' : h[3] === 'V' ? 'VIIRS' : 'MODIS') + ' · ' + (h[2] < 1 ? Math.round(h[2] * 60) + ' min' : h[2].toFixed(1) + ' h') + ' ago' + (h[4] != null ? ' · ' + h[4] + ' MW' : '') +
+        (h[7] ? ' · seen since ' + new Date(h[7] * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '') + (f ? ' · ' + fireEsc(f.name) : h[6] ? ' · not yet tied to a known fire' : ''), { sticky: true });
+      hotLayer.addLayer(m);
+    }
+    $('hotInfo').innerHTML = '<div class="muted">' + n + ' hotspots (' + ng + ' GOES) · updated ' + fireData.updated + '</div>' + legendHtml(HOT_BINS, x => HOT_NAMES[HOT_BINS.findIndex(b => b[0] === x)]) +
+      '<div class="note">' + (fireData.ngfs ? 'NOAA GOES (NGFS, every few minutes; beta) and ' : 'NOAA GOES unavailable; ') + 'NASA VIIRS and MODIS (FIRMS, a few hours old). Heat, not a fire edge; includes prescribed burns and industrial or farm sources. Hollow: GOES detection not yet tied to a known fire.</div>';
+  }
+  $('lyHot').onchange = e => { if (e.target.checked) { hotLayer.addTo(map); if (fireNeedsLoad(fireData, fireLoadedAt, Date.now())) loadFires(); else renderHot(); } else map.removeLayer(hotLayer); };
+  setInterval(() => { if (map.hasLayer(fireLayer) || map.hasLayer(hotLayer)) loadFires(); }, 15 * 60 * 1000);
   // ---------- Air quality: AQI stations (AirNow monitors, AirFire temporary smoke monitors) ----------
   const aqLayer = L.layerGroup(), aqLabelLayer = L.layerGroup();
   let aqData = null, aqLoadedAt = 0, aqLabels = [];      // aqLabels: [latlng, label, label marker while shown], as for Weather stations
@@ -1461,6 +1563,15 @@
       if (a && a.km <= 100) { const l = aqLast(a.s); rows.push('<div>' + aqEsc(a.s.name) + ' <span style="color:#666">(' + a.km.toFixed(0) + ' km' + (a.s.temp ? ', temporary' : '') + ')</span>: <b>AQI ' + l.aqi + '</b>, ' + AQ_NAMES[aqCat(l.aqi)] + '</div>'); }
       if ($('lyAqGrid').checked) { const v = sample(await getGrid('aqi'), ll); if (v != null) rows.push('<div>interpolated AQI <b>' + Math.round(v) + '</b>, ' + AQ_NAMES[aqCat(v)] + ' <span style="color:#666">(AirNow, monitors only)</span></div>'); }
       if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Air quality</div>' + rows.join(''));
+    }
+    // fires: nearest active fire within 50 km and hotspots within 10 km in 24 h (judgment calls, spec ledger)
+    await new Promise(res => !fireNeedsLoad(fireData, fireLoadedAt, Date.now()) ? res() : loadScript('data/fires.js', () => { fireData = window.FIRES || fireData; fireLoadedAt = Date.now(); res(); }, res));
+    if (fireData) {
+      const rows = [], nf = fireNearest(fireData.fires, ll.lat, ll.lng, 50, f => f.active);
+      if (nf) rows.push('<div>' + fireEsc(nf.f.name) + ' <span style="color:#666">(' + nf.km.toFixed(0) + ' km, ' + fireTypeName(nf.f.type) + ')</span>: ' + (nf.f.acres != null ? '<b>' + Math.round(nf.f.acres).toLocaleString() + ' ac</b>' : 'size not reported') + (nf.f.contained != null ? ', ' + nf.f.contained + '% contained' : '') + '</div>');
+      const nh = hotsNear(fireData.hotspots, ll.lat, ll.lng, 10, 24);
+      if (nh) rows.push('<div><b>' + nh + '</b> satellite hotspot' + (nh > 1 ? 's' : '') + ' within 10 km in the last 24 h</div>');
+      if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Fires</div>' + rows.join(''));
     }
     render('<div style="color:#666">loading hourly forecast…</div>');
     // NWS hourly point forecast (US only)
