@@ -290,6 +290,26 @@
     </div>
   </div>
 
+  <div class="sec grp" data-grp="fire">
+    <h2 class="grph"><span class="chev"></span>Smoke &amp; fires <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyFires"> Fires
+      <button type="button" class="help" aria-label="About the fires layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Fires reported by US and Canadian agencies (NIFC, CWFIF, BC Wildfire Service). A fire is active when its agency updated it in the last 3 days, satellites saw heat on it in the last 24 h, or Canada lists it as out of control or being held; quiet fires are still listed by the agency, not out. Sizes and containment are the agencies' latest reports; perimeters come from mapping flights and can be days old. Grey: prescribed burns.</span></label>
+    <div class="subwrap" data-for="lyFires">
+      <div class="sub"><label class="opt" style="padding:0"><input type="checkbox" id="fireQuiet" checked> hide quiet fires</label></div>
+      <div class="sub" id="fireInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyHot"> Satellite hotspots
+      <button type="button" class="help" aria-label="About satellite hotspots" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Heat seen from satellites: NOAA GOES every few minutes (a pixel is about 2 km), NASA VIIRS and MODIS a few hours old (375 m to 1 km). A hotspot is heat, not a mapped fire edge. Includes prescribed burns and industrial or farm heat sources. Hollow: a GOES detection not yet tied to a known fire.</span></label>
+    <div class="subwrap" data-for="lyHot">
+      <div class="sub" id="hotInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
   <div class="sec grp" data-grp="hazards">
     <h2 class="grph"><span class="chev"></span>Hazards <span class="n"></span></h2>
     <div class="body">
@@ -1170,6 +1190,33 @@
   // switched on later never show old readings as current
   function aqNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 15 * 60 * 1000; }
   // END aqHelpers
+  // ---------- Smoke & fires: helpers ----------
+  // BEGIN fireHelpers (tests/test_map_fires.py runs this block under node)
+  // colours and steps are judgment calls (spec ledger, 2026-09-28)
+  const FIRE_COL = { WF: '#d1462f', CX: '#d1462f', RX: '#8a8f98' }, PERIM_COL = '#c0392b';
+  const HOT_BINS = [[0, '#ff2d00'], [6, '#ff9a3c'], [24, '#c9a76b']], HOT_NAMES = ['< 6 h', '6–24 h', '24–48 h'];
+  function fireSize(acres) { return acres == null || acres < 100 ? 0 : acres < 10000 ? 1 : 2; }   // marker size step
+  function hotAge(h) { if (h == null || isNaN(h) || h > 48) return -1; return h < 6 ? 0 : h < 24 ? 1 : 2; }
+  function fireEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function fireAgo(t, nowS) {
+    if (t == null) return '';
+    const s = nowS - t;
+    if (s < 60) return 'just now';
+    const m = Math.round(s / 60);
+    if (m < 120) return m + ' min ago';
+    if (m < 36 * 60) return Math.round(m / 60) + ' h ago';
+    return Math.round(m / 1440) + ' d ago';
+  }
+  function fireTypeName(t) { return t === 'WF' ? 'wildfire' : t === 'CX' ? 'complex' : t === 'RX' ? 'prescribed burn' : 'fire'; }
+  function fireDist(lat1, lon1, lat2, lon2) { const r = Math.PI / 180, x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2 * r); return Math.sqrt(x * x + (lat2 - lat1) ** 2) * 111.2; }
+  function fireNearest(list, lat, lon, maxKm, pred) {
+    let best = null, bd = maxKm;
+    for (const f of list || []) { if (pred && !pred(f)) continue; const d = fireDist(lat, lon, f.lat, f.lon); if (d <= bd) { bd = d; best = f; } }
+    return best ? { f: best, km: bd } : null;
+  }
+  function hotsNear(rows, lat, lon, km, maxAgeH) { let n = 0; for (const h of rows || []) if (h[2] <= maxAgeH && fireDist(lat, lon, h[0], h[1]) <= km) n++; return n; }
+  function fireNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 15 * 60 * 1000; }
+  // END fireHelpers
   // ---------- Air quality: AQI stations (AirNow monitors, AirFire temporary smoke monitors) ----------
   const aqLayer = L.layerGroup(), aqLabelLayer = L.layerGroup();
   let aqData = null, aqLoadedAt = 0, aqLabels = [];      // aqLabels: [latlng, label, label marker while shown], as for Weather stations
@@ -1483,7 +1530,7 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyAlerts', 'lySlope'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lyAlerts', 'lySlope'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
