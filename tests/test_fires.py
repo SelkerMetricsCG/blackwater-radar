@@ -180,3 +180,89 @@ def test_hotspot_rows():
     hs = [dict(lat=47.5, lon=-120.51234, t=NOW - 90 * 60, src="V", frp=5.34, fire="A", unc=False, since=None),
           dict(lat=49.2, lon=-118.8, t=NOW - 300, src="G", frp=None, fire=None, unc=True, since=NOW - 3 * H)]
     assert fires.hotspot_rows(hs, NOW) == [[47.5, -120.5123, 1.5, "V", 5.3, "A", 0, None], [49.2, -118.8, 0.1, "G", None, None, 1, NOW - 3 * H]]
+
+
+# ---------- perimeters, stamps, links, store ----------
+def perim(irwin_id, name, x0, y0, acres=1000, t=NOW - 3 * H):
+    p = {"attr_IrwinID": irwin_id, "poly_IncidentName": name, "poly_GISAcres": acres, "poly_DateCurrent": t * 1000, "attr_IncidentSize": acres}
+    ring = [[x0, y0], [x0 + 0.2, y0], [x0 + 0.2, y0 + 0.2], [x0, y0 + 0.2], [x0, y0]]
+    return {"type": "Feature", "properties": p, "geometry": {"type": "Polygon", "coordinates": [ring]}}
+
+
+def bc_perim(num, x0, y0, ha=100, t=NOW - 5 * H):
+    p = {"FIRE_NUMBER": num, "FIRE_SIZE_HECTARES": ha, "LOAD_DATE": t * 1000}
+    ring = [[x0, y0], [x0 + 0.1, y0], [x0 + 0.1, y0 + 0.1], [x0, y0 + 0.1], [x0, y0]]
+    return {"type": "Feature", "properties": p, "geometry": {"type": "MultiPolygon", "coordinates": [[ring]]}}
+
+
+def test_parse_perims_joins_ids_converts_and_clips():
+    wg = fc([perim("{B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3}", "Rowe Creek", -120.2, 44.8),
+             perim("{7}", "Far away", -100.0, 30.0)])
+    bg = fc([bc_perim("V12186", -121.9, 49.0), bc_perim("G12290", -121.6, 50.0), bc_perim("K42287", -122.1, 51.0)])
+    out = fires.parse_perims(wg, bg, {"V12186": "2026_BC_2026-V12186", "G12290": "BC_G12290"}, BBOX)
+    assert [f["properties"]["id"] for f in out] == ["B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "2026_BC_2026-V12186", "BC_G12290", "BC_K42287"]
+    assert out[0]["properties"] == {"id": "B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "name": "Rowe Creek", "acres": 1000.0, "t": NOW - 3 * H}
+    assert out[1]["properties"]["acres"] == pytest.approx(100 * 2.4711) and out[1]["properties"]["name"] == "V12186"
+    assert out[1]["geometry"]["type"] == "MultiPolygon"
+
+
+def test_orphan_perimeter_kept_by_bbox():
+    # a polygon reaching into the window from outside, and one with no IRWIN id: both kept, named from the polygon
+    wg = fc([perim("{8}", "Edge fire", -112.6, 45.0), perim(None, "Orphan", -120.0, 46.0), perim("{9}", "Outside", -112.3, 45.0)])
+    out = fires.parse_perims(wg, fc([]), {}, BBOX)
+    assert [f["properties"]["name"] for f in out] == ["Edge fire", "Orphan"]
+    assert out[1]["properties"]["id"] is None
+
+
+def test_bbox_touches():
+    assert fires.bbox_touches((44.8, 45.0, -120.2, -120.0), BBOX)
+    assert fires.bbox_touches((45.0, 45.2, -112.6, -112.4), BBOX)          # straddles the east edge
+    assert not fires.bbox_touches((30.0, 30.2, -100.0, -99.8), BBOX)
+
+
+RSS = """<?xml version="1.0"?><rss><channel>
+<item><title>CAYNP Dome Fire</title><link>http://inciweb.wildfire.gov/incident-information/caynp-dome-fire</link>
+<description>Last updated: 2026-09-28 --- The type of incident is Wildfire and involves the following unit(s) Yosemite National Park. --- State: California --- Coordinates: Latitude: 37 33 58</description></item>
+<item><title>ORPRD Rowe Creek Complex</title><link>http://inciweb.wildfire.gov/incident-information/orprd-rowe-creek-complex</link>
+<description>Last updated: 2026-09-27 --- The type of incident is Wildfire --- State: Oregon --- Coordinates: x</description></item>
+<item><title>Bad item</title></item>
+</channel></rss>"""
+
+
+def test_inciweb_links_by_normalised_name_and_state():
+    links = fires.inciweb_links(RSS)
+    assert links == {("dome", "california"): "https://inciweb.wildfire.gov/incident-information/caynp-dome-fire",
+                     ("rowecreek", "oregon"): "https://inciweb.wildfire.gov/incident-information/orprd-rowe-creek-complex"}
+    assert fires.norm_name("ROWE CREEK COMPLEX") == "rowecreek" and fires.norm_name("Dome Fire") == "dome" and fires.norm_name("GALENA RX") == "galena"
+    assert fires.STATE_NAMES["OR"] == "Oregon" and len(fires.STATE_NAMES) == 51
+
+
+def test_store_roundtrip_and_bad_store(tmp_path, monkeypatch):
+    monkeypatch.setattr(fires, "DATA", str(tmp_path))
+    monkeypatch.setattr(fires, "STORE", str(tmp_path / "fires_cache.json"))
+    assert fires.load_store() == {"v": 1}
+    fires.save_store({"v": 1, "stamps": {"wfigs": 5}})
+    assert fires.load_store()["stamps"] == {"wfigs": 5}
+    (tmp_path / "fires_cache.json").write_text("{bad json", encoding="utf-8")
+    assert fires.load_store() == {"v": 1}
+    (tmp_path / "fires_cache.json").write_text('{"v": 0}', encoding="utf-8")
+    assert fires.load_store() == {"v": 1}
+
+
+def test_arcgis_query_pages_and_layer_stamp(monkeypatch):
+    calls = []
+
+    def fake_fetch(url):
+        calls.append(url)
+        q = dict(urllib.parse.parse_qsl(url.split("?", 1)[1]))
+        if url.endswith("f=pjson"):
+            return json.dumps({"editingInfo": {"dataLastEditDate": 1790601765537}}).encode(), ""
+        off = int(q.get("resultOffset", 0))
+        feats = [wf("F%d" % (off + i), 45, -120, irwin="{%d}" % (off + i)) for i in range(2)]
+        return json.dumps({"type": "FeatureCollection", "features": feats, "exceededTransferLimit": off < 2}).encode(), ""
+
+    monkeypatch.setattr(fires, "fetch", fake_fetch)
+    g = fires.arcgis_query(fires.WFIGS_INC, {"where": "1=1", "outFields": "IncidentName"}, log=lambda m: None)
+    assert [f["properties"]["IncidentName"] for f in g["features"]] == ["F0", "F1", "F2", "F3"] and len(calls) == 2
+    assert calls[0].startswith(fires.WFIGS_INC + "/query?") and "f=geojson" in calls[0] and "resultOffset=2" in calls[1]
+    assert fires.layer_stamp(fires.WFIGS_INC) == 1790601765537

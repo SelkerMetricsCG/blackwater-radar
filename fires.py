@@ -313,3 +313,122 @@ def hotspot_rows(hs, now):
     """FIRES.hotspots rows: [lat, lon, age_h, src, frp, fire_id, unconfirmed, since]"""
     return [[round(h["lat"], 4), round(h["lon"], 4), round(max(0, now - h["t"]) / 3600, 1), h["src"],
              None if h["frp"] is None else round(h["frp"], 1), h["fire"], 1 if h["unc"] else 0, h["since"]] for h in hs]
+
+
+# ---------- ArcGIS, perimeters, links, store ----------
+def arcgis_query(layer, params, log=print):
+    """<layer>/query as GeoJSON, paged with resultOffset while exceededTransferLimit is set (WFIGS caps at 2000)"""
+    p = dict(params)
+    p.setdefault("f", "geojson")
+    p.setdefault("returnGeometry", "true")
+    p.setdefault("outSR", "4326")
+    feats, off = [], 0
+    while True:
+        if off:
+            p["resultOffset"] = off
+        body, _ = fetch(layer + "/query?" + urllib.parse.urlencode(p))
+        g = json.loads(body)
+        if "error" in g:
+            raise RuntimeError("ArcGIS error %s" % g["error"])
+        feats.extend(g.get("features", []))
+        if not g.get("exceededTransferLimit") or not g.get("features"):
+            break
+        off += len(g["features"])
+        if off > 20000:
+            log("fires: %s: stopped paging at %d" % (layer.rsplit("/", 3)[1], off))
+            break
+    return {"type": "FeatureCollection", "features": feats}
+
+
+def layer_stamp(layer):
+    """the layer's data edit stamp (epoch ms), from its 8 KB metadata; None when absent"""
+    body, _ = fetch(layer + "?f=pjson")
+    return (json.loads(body).get("editingInfo") or {}).get("dataLastEditDate")
+
+
+def bbox_touches(b, bbox):
+    """b and bbox are (lat0, lat1, lon0, lon1)"""
+    return b is not None and b[1] >= bbox[0] and b[0] <= bbox[1] and b[3] >= bbox[2] and b[2] <= bbox[3]
+
+
+def _round_coords(c):
+    if isinstance(c[0], (int, float)):
+        return [round(c[0], 4), round(c[1], 4)]
+    return [_round_coords(x) for x in c]
+
+
+def parse_perims(wfigs_g, bcws_g, bc_ids, bbox):
+    """WFIGS + BCWS perimeter GeoJSON -> Features {id, name, acres, t} whose bounding box touches the window.
+    A polygon without a matching incident keeps its own name (and id None when it has no IRWIN id)."""
+    out = []
+    for f in wfigs_g.get("features", []):
+        p, g = f.get("properties") or {}, f.get("geometry")
+        if not g or not bbox_touches(geom_bbox(g), bbox):
+            continue
+        acres = num(p.get("poly_GISAcres"))
+        out.append({"type": "Feature", "properties": {"id": irwin(p.get("attr_IrwinID")), "name": (p.get("poly_IncidentName") or "").strip(),
+                    "acres": acres, "t": ms(p.get("poly_DateCurrent"))}, "geometry": {"type": g["type"], "coordinates": _round_coords(g["coordinates"])}})
+    for f in bcws_g.get("features", []):
+        p, g = f.get("properties") or {}, f.get("geometry")
+        n = p.get("FIRE_NUMBER")
+        if not g or not n or not bbox_touches(geom_bbox(g), bbox):
+            continue
+        ha = num(p.get("FIRE_SIZE_HECTARES"))
+        out.append({"type": "Feature", "properties": {"id": bc_ids.get(n, "BC_" + n), "name": n, "acres": ha * HA_TO_ACRES if ha else None,
+                    "t": ms(p.get("LOAD_DATE"))}, "geometry": {"type": g["type"], "coordinates": _round_coords(g["coordinates"])}})
+    return out
+
+
+STATE_NAMES = {"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", "CO": "Colorado", "CT": "Connecticut",
+               "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois",
+               "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+               "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri", "MT": "Montana",
+               "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+               "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+               "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+               "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"}
+
+
+def norm_name(s):
+    """lower-case letters only, with the words fire, complex and rx removed (judgment call, spec ledger)"""
+    words = [w for w in re.findall(r"[a-z]+", (s or "").lower()) if w not in ("fire", "complex", "rx")]
+    return "".join(words)
+
+
+def inciweb_links(rss_text):
+    """InciWeb RSS -> {(norm_name, state name lower): https link}; the title's leading unit code (e.g. CAYNP) is dropped"""
+    out = {}
+    for item in re.findall(r"<item>(.*?)</item>", rss_text, re.S):
+        t = re.search(r"<title>(.*?)</title>", item, re.S)
+        l = re.search(r"<link>(.*?)</link>", item, re.S)
+        s = re.search(r"State:\s*([A-Za-z ]+?)\s*---", item)
+        if not (t and l and s):
+            continue
+        title = t.group(1).strip()
+        parts = title.split(None, 1)
+        if len(parts) == 2 and re.fullmatch(r"[A-Z0-9]{4,}", parts[0]):
+            title = parts[1]
+        out[(norm_name(title), s.group(1).strip().lower())] = l.group(1).strip().replace("http://", "https://", 1)
+    return out
+
+
+def load_store():
+    try:
+        with open(STORE, encoding="utf-8") as f:
+            s = json.load(f)
+        if isinstance(s, dict) and s.get("v") == 1:
+            return s
+    except (OSError, ValueError):
+        pass
+    return {"v": 1}
+
+
+def _write(path, text):
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(path + ".tmp", path)
+
+
+def save_store(store):
+    os.makedirs(DATA, exist_ok=True)
+    _write(STORE, json.dumps(store, separators=(",", ":")))
