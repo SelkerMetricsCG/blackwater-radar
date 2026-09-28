@@ -47,6 +47,17 @@ tiles:
   exclude_empty: true      # skip tiles with nothing steeper than 27 degrees
   processes: 8
 
+upload:
+  # Chris's decision 2026-09-28: ship zoom 11-15 only (~109k files, 1.5 GB). Zoom 15 pixels are ~3.2 m at 47.5 N,
+  # about the 3 m data; the map enlarges zoom 15 beyond that, so zoom 16 (294k files) adds no detail. Keeps the
+  # one-time upload small against R2's free 1 million uploads a month, which the pipeline already uses heavily.
+  # The shipped zoom 15 tiles were made from this build's zoom 16 (gdal2tiles, near).
+  zoom_min: 11
+  zoom_max: 15
+  prefix: pnw/slope/v1/    # public under R2_PUBLIC_URL; tiles are cached as immutable, so a rebuild goes to v2
+  cache_control: "public, max-age=31536000, immutable"
+  workers: 16
+
 work:
   dir: work                # radar/slope/work, gitignored
   download_workers: 4

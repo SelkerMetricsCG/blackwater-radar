@@ -61,6 +61,9 @@
   .help:hover, .help:focus-visible, .help[aria-expanded=true] { border-color:var(--accent); color:var(--text); outline:none; }
   .helptip { display:none; position:absolute; left:0; right:0; top:100%; z-index:5; white-space:normal; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12px; line-height:1.4; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,.45); cursor:default; }
   .help:hover + .helptip, .helptip:hover, .help[aria-expanded=true] + .helptip { display:block; }
+  .slopetiles img { image-rendering:pixelated; }       /* zoom 16-17 enlarge the zoom 15 tiles: keep the 3 m cells crisp */
+  .slopeleg { display:flex; flex-wrap:wrap; gap:3px 10px; font-size:11px; color:var(--muted); }
+  .slopeleg i { display:inline-block; width:12px; height:10px; margin-right:4px; vertical-align:-1px; border-radius:2px; }
   .subwrap { display:none; padding-bottom:6px; }
   .subwrap.open { display:block; }
   .chip { display:inline-block; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; }
@@ -239,6 +242,19 @@
       <div class="sub" id="snodasInfo" style="display:block"></div>
     </div>
 
+    </div>
+  </div>
+
+  <div class="sec grp" data-grp="terrain" id="terrainGrp">
+    <h2 class="grph"><span class="chev"></span>Terrain <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lySlope"> Slope angle
+      <button type="button" class="help" aria-label="About the slope-angle layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Shades the ground by how steep it is, in the same bands as CalTopo, from 27° up. Built from USGS lidar averaged to 3 m; where there is no lidar (the west half of Mt Rainier, east of Mt Adams, parts of the North Cascades) it uses the USGS 10 m model, which smooths out short steep pitches. WA Cascades only; it appears from zoom 11. It shows terrain, not avalanche danger: check the avalanche forecast.</span></label>
+    <div class="subwrap" data-for="lySlope">
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="slopeOpacity" min="0" max="1" step="0.05" value="0.6"></div>
+      <div class="sub" id="slopeInfo" style="display:block"></div>
+    </div>
     </div>
   </div>
 
@@ -1249,6 +1265,22 @@
 
 
 
+  // ---------- slope angle: static tiles built by slope/build_slope.py (WA Cascades, 3 m) ----------
+  const SLOPE = { pnw: { bounds: [[46.0, -122.2], [49.0, -120.0]] } }[window.REGION];
+  const SLOPE_BANDS = [['27–29°', '#f1f87d'], ['30–31°', '#f5cc49'], ['32–34°', '#f48d2a'], ['35–45°', '#e31d0c'], ['46–50°', '#700ac3'], ['51–59°', '#210abd'], ['60°+', '#1a1a1a']];
+  const slopeLayer = SLOPE ? L.tileLayer(BASE + 'slope/v1/{z}/{x}/{y}.png', { minZoom: 11, maxNativeZoom: 15, maxZoom: 17, bounds: SLOPE.bounds, zIndex: 5,
+    opacity: +$('slopeOpacity').value, className: 'slopetiles',
+    errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }) : null;   // tiles with no steep ground were never made
+  function slopeInfo() {
+    $('slopeInfo').innerHTML = '<div class="slopeleg">' + SLOPE_BANDS.map(([t, c]) => '<span><i style="background:' + c + '"></i>' + t + '</span>').join('') + '</div>' +
+      '<div class="note">' + (map.getZoom() < 11 ? '<b>Zoom in to see it</b> (from zoom 11). ' : '') + 'USGS lidar averaged to 3 m; 10 m where there is no lidar.</div>';
+  }
+  if (slopeLayer) {
+    $('lySlope').onchange = e => { if (e.target.checked) { slopeLayer.addTo(map); slopeInfo(); } else map.removeLayer(slopeLayer); };
+    $('slopeOpacity').oninput = e => slopeLayer.setOpacity(+e.target.value);
+    map.on('zoomend', () => { if (map.hasLayer(slopeLayer)) slopeInfo(); });
+  } else $('terrainGrp').style.display = 'none';     // no slope tiles for this region yet
+
   // ---------- NWS alerts ----------
   const alertLayer = L.layerGroup();
   function alertColor(p) {
@@ -1451,9 +1483,9 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyAlerts'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyAlerts', 'lySlope'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
-  const DEF_RANGES = ['radarOpacity', 'satOpacity'];
+  const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
   function defaultInfo() {
     const d = readDefault();
