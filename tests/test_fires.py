@@ -487,3 +487,27 @@ def test_build_reuses_stored_complex_map_when_wfigs_fails(monkeypatch, tmp_path)
     assert p["features"][0]["properties"]["id"] == ROWE
     store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
     assert store["cpx"] == {"C1": ROWE}
+
+
+def test_store_keeps_raw_ids_so_a_changed_complex_map_applies(monkeypatch, tmp_path):
+    a = full_answers()
+    a["WFIGS_Incident_Locations_Current/FeatureServer/0/query"] = fc([
+        wf("ROWE CREEK COMPLEX", 44.9, -120.1, typ="CX"), child("0445 CROSSWHITE", "{c1}", "{" + ROWE + "}")])
+    a["WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query"] = fc([perim("{c1}", "0445 CROSSWHITE", -120.2, 44.8)])
+    a["fire.data.nesdis"] = fc([ngfs_feat("ID-2026-09-28T03:31:19.000Z_0003", NOW - 600, lat=46.0, lon=-118.0, known="{c1}")])
+    build_env(monkeypatch, tmp_path, a)
+    fires.build(log=lambda m: None, now=NOW)
+    store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
+    assert store["perims"][0]["properties"]["id"] == "C1" and store["ngfs"]["hs"][0]["fire"] == "C1"      # raw, not folded
+
+    # second run: same perimeter stamps (stored perimeters reused), NGFS down (cache reused), but the
+    # complex map has changed -- the child now belongs to a different complex
+    a["WFIGS_Incident_Locations_Current/FeatureServer/0/query"] = fc([
+        wf("OTHER COMPLEX", 44.5, -119.5, irwin="{P2}", typ="CX"), child("0445 CROSSWHITE", "{c1}", "{P2}")])
+    a["fire.data.nesdis"] = OSError("down")
+    fires.build(log=lambda m: None, now=NOW + 900)
+    p = read_js(tmp_path / "perimeters.js", "window.PERIMS = ")
+    assert p["features"][0]["properties"]["id"] == "P2"
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    hot = next(h for h in d["hotspots"] if h[3] == "G")
+    assert hot[5] == "P2"

@@ -561,8 +561,9 @@ def build(log=print, now=None):
             perims, pstate = [], "FAILED"
         else:
             pstate = "kept after a failed fetch"
-    fold_complexes(perims, [], cpx)
-    write_perims(perims, now)
+    perims_out = [dict(p, properties=dict(p["properties"])) for p in perims]
+    fold_complexes(perims_out, [], cpx)
+    write_perims(perims_out, now)
 
     # 3. hotspots
     hs, seen, n_firms = [], set(), 0
@@ -597,12 +598,12 @@ def build(log=print, now=None):
             log("fires: NGFS failed; %d cached detections reused (%d min old)" % (len(ngs), (now - c["t"]) // 60))
         else:
             ngs = []
-    hs += ngs
+    hs += [dict(h) for h in ngs]
     fold_complexes([], hs, cpx)
-    link_hotspots(hs, fire_list, perims, now)
+    link_hotspots(hs, fire_list, perims_out, now)
 
     # 4. write
-    data = to_fires(fire_list, hs, perims, now, ngfs_ok)
+    data = to_fires(fire_list, hs, perims_out, now, ngfs_ok)
     os.makedirs(DATA, exist_ok=True)
     _write(OUT, "window.FIRES = %s;\n" % json.dumps(data, separators=(",", ":")))
     save_store(store)

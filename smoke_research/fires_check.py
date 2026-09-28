@@ -110,7 +110,7 @@ def main():
             len(diffs), diffs[len(diffs) // 2], diffs[int(0.1 * (len(diffs) - 1))], diffs[int(0.9 * (len(diffs) - 1))], len(outl)))
     for o in outl[:10]:
         print("  %s: polygons %.0f ac vs reported %.0f ac (x%.2f)" % o)
-    print("\n== check (c): NGFS known incidents exist in WFIGS ==")
+    print("\n== check (c): NGFS known incidents exist in FIRES ==")
     known = [h for h in hs if h[3] == "G" and not h[6]]
     print("%d NGFS known-incident detections: %d whose fire id is in FIRES" % (len(known), sum(1 for h in known if h[5] in ids)))
 
