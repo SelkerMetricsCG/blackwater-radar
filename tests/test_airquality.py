@@ -263,3 +263,55 @@ def test_corrupt_store_starts_fresh(job, monkeypatch):
     monkeypatch.setattr(airquality, "fetch", serve({airquality.hourly_url(T00): seattle(T00, 44)}))
     assert airquality.build(log=lambda *a: None, now=NOW) == 1
     assert json.loads((job / "aq_cache.json").read_text(encoding="utf-8"))["v"] == 1
+
+
+# ---------- grid ----------
+def test_unchanged_grid_is_not_downloaded(monkeypatch):
+    monkeypatch.setattr(airquality, "head_last_modified", lambda url: LM)
+
+    def no_fetch(url):
+        raise AssertionError("downloaded an unchanged grid")
+    monkeypatch.setattr(airquality, "fetch", no_fetch)
+    store = {"v": 1, "grid": {"lm": LM, "t": T00, "file": "frames/aq/aqi.webp?v=1"}}
+    assert airquality.build_grid(store) is False and store["grid"]["lm"] == LM
+
+
+def test_category_rounds_half_up_like_the_map():
+    np = pytest.importorskip("numpy")
+    got = airquality.aq_category(np.array([0, 50, 50.4, 50.5, 51, 100, 101, 150, 151, 200, 201, 300, 301, 500]))
+    assert got.tolist() == [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+
+
+def test_resample_known_answer():
+    np = pytest.importorskip("numpy")
+    # a regular grid like AirNow's (latitude ascending, longitude 0..360) that stops at -125 E: AQI 120 north of 48 N, 20 south
+    lat = np.arange(40.0, 55.0001, 0.25)
+    lon = np.arange(235.0, 250.0001, 0.25)
+    a = np.where(lat[:, None] >= 48.0, 120.0, 20.0) * np.ones((1, lon.size))
+    g = airquality.resample(a, lat, lon)
+    lat_w, lon_w = airquality.window_latlon()
+    assert g.shape == (lat_w.size, lon_w.size)
+    r_n, r_s = np.argmin(abs(lat_w - 50.0)), np.argmin(abs(lat_w - 45.0))
+    c_in, c_out = np.argmin(abs(lon_w + 120.0)), np.argmin(abs(lon_w + 126.0))
+    assert g[r_n, c_in] == 120 and g[r_s, c_in] == 20
+    assert np.isnan(g[r_n, c_out])                          # west of the source grid
+
+
+def test_colorize_uses_the_official_colours_and_hides_nan():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    img = airquality.colorize(np.array([[0, 51, 101], [151, 201, 301], [np.nan, 50, 100]], dtype=np.float32))
+    px = np.asarray(img)
+    assert [tuple(px[0, 0, :3]), tuple(px[0, 1, :3]), tuple(px[1, 2, :3])] == [(0, 228, 0), (255, 255, 0), (126, 0, 35)]
+    assert px[2, 0, 3] == 0 and px[2, 1, 3] == 255
+
+
+def test_all_blank_grid_is_transparent(tmp_path, monkeypatch):
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    import values
+    img = airquality.colorize(np.full((640, 640), np.nan, dtype=np.float32))
+    assert np.asarray(img)[..., 3].max() == 0
+    monkeypatch.setattr(values, "OUT_DIR", str(tmp_path))
+    path = values.write_grid("aqi", np.full((640, 640), np.nan, dtype=np.float32), unit="AQI", scale=1)
+    assert set(open(path, encoding="utf-8").read().split('data="')[1].split('"')[0].split(",")) == {"-1"}

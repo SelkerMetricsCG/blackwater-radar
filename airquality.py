@@ -234,9 +234,89 @@ def _name(url):
     return url.rsplit("/", 1)[-1]
 
 
+def aq_category(a):
+    """AQI (number or numpy array) -> category 0 (Good) .. 5 (Hazardous), after rounding half up like the map does"""
+    import numpy as np
+    return np.digitize(np.floor(np.asarray(a, dtype=float) + 0.5), AQ_EDGES)
+
+
+def window_latlon():
+    """latitudes (rows) and longitudes (columns) of the map window's pixel centres, every STEP pixels"""
+    import numpy as np
+    z, x0, x1, y0, y1 = region.window()
+    n, tile = 2 ** z, 256
+    ys = (np.arange(0, (y1 - y0 + 1) * tile, STEP) + STEP / 2) / tile + y0
+    xs = (np.arange(0, (x1 - x0 + 1) * tile, STEP) + STEP / 2) / tile + x0
+    return np.degrees(np.arctan(np.sinh(np.pi - 2 * np.pi * ys / n))), xs / n * 360.0 - 180.0
+
+
+def resample(a, lat, lon):
+    """nearest-neighbour lookup of a regular lat/lon grid onto the window (either latitude order; longitude 0..360 or
+    -180..180), as mrms.py does; NaN outside the source grid"""
+    import numpy as np
+    lat_w, lon_w = window_latlon()
+    lon = np.where(lon > 180, lon - 360, lon)
+    iy = np.round((lat_w - lat[0]) / (lat[1] - lat[0])).astype(int)
+    ix = np.round((lon_w - lon[0]) / (lon[1] - lon[0])).astype(int)
+    oky, okx = (iy >= 0) & (iy < len(lat)), (ix >= 0) & (ix < len(lon))
+    g = np.asarray(a, dtype=np.float32)[np.ix_(np.clip(iy, 0, len(lat) - 1), np.clip(ix, 0, len(lon) - 1))]
+    g[~oky, :] = np.nan
+    g[:, ~okx] = np.nan
+    return g
+
+
+def colorize(aqi):
+    """(H, W) AQI -> RGBA image in the official category colours; NaN (AirNow's blanked cells) transparent"""
+    import numpy as np
+    from PIL import Image
+    ok = ~np.isnan(aqi)
+    cat = aq_category(np.where(ok, aqi, 0))
+    rgb = np.zeros(aqi.shape + (3,), np.uint8)
+    for i, c in enumerate(AQ_COLORS):
+        rgb[cat == i] = c
+    return Image.fromarray(np.dstack([rgb, np.where(ok, 255, 0).astype(np.uint8)]), "RGBA")
+
+
 def build_grid(store, log=print):
-    """replaced in Task 3"""
-    return False
+    """AirNow's interpolated NowCast AQI -> frames/aq/aqi.webp and data/values/aqi.js. False (nothing downloaded) when
+    its Last-Modified is the one in the store. Checked 2026-09-28: one variable 'aerot', regular lat/lon 1778 x 3700,
+    latitude ascending from 20 N, longitude 0..360, blanked cells NaN, valid_time one hour after the data hour."""
+    lm = head_last_modified(GRID_URL)
+    if lm and lm == (store.get("grid") or {}).get("lm"):
+        return False
+    import cfgrib
+    import numpy as np
+    from PIL import Image
+    import values
+    body, lm2 = fetch(GRID_URL)
+    work = os.path.join(CACHE_DIR, "grid")
+    os.makedirs(work, exist_ok=True)
+    path = os.path.join(work, "current_pm25.grib2")
+    with open(path, "wb") as f:
+        f.write(body)
+    try:
+        ds = cfgrib.open_datasets(path)[0]
+        lat, lon = ds.latitude.values, ds.longitude.values
+        if lat.ndim != 1:
+            raise RuntimeError("AirNow grid is not regular lat/lon")
+        a = ds[list(ds.data_vars)[0]].values.astype(np.float32)
+        with np.errstate(invalid="ignore"):
+            a[(a < 0) | (a >= 9999)] = np.nan
+        grid = resample(a, lat, lon)
+        valid = int(np.datetime64(ds.valid_time.values, "s").astype("int64"))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)            # the GRIB and cfgrib's .idx files
+    os.makedirs(FRAME_DIR, exist_ok=True)
+    img = colorize(grid)
+    img = img.resize((img.width * STEP, img.height * STEP), Image.NEAREST)
+    tmp = os.path.join(FRAME_DIR, "aqi.tmp.webp")
+    img.save(tmp, "WEBP", lossless=True)
+    os.replace(tmp, os.path.join(FRAME_DIR, "aqi.webp"))
+    values.write_grid("aqi", grid, unit="AQI", scale=1)
+    store["grid"] = {"lm": lm or lm2, "t": valid, "file": "frames/aq/aqi.webp?v=%d" % int(time.time())}
+    log("airquality: grid valid %s, %d%% of the window has data" % (
+        dt.datetime.fromtimestamp(valid, dt.timezone.utc).strftime("%H:%MZ"), round(100 * float(np.isfinite(grid).mean()))))
+    return True
 
 
 def build(log=print, now=None):
