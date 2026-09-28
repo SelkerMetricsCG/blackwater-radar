@@ -1221,6 +1221,7 @@
   // END fireHelpers
   // ---------- Smoke & fires: fires (markers, in-view labels, perimeters, cards) ----------
   const fireLayer = L.layerGroup(), fireLabelLayer = L.layerGroup(), perimLayer = L.layerGroup(), hotLayer = L.layerGroup();
+  const hotRenderer = L.canvas({ padding: 0.5 });
   let fireData = null, fireLoadedAt = 0, fireLabels = [], perimData = null, perimLoadedAt = 0;
   function fireMarkerIcon(f) {
     const s = [14, 20, 28][fireSize(f.acres)] - (f.active ? 0 : 4), c = FIRE_COL[f.type] || FIRE_COL.WF;
@@ -1261,15 +1262,16 @@
     h += '<div style="margin-top:4px">' + rows.join(' · ') + '</div>';
     if (f.desc) h += '<div style="margin-top:4px;font-size:12px;max-height:80px;overflow:auto">' + fireEsc(f.desc) + '</div>';
     if (f.url) h += '<div style="margin-top:4px;font-size:12px"><a href="' + fireEsc(f.url) + '" target="_blank" rel="noopener">agency page</a></div>';
-    h += '<div style="font-size:11px;color:#666;margin-top:4px">Source: ' + (f.src === 'wfigs' ? 'NIFC (WFIGS)' : 'CWFIF (Natural Resources Canada)' + (f.bcws ? ', BC Wildfire Service' : '')) + '.</div></div>';
+    h += '<div style="font-size:11px;color:#666;margin-top:4px">Source: ' + (f.src === 'wfigs' ? 'NIFC (WFIGS)' : f.src === 'bcws' ? 'BC Wildfire Service' : 'CWFIF (Natural Resources Canada)' + (f.bcws ? ', BC Wildfire Service' : '')) + '.</div></div>';
     return h;
   }
   function renderPerims() {
     perimLayer.clearLayers();
     if (!perimData || !map.hasLayer(fireLayer)) return;
     const byId = {}; if (fireData) for (const f of fireData.fires) byId[f.id] = f;
-    const nowS = Date.now() / 1000;
+    const nowS = Date.now() / 1000, hideQuiet = $('fireQuiet').checked;
     L.geoJSON(perimData, { style: () => ({ color: PERIM_COL, weight: 1.5, fillOpacity: .12 }), interactive: true,
+      filter: ft => { const owner = byId[ft.properties.id]; return !(hideQuiet && owner && !owner.active); },
       onEachFeature: (ft, l) => {
         const p = ft.properties, owner = byId[p.id], ageNow = fireData ? hotAgeNow(p.age_h, fireData.updated_t, nowS) : p.age_h;
         l.bindTooltip(fireEsc(p.name) + (p.acres ? ' · ' + Math.round(p.acres).toLocaleString() + ' ac' : '') + (ageNow != null ? ' · mapped ' + fireAgo(nowS - ageNow * 3600, nowS) : '') + (owner && owner.name !== p.name ? ' · part of ' + fireEsc(owner.name) : ''), { sticky: true });
@@ -1313,14 +1315,14 @@
     for (const h of fireData.hotspots) {
       const age = hotAgeNow(h[2], fireData.updated_t, nowS), a = hotAge(age); if (a < 0) continue;
       n++; if (h[3] === 'G') ng++;
-      const m = L.circleMarker([h[0], h[1]], { radius: h[3] === 'G' ? 4 : 3, color: HOT_BINS[a][1], weight: 1.2, fillColor: HOT_BINS[a][1], fillOpacity: h[6] ? 0 : .8 });
+      const m = L.circleMarker([h[0], h[1]], { renderer: hotRenderer, radius: h[3] === 'G' ? 4 : 3, color: HOT_BINS[a][1], weight: 1.2, fillColor: HOT_BINS[a][1], fillOpacity: h[6] ? 0 : .8 });
       const f = h[5] && byId[h[5]];
       m.bindTooltip((h[3] === 'G' ? 'GOES' : h[3] === 'V' ? 'VIIRS' : 'MODIS') + ' · ' + (age < 1 ? Math.round(age * 60) + ' min' : age.toFixed(1) + ' h') + ' ago' + (h[4] != null ? ' · ' + h[4] + ' MW' : '') +
         (h[7] ? ' · seen since ' + new Date(h[7] * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '') + (f ? ' · ' + fireEsc(f.name) : h[6] ? ' · not yet tied to a known fire' : ''), { sticky: true });
       hotLayer.addLayer(m);
     }
     $('hotInfo').innerHTML = '<div class="muted">' + n + ' hotspots (' + ng + ' GOES) · updated ' + fireData.updated + '</div>' + legendHtml(HOT_BINS, x => HOT_NAMES[HOT_BINS.findIndex(b => b[0] === x)]) +
-      '<div class="note">' + (fireData.ngfs ? 'NOAA GOES (NGFS, every few minutes; beta) and ' : 'NOAA GOES unavailable; ') + 'NASA VIIRS and MODIS (FIRMS, a few hours old). Heat, not a fire edge; includes prescribed burns and industrial or farm sources. Hollow: GOES detection not yet tied to a known fire.</div>';
+      '<div class="note" style="margin-top:18px">' + (fireData.ngfs ? 'NOAA GOES (NGFS, every few minutes; beta) and ' : 'NOAA GOES unavailable; ') + 'NASA VIIRS and MODIS (FIRMS, a few hours old). Heat, not a fire edge; includes prescribed burns and industrial or farm sources. Hollow: GOES detection not yet tied to a known fire.</div>';
   }
   $('lyHot').onchange = e => { if (e.target.checked) { hotLayer.addTo(map); if (fireNeedsLoad(fireData, fireLoadedAt, Date.now())) loadFires(); else renderHot(); } else map.removeLayer(hotLayer); };
   setInterval(() => { if (map.hasLayer(fireLayer) || map.hasLayer(hotLayer)) loadFires(); }, 15 * 60 * 1000);
@@ -1642,6 +1644,8 @@
     }
     if (sm) d.stMode = { swe_pct: 'precip', wy_pct: 'precip', swe: 'snow' }[sm] || sm;
     delete d.checks.lyBasins; delete d.selects.basinSel; delete d.selects.stModeSel;
+    // saves from before the fires layer (2026-09-28) had no fireQuiet key; default it on (spec decision 6)
+    if (d && d.checks && !('fireQuiet' in d.checks)) d.checks.fireQuiet = true;
     return d;
   }
   // END migrateDefault
