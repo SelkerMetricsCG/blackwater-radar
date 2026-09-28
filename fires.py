@@ -432,3 +432,158 @@ def _write(path, text):
 def save_store(store):
     os.makedirs(DATA, exist_ok=True)
     _write(STORE, json.dumps(store, separators=(",", ":")))
+
+
+# ---------- activity, output, build ----------
+def is_active(f, now):
+    """spec ledger: updated within ACTIVE_H, or hotspots within HOT_H, or Canadian stage OC / BH;
+    100 % contained is quiet unless it has hotspots"""
+    if f.get("hot24", 0) > 0:
+        return True
+    if f.get("contained") is not None and f["contained"] >= 100:
+        return False
+    if f.get("stage") in ("OC", "BH"):
+        return True
+    m = f.get("modified")
+    return m is not None and 0 <= now - m <= ACTIVE_H * 3600
+
+
+def to_fires(fire_list, hs, perims, now, ngfs_ok):
+    """the window.FIRES object"""
+    with_perim = {p["properties"]["id"] for p in perims if p["properties"].get("id")}
+    out = []
+    for f in fire_list:
+        r = {k: v for k, v in f.items() if k not in ("bcnum", "status")}
+        r["acres"] = None if f.get("acres") is None else round(f["acres"], 1)
+        r["lat"], r["lon"] = round(f["lat"], 4), round(f["lon"], 4)
+        r["hot24"] = f.get("hot24", 0)
+        r["perim"] = f["id"] in with_perim
+        r["active"] = is_active(r, now)
+        out.append(r)
+    return {"updated": dt.datetime.fromtimestamp(now).strftime("%a %b %d %I:%M %p"), "updated_t": int(now), "ngfs": bool(ngfs_ok),
+            "fires": out, "hotspots": hotspot_rows(hs, now)}
+
+
+def write_perims(feats, now):
+    fc = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": dict(p["properties"], age_h=None if p["properties"].get("t") is None else round(max(0, now - p["properties"]["t"]) / 3600, 1)),
+         "geometry": p["geometry"]} for p in feats]}
+    os.makedirs(os.path.dirname(OUT_PERIMS), exist_ok=True)
+    _write(OUT_PERIMS, "window.PERIMS = %s;\n" % json.dumps(fc, separators=(",", ":")))
+
+
+def ngfs_scene():
+    return "east" if str(region.cfg().get("goes", "West")).lower().startswith("e") else "west"
+
+
+def in_window(lat, lon, bbox):
+    return bbox[0] <= lat <= bbox[1] and bbox[2] <= lon <= bbox[3]
+
+
+def _try(log, what, fn, *a):
+    """run fn; on any failure log 'fires: <what> failed: ...' and return None"""
+    try:
+        return fn(*a)
+    except Exception as e:  # noqa: BLE001
+        log("fires: %s failed: %r" % (what, e))
+        return None
+
+
+def build(log=print, now=None):
+    t_start = time.time()
+    now = int(now or time.time())
+    bbox = region.bbox()
+    store = load_store()
+
+    # 1. incidents
+    fire_list, ok = [], []
+    g = _try(log, "WFIGS incidents", arcgis_query, WFIGS_INC, {"where": "1=1", "outFields": WFIGS_FIELDS}, log)
+    if g is not None:
+        fire_list += parse_wfigs(g)
+        ok.append("wfigs")
+    cwg = _try(log, "CWFIF", lambda: json.loads(fetch(CWFIF + "?" + urllib.parse.urlencode({
+        "service": "WFS", "version": "2.0.1", "request": "GetFeature", "outputFormat": "application/json",
+        "typeName": "public:cwfif_national_activefires", "CQL_FILTER": "now()>=record_start AND now()<=record_end", "srsName": "EPSG:4326"}))[0]))
+    bcg = _try(log, "BCWS fires", arcgis_query, BCWS_FIRES, {"where": "FIRE_STATUS<>'Out'", "outFields": BCWS_FIELDS}, log)
+    if cwg is not None or bcg is not None:
+        fire_list += join_canada(parse_cwfif(cwg) if cwg is not None else [], parse_bcws(bcg) if bcg is not None else {})
+        ok.append("canada")
+    if not ok:
+        raise RuntimeError("no incident source answered; keeping the last good fires.js")
+    fire_list = [f for f in fire_list if in_window(f["lat"], f["lon"], bbox)]
+    bc_ids = {f["bcnum"]: f["id"] for f in fire_list if f.get("bcnum")}
+    bc_ids.update({f["id"][3:]: f["id"] for f in fire_list if f["src"] == "bcws"})
+
+    links = _try(log, "InciWeb links", lambda: inciweb_links(fetch(INCIWEB)[0].decode("utf-8", "replace"))) or {}
+    for f in fire_list:
+        if f["src"] == "wfigs" and not f.get("url"):
+            f["url"] = links.get((norm_name(f["name"]), STATE_NAMES.get(f.get("state") or "", "").lower()))
+
+    # 2. perimeters: refetch only when a layer's edit stamp changed
+    stamps = {"wfigs": _try(log, "WFIGS perimeter stamp", layer_stamp, WFIGS_PERIM), "bcws": _try(log, "BCWS perimeter stamp", layer_stamp, BCWS_PERIM)}
+    old = store.get("stamps") or {}
+    perims, pstate = store.get("perims"), "unchanged"
+    if perims is None or stamps["wfigs"] is None or stamps["bcws"] is None or stamps != old:
+        wg = _try(log, "WFIGS perimeters", arcgis_query, WFIGS_PERIM, {"where": "1=1", "outFields": PERIM_FIELDS, "maxAllowableOffset": "0.001", "geometryPrecision": "4"}, log)
+        bg = _try(log, "BCWS perimeters", arcgis_query, BCWS_PERIM, {"where": "FIRE_STATUS<>'Out'", "outFields": BCWS_PERIM_FIELDS, "maxAllowableOffset": "0.001", "geometryPrecision": "4"}, log)
+        if wg is not None and bg is not None:
+            perims = parse_perims(wg, bg, bc_ids, bbox)
+            store["perims"], store["stamps"], pstate = perims, stamps, "new"
+        elif perims is None:
+            perims, pstate = [], "FAILED"
+        else:
+            pstate = "kept after a failed fetch"
+    write_perims(perims, now)
+
+    # 3. hotspots
+    hs, seen, n_firms = [], set(), 0
+    for sat, path in (("V", "noaa-20-viirs-c2/csv/J1_VIIRS_C2"), ("V", "noaa-21-viirs-c2/csv/J2_VIIRS_C2"),
+                      ("V", "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2"), ("M", "modis-c6.1/csv/MODIS_C6_1")):
+        for area in ("USA_contiguous_and_Hawaii", "Canada"):
+            if time.time() - t_start > DEADLINE_S:
+                log("fires: FIRMS: out of time before %s %s" % (path.rsplit("/", 1)[-1], area))
+                break
+            body = _try(log, "FIRMS %s %s" % (path.rsplit("/", 1)[-1], area), fetch, "%s%s_%s_%dh.csv" % (FIRMS, path, area, FIRMS_H))
+            if body is None:
+                continue
+            got = [h for h in parse_firms(body[0].decode("utf-8", "replace"), sat, seen) if in_window(h["lat"], h["lon"], bbox) and now - h["t"] <= FIRMS_H * 3600]
+            hs += got
+            n_firms += len(got)
+    t1 = dt.datetime.fromtimestamp(now, dt.timezone.utc)
+    t0 = t1 - dt.timedelta(hours=HOT_H)
+    q = urllib.parse.urlencode({"f": "json", "datetime": "%s/%s" % (t0.strftime("%Y-%m-%dT%H:%M:%SZ"), t1.strftime("%Y-%m-%dT%H:%M:%SZ")),
+                                "datetime-column": "acq_date_time", "limit": 5000, "bbox": "%.3f,%.3f,%.3f,%.3f" % (bbox[2], bbox[0], bbox[3], bbox[1])})
+    ng = _try(log, "NGFS", lambda: json.loads(fetch((NGFS % ngfs_scene()) + "?" + q)[0]))
+    ngfs_ok = ng is not None
+    if ng is not None:
+        if ng.get("numberMatched") and ng.get("numberReturned") and ng["numberMatched"] > ng["numberReturned"]:
+            log("fires: NGFS returned %d of %d (cap); consider paging" % (ng["numberReturned"], ng["numberMatched"]))
+        ngs = [h for h in parse_ngfs(ng, now) if in_window(h["lat"], h["lon"], bbox)]
+        store["ngfs"] = {"t": now, "hs": ngs}
+    else:
+        c = store.get("ngfs") or {}
+        if c.get("t") and now - c["t"] <= NGFS_CACHE_S:
+            ngs = [h for h in c.get("hs", []) if now - h["t"] <= HOT_H * 3600]
+            ngfs_ok = True
+            log("fires: NGFS failed; %d cached detections reused (%d min old)" % (len(ngs), (now - c["t"]) // 60))
+        else:
+            ngs = []
+    hs += ngs
+    link_hotspots(hs, fire_list, perims, now)
+
+    # 4. write
+    data = to_fires(fire_list, hs, perims, now, ngfs_ok)
+    os.makedirs(DATA, exist_ok=True)
+    _write(OUT, "window.FIRES = %s;\n" % json.dumps(data, separators=(",", ":")))
+    save_store(store)
+    fl = data["fires"]
+    log("fires: %d fires (%d active, %d prescribed, %d Canada), %d perimeters (%s), hotspots %d FIRMS + %d NGFS" % (
+        len(fl), sum(f["active"] for f in fl), sum(f["type"] == "RX" for f in fl), sum(f["src"] != "wfigs" for f in fl),
+        len(perims), pstate, n_firms, len(ngs)))
+    return len(fl)
+
+
+if __name__ == "__main__":
+    t0 = time.time()
+    build()
+    print("done in %.0fs" % (time.time() - t0))

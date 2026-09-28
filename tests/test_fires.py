@@ -266,3 +266,160 @@ def test_arcgis_query_pages_and_layer_stamp(monkeypatch):
     assert [f["properties"]["IncidentName"] for f in g["features"]] == ["F0", "F1", "F2", "F3"] and len(calls) == 2
     assert calls[0].startswith(fires.WFIGS_INC + "/query?") and "f=geojson" in calls[0] and "resultOffset=2" in calls[1]
     assert fires.layer_stamp(fires.WFIGS_INC) == 1790601765537
+
+
+# ---------- activity, output, build ----------
+def rec(**kw):
+    r = fires._rec(id="X", name="X", lat=47, lon=-120)
+    r.update(kw)
+    r.setdefault("hot24", 0)
+    return r
+
+
+@pytest.mark.parametrize("kw,active", [
+    (dict(modified=NOW - 72 * H), True), (dict(modified=NOW - 72 * H - 1), False),
+    (dict(modified=NOW - 10 * 24 * H, hot24=1), True),
+    (dict(modified=NOW - H, contained=100), False), (dict(modified=NOW - 10 * 24 * H, contained=100, hot24=2), True),
+    (dict(modified=None, stage="OC"), True), (dict(modified=None, stage="BH"), True), (dict(modified=None, stage="UC"), False),
+    (dict(modified=None), False),
+])
+def test_is_active(kw, active):
+    assert fires.is_active(rec(**kw), NOW) is active
+
+
+def test_to_fires_shape():
+    fl = [rec(id="A", modified=NOW - H, bcnum=None, status=None, acres=12.34, desc="d", src="wfigs"),
+          rec(id="B", name="Chilliwack River", src="cwfif", bcws=True, bcnum="V1", status="Under Control", stage="UC", url="u", note=True)]
+    hs = [dict(lat=47.001, lon=-120.001, t=NOW - H, src="V", frp=3, fire="A", unc=False, since=None)]
+    perims = [{"type": "Feature", "properties": {"id": "B", "name": "V1", "acres": 1, "t": NOW}, "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}}]
+    fires.link_hotspots(hs, fl, perims, NOW)
+    d = fires.to_fires(fl, hs, perims, NOW, ngfs_ok=False)
+    assert set(d) == {"updated", "updated_t", "ngfs", "fires", "hotspots"} and d["ngfs"] is False and d["updated_t"] == NOW
+    a, b = d["fires"]
+    assert a["active"] is True and a["perim"] is False and a["hot24"] == 1 and "bcnum" not in a and "status" not in a
+    assert b["active"] is False and b["perim"] is True and b["stage"] == "UC" and b["bcws"] is True
+    assert d["hotspots"] == [[47.001, -120.001, 1.0, "V", 3.0, "A", 0, None]]
+
+
+def test_perims_js_ages(monkeypatch, tmp_path):
+    monkeypatch.setattr(fires, "OUT_PERIMS", str(tmp_path / "perimeters.js"))
+    feats = [{"type": "Feature", "properties": {"id": "B", "name": "V1", "acres": 1, "t": NOW - 5 * H}, "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}}]
+    fires.write_perims(feats, NOW)
+    txt = (tmp_path / "perimeters.js").read_text(encoding="utf-8")
+    assert txt.startswith("window.PERIMS = ") and json.loads(txt[len("window.PERIMS = "):].rstrip().rstrip(";"))["features"][0]["properties"]["age_h"] == 5.0
+
+
+def test_ngfs_scene(monkeypatch):
+    monkeypatch.setattr(fires.region, "cfg", lambda: {"goes": "East"})
+    assert fires.ngfs_scene() == "east"
+    monkeypatch.setattr(fires.region, "cfg", lambda: {})
+    assert fires.ngfs_scene() == "west"
+
+
+class FakeNet:
+    """answers fires' fetch/arcgis calls from a dict of url-substring -> (body, raises)"""
+    def __init__(self, answers):
+        self.answers, self.calls = answers, []
+
+    def __call__(self, url):
+        self.calls.append(url)
+        for k, v in self.answers.items():
+            if k in url:
+                if isinstance(v, Exception):
+                    raise v
+                return (v if isinstance(v, bytes) else json.dumps(v).encode()), "Mon, 28 Sep 2026 13:00:00 GMT"
+        raise fires.NotPosted(url)
+
+
+def build_env(monkeypatch, tmp_path, answers, store=None):
+    monkeypatch.setattr(fires, "DATA", str(tmp_path))
+    monkeypatch.setattr(fires, "OUT", str(tmp_path / "fires.js"))
+    monkeypatch.setattr(fires, "OUT_PERIMS", str(tmp_path / "perimeters.js"))
+    monkeypatch.setattr(fires, "STORE", str(tmp_path / "fires_cache.json"))
+    monkeypatch.setattr(fires.region, "bbox", lambda: BBOX)
+    monkeypatch.setattr(fires.region, "cfg", lambda: {})
+    if store:
+        (tmp_path / "fires_cache.json").write_text(json.dumps(store), encoding="utf-8")
+    net = FakeNet(answers)
+    monkeypatch.setattr(fires, "fetch", net)
+    return net
+
+
+def read_js(path, prefix):
+    return json.loads(path.read_text(encoding="utf-8")[len(prefix):].rstrip().rstrip(";"))
+
+
+def full_answers():
+    return {"WFIGS_Incident_Locations_Current/FeatureServer/0?f=pjson": {"editingInfo": {"dataLastEditDate": 1}},
+            "WFIGS_Incident_Locations_Current/FeatureServer/0/query": fc([wf("ROWE CREEK COMPLEX", 44.9, -120.1, typ="CX"), wf("FAR", 30, -100, irwin="{2}")]),
+            "WFIGS_Interagency_Perimeters_Current/FeatureServer/0?f=pjson": {"editingInfo": {"dataLastEditDate": 10}},
+            "WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query": fc([perim("{B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3}", "Rowe Creek", -120.2, 44.8)]),
+            "BCWS_FirePerimeters_PublicView/FeatureServer/0?f=pjson": {"editingInfo": {"dataLastEditDate": 20}},
+            "BCWS_FirePerimeters_PublicView/FeatureServer/0/query": fc([bc_perim("V12186", -121.9, 49.0)]),
+            "BCWS_ActiveFires_PublicView": fc([bc()]),
+            "geoserver.cwfif": fc([cw()]),
+            "firms.modaps": ("\n".join([FIRMS_HDR, firms_row(44.85, -120.15, NOW - 2 * H)]) + "\n").encode(),
+            "fire.data.nesdis": fc([ngfs_feat("ID-2026-09-28T03:31:19.000Z_0003", NOW - 600, lat=49.05, lon=-121.85, typ="Possible Wildland Fire")]),
+            "inciweb": RSS.encode()}
+
+
+def test_build_writes_files_store_and_log(monkeypatch, tmp_path):
+    net = build_env(monkeypatch, tmp_path, full_answers())
+    lines = []
+    n = fires.build(log=lines.append, now=NOW)
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    assert n == 2 and [f["name"] for f in d["fires"]] == ["ROWE CREEK COMPLEX", "Chilliwack River"]     # FAR is outside the window
+    rowe = d["fires"][0]
+    assert rowe["url"] == "https://inciweb.wildfire.gov/incident-information/orprd-rowe-creek-complex" and rowe["perim"] is True and rowe["hot24"] == 1
+    assert d["ngfs"] is True and [h[3] for h in d["hotspots"]] == ["V", "G"] and d["hotspots"][1][6] == 1
+    p = read_js(tmp_path / "perimeters.js", "window.PERIMS = ")
+    assert [f["properties"]["id"] for f in p["features"]] == ["B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "2026_BC_2026-V12186"]
+    store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
+    assert store["stamps"] == {"wfigs": 10, "bcws": 20} and len(store["perims"]) == 2 and store["ngfs"]["t"] == NOW and len(store["ngfs"]["hs"]) == 1
+    assert lines[-1] == "fires: 2 fires (2 active, 0 prescribed, 1 Canada), 2 perimeters (new), hotspots 1 FIRMS + 1 NGFS"
+    assert sum(1 for u in net.calls if "firms.modaps" in u) == 8
+
+
+def test_build_unchanged_stamps_reuse_perimeters_and_ngfs_cache_on_failure(monkeypatch, tmp_path):
+    a = full_answers()
+    a["fire.data.nesdis"] = OSError("timeout")
+    store = {"v": 1, "stamps": {"wfigs": 10, "bcws": 20}, "perims": [{"type": "Feature", "properties": {"id": "OLD", "name": "Old", "acres": 1, "t": NOW - 30 * H}, "geometry": {"type": "Polygon", "coordinates": [[[-120.2, 44.8], [-120.0, 44.8], [-120.0, 45.0], [-120.2, 44.8]]]}}],
+             "ngfs": {"t": NOW - 1800, "hs": [dict(lat=49.05, lon=-121.85, t=NOW - 2000, src="G", frp=1, fire=None, unc=True, since=None)]}}
+    net = build_env(monkeypatch, tmp_path, a, store)
+    lines = []
+    fires.build(log=lines.append, now=NOW)
+    assert not any("Perimeters_Current/FeatureServer/0/query" in u or "FirePerimeters_PublicView/FeatureServer/0/query" in u for u in net.calls)
+    p = read_js(tmp_path / "perimeters.js", "window.PERIMS = ")
+    assert [f["properties"]["id"] for f in p["features"]] == ["OLD"] and p["features"][0]["properties"]["age_h"] == 30.0
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    assert d["ngfs"] is True and [h[3] for h in d["hotspots"]] == ["V", "G"]          # cached NGFS reused (30 min old)
+    assert any("NGFS" in l and "cached" in l for l in lines) and "2 perimeters (unchanged)" not in lines[-1] and "1 perimeters (unchanged)" in lines[-1]
+
+
+def test_build_ngfs_cache_expires_and_incident_failure_keeps_last_good(monkeypatch, tmp_path):
+    a = full_answers()
+    a["fire.data.nesdis"] = OSError("timeout")
+    store = {"v": 1, "ngfs": {"t": NOW - 3601, "hs": [dict(lat=49.05, lon=-121.85, t=NOW - 4000, src="G", frp=1, fire=None, unc=True, since=None)]}}
+    build_env(monkeypatch, tmp_path, a, store)
+    fires.build(log=lambda m: None, now=NOW)
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    assert d["ngfs"] is False and [h[3] for h in d["hotspots"]] == ["V"]
+    # now every incident source fails: build raises and the files above are untouched
+    a["WFIGS_Incident_Locations_Current/FeatureServer/0/query"] = OSError("down")
+    a["geoserver.cwfif"] = OSError("down")
+    a["BCWS_ActiveFires_PublicView"] = OSError("down")
+    before = (tmp_path / "fires.js").read_text(encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        fires.build(log=lambda m: None, now=NOW + 900)
+    assert (tmp_path / "fires.js").read_text(encoding="utf-8") == before
+
+
+def test_build_one_incident_source_down_still_writes(monkeypatch, tmp_path):
+    a = full_answers()
+    a["geoserver.cwfif"] = OSError("down")
+    a["BCWS_ActiveFires_PublicView"] = OSError("down")
+    build_env(monkeypatch, tmp_path, a)
+    lines = []
+    fires.build(log=lines.append, now=NOW)
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    assert [f["name"] for f in d["fires"]] == ["ROWE CREEK COMPLEX"] and any("CWFIF" in l and "failed" in l for l in lines)
