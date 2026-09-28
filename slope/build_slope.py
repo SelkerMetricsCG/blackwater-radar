@@ -373,11 +373,14 @@ def download(url, size, dest):
         return fn
     for k in range(4):
         try:
+            # check against the server's Content-Length: the TNM listing's sizeInBytes is stale for files USGS
+            # re-saved later (2026-09-27: FEMAHQ_2018 tiles 12-15% smaller than listed, complete on S3)
             with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=300) as r, \
                     open(fn + ".part", "wb") as f:
+                expect = int(r.headers.get("Content-Length") or 0)
                 shutil.copyfileobj(r, f, 1 << 20)
-            if size and abs(os.path.getsize(fn + ".part") - size) > 1024:
-                raise IOError("size %d, expected %d" % (os.path.getsize(fn + ".part"), size))
+            if expect and os.path.getsize(fn + ".part") != expect:
+                raise IOError("got %d bytes, server said %d" % (os.path.getsize(fn + ".part"), expect))
             os.replace(fn + ".part", fn)
             return fn
         except Exception:  # noqa: BLE001
@@ -519,7 +522,7 @@ def slope():
     t0, recs = time.time(), []
     with cf.ThreadPoolExecutor(6) as ex:
         recs = list(ex.map(lambda p: cell_slope(p[:-4], vrt), dems))
-    hist = np.sum([r["hist_deg"] for r in recs], axis=0)
+    hist = np.array([r["hist_deg"] for r in recs], dtype=np.int64).sum(axis=0)     # int64: ~2e9 pixels overflow int32 on Windows
     tot = hist.sum()
     shares = {t: 100 * hist[t:].sum() / tot for t in (27, 30, 35, 45, 60)}
     account("slope", "%d cells, %.2e valid pixels; share of the area >= 27/30/35/45/60 deg: %s; %.0f min"
@@ -556,9 +559,16 @@ def tiles():
     files = sorted(os.path.join(WORK, "slope3", p) for p in os.listdir(os.path.join(WORK, "slope3")) if p.endswith(".tif"))
     vrt = os.path.join(WORK, "slope3", "all.vrt")
     gdal.BuildVRT(vrt, files)
+    # GeoTIFF palettes have no alpha, so the cell files carry "flatter than 27 = clear" as opaque black;
+    # a VRT palette keeps alpha, so put the full table (clear for 0 and 255) back here (found 2026-09-28)
+    ds = gdal.Open(vrt, gdal.GA_Update)
+    ds.GetRasterBand(1).SetRasterColorTable(color_table())
+    ds = None
+    out = os.path.join(WORK, "tiles")
+    if os.path.isdir(out):
+        shutil.rmtree(out)                        # gdal2tiles would otherwise leave stale tiles that -x now skips
     rgba = os.path.join(WORK, "slope3", "all_rgba.vrt")
     gdal.Translate(rgba, vrt, format="VRT", rgbExpand="rgba")
-    out = os.path.join(WORK, "tiles")
     t = CFG["tiles"]
     t0 = time.time()
     args = ["gdal2tiles", "--xyz", "-z", "%d-%d" % (t["zoom_min"], t["zoom_max"]), "-r", t["resampling"], "-w", "none",
@@ -576,7 +586,76 @@ def tiles():
                                                            sum(mb for _, mb in counts.values()), (time.time() - t0) / 60))
 
 
-STAGES = {"selftest": selftest, "inventory": inventory, "dem": dem, "slope": slope, "tiles": tiles}
+# ---------------------------------------------------------------- stage: check (after tiles)
+def check():
+    """Tiles against the UTM class raster: band agreement at random points, the best sub-pixel shift (a real
+    georeferencing error would move the peak off zero), and flat ground (lake surfaces) must be clear."""
+    from PIL import Image
+    colours = {c: i + 1 for i, c in enumerate(COLORS)}
+    z, cache = CFG["tiles"]["zoom_max"], {}
+
+    def tile_px(lon, lat):
+        n = 2 ** z
+        return (lon + 180) / 360 * n * 256, (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n * 256
+
+    def tile_class(gx, gy):
+        p = os.path.join(WORK, "tiles", str(z), str(int(gx // 256)), "%d.png" % int(gy // 256))
+        if p not in cache:
+            cache[p] = np.asarray(Image.open(p).convert("RGBA")) if os.path.exists(p) else None
+        a = cache[p]
+        if a is None:
+            return 0
+        px = a[int(gy) % 256, int(gx) % 256]
+        return 0 if px[3] == 0 else colours.get(tuple(int(v) for v in px[:3]), -1)
+
+    src = gdal.Open(os.path.join(WORK, "slope3", "all.vrt"))
+    band, gt = src.GetRasterBand(1), src.GetGeoTransform()
+    rng = np.random.default_rng(1)
+    w, s, e, n = CFG["area"]["bbox_lonlat"]
+    pts = []
+    while len(pts) < 2000:
+        lon, lat = rng.uniform(w, e), rng.uniform(s, n)
+        x, y, _ = TO_UTM.TransformPoint(lon, lat)
+        v = int(band.ReadAsArray(int((x - gt[0]) / gt[1]), int((y - gt[3]) / gt[5]), 1, 1)[0, 0])
+        pts.append((tile_px(lon, lat), 0 if v == 255 else v))
+    grid = {(dx, dy): float(np.mean([tile_class(gx + dx, gy + dy) == v for (gx, gy), v in pts if v > 0]))
+            for dx in range(-3, 4) for dy in range(-3, 4)}
+    best = max(grid, key=grid.get)
+    unmatched = sum(tile_class(gx, gy) == -1 for (gx, gy), _ in pts)
+    allpts = np.mean([tile_class(gx, gy) == v for (gx, gy), v in pts])
+    # lakes: lidar DEMs flatten water to one height, so search near each named lake for a 60 m box that varies
+    # by under 0.5 m (open water, not shore) and require the tile to be clear there
+    dem = gdal.Open(os.path.join(WORK, "dem3", "all.vrt"))
+    dgt, dband = dem.GetGeoTransform(), dem.GetRasterBand(1)
+    lakes = {"Colchuck Lake": (-120.8340, 47.4968), "Lake Chelan (Stehekin end)": (-120.6800, 48.2600),
+             "Lake Wenatchee": (-120.80, 47.82), "Snow Lakes (Enchantments)": (-120.7700, 47.4920)}
+    lake_txt = []
+    for name, (lon, lat) in lakes.items():
+        x, y, _ = TO_UTM.TransformPoint(lon, lat)
+        c0, r0 = int((x - dgt[0]) / dgt[1]) - 333, int((y - dgt[3]) / dgt[5]) - 333      # 2 km search window
+        elev = dband.ReadAsArray(c0, r0, 667, 667).astype(np.float64)
+        spot = None
+        for r in range(10, 657, 10):
+            for c in range(10, 657, 10):
+                box = elev[r - 10:r + 11, c - 10:c + 11]
+                if box.min() > NODATA and box.max() - box.min() < 0.5:
+                    spot = (r, c)
+                    break
+            if spot:
+                break
+        if not spot:
+            lake_txt.append("%s: no flat water found" % name)
+            continue
+        ex, ny = dgt[0] + (c0 + spot[1] + 0.5) * dgt[1], dgt[3] + (r0 + spot[0] + 0.5) * dgt[5]
+        lon2, lat2, _ = osr.CoordinateTransformation(UTM, LL).TransformPoint(ex, ny)          # LL uses lon, lat order
+        gx, gy = tile_px(lon2, lat2)
+        lake_txt.append("%s (water at %.1f m) %s" % (name, elev[spot], "clear" if tile_class(gx, gy) == 0 else "NOT CLEAR"))
+    account("check", "2000 random points: tile band = raster band %.1f%% (steep points %.1f%% at zero shift); best shift %s tile px "
+            "(%.1f%%); %d tile colours outside the palette; %s" % (100 * allpts, 100 * grid[(0, 0)], best, 100 * grid[best], unmatched,
+                                                                   "; ".join(lake_txt)))
+
+
+STAGES = {"selftest": selftest, "inventory": inventory, "dem": dem, "slope": slope, "tiles": tiles, "check": check}
 
 if __name__ == "__main__":          # guard required: gdal2tiles workers re-import this file on Windows
     for name in sys.argv[1:] or ["selftest"]:
