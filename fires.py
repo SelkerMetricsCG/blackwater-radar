@@ -2,7 +2,7 @@
 Fires: agency incidents, mapped perimeters and satellite hotspots (the map's "Smoke & fires" section, phase 2).
 
 Every 15-minute radar run, for the region in REGION:
-  data/fires.js          window.FIRES = {updated, updated_t, ngfs, fires:[...], hotspots:[[lat, lon, age_h, src, frp, fire_id, unconfirmed]]}
+  data/fires.js          window.FIRES = {updated, updated_t, ngfs, fires:[...], hotspots:[[lat, lon, age_h, src, frp, fire_id, unconfirmed, since]]}
   data/perimeters.js     window.PERIMS = GeoJSON FeatureCollection (id, name, acres, age_h per polygon)
   data/fires_cache.json  private (cloud.py STATE_FILES): ArcGIS edit stamps, the last perimeter set, the last NGFS detections
 
@@ -93,6 +93,11 @@ def num(v):
     return f if math.isfinite(f) else None
 
 
+def https_url(u):
+    """keep a link only if it is https:// (rejects javascript:, http:// left unrewritten, etc.)"""
+    return u if isinstance(u, str) and u.startswith("https://") else None
+
+
 def point(f):
     g = f.get("geometry") or {}
     if g.get("type") != "Point":
@@ -171,10 +176,13 @@ def parse_bcws(g):
         name = (p.get("GEOGRAPHIC_DESCRIPTION") or "").strip() or ((p.get("INCIDENT_NAME") or "").strip() if p.get("INCIDENT_NAME") != n else "") or n
         pt = point(f)
         out[n] = {"name": name, "status": p.get("FIRE_STATUS") or None, "acres": ha * HA_TO_ACRES if ha and ha > 0 else None,
-                  "url": p.get("FIRE_URL") or None, "discovered": ms(p.get("IGNITION_DATE")), "cause": p.get("FIRE_CAUSE") or None,
+                  "url": https_url(p.get("FIRE_URL")), "discovered": ms(p.get("IGNITION_DATE")), "cause": p.get("FIRE_CAUSE") or None,
                   "note": p.get("FIRE_OF_NOTE_IND") == "Y", "lat": pt[0] if pt else None, "lon": pt[1] if pt else None,
                   "out": (p.get("FIRE_STATUS") or "") == "Out"}
     return out
+
+
+BCWS_STAGE = {"Out of Control": "OC", "Being Held": "BH", "Under Control": "UC"}
 
 
 def join_canada(cw, bc):
@@ -197,8 +205,8 @@ def join_canada(cw, bc):
         if n in seen or b["out"] or b["lat"] is None:
             continue
         out.append(_rec(id="BC_" + n, name=b["name"], src="bcws", lat=b["lat"], lon=b["lon"], acres=b["acres"],
-                        discovered=b["discovered"], cause=b["cause"], state="BC", stage=b["status"], url=b["url"],
-                        note=b["note"], bcws=True))
+                        discovered=b["discovered"], cause=b["cause"], state="BC", stage=BCWS_STAGE.get(b["status"], b["status"]),
+                        url=b["url"], note=b["note"], bcws=True))
     return out
 
 
@@ -385,7 +393,10 @@ def _round_coords(c):
 
 def parse_perims(wfigs_g, bcws_g, bc_ids, bbox):
     """WFIGS + BCWS perimeter GeoJSON -> Features {id, name, acres, t} whose bounding box touches the window.
-    A polygon without a matching incident keeps its own name (and id None when it has no IRWIN id)."""
+    A polygon without a matching incident keeps its own name (and id None when it has no IRWIN id).
+    BCWS polygons are always stored under the raw "BC_" + FIRE_NUMBER id (bc_ids unused here, kept for callers);
+    build() maps BC_<n> through the current run's bc_ids when building perims_out, next to the complex fold, so a
+    later run with a changed CWFIF/BCWS join still relabels correctly against the stored raw id."""
     out = []
     for f in wfigs_g.get("features", []):
         p, g = f.get("properties") or {}, f.get("geometry")
@@ -400,7 +411,7 @@ def parse_perims(wfigs_g, bcws_g, bc_ids, bbox):
         if not g or not n or not bbox_touches(geom_bbox(g), bbox):
             continue
         ha = num(p.get("FIRE_SIZE_HECTARES"))
-        out.append({"type": "Feature", "properties": {"id": bc_ids.get(n, "BC_" + n), "name": n, "acres": ha * HA_TO_ACRES if ha else None,
+        out.append({"type": "Feature", "properties": {"id": "BC_" + n, "name": n, "acres": ha * HA_TO_ACRES if ha else None,
                     "t": ms(p.get("LOAD_DATE"))}, "geometry": {"type": g["type"], "coordinates": _round_coords(g["coordinates"])}})
     return out
 
@@ -546,6 +557,7 @@ def build(log=print, now=None):
     for f in fire_list:
         if f["src"] == "wfigs" and not f.get("url"):
             f["url"] = links.get((norm_name(f["name"]), STATE_NAMES.get(f.get("state") or "", "").lower()))
+        f["url"] = https_url(f.get("url"))
 
     # 2. perimeters: refetch only when a layer's edit stamp changed
     stamps = {"wfigs": _try(log, "WFIGS perimeter stamp", layer_stamp, WFIGS_PERIM), "bcws": _try(log, "BCWS perimeter stamp", layer_stamp, BCWS_PERIM)}
@@ -562,16 +574,24 @@ def build(log=print, now=None):
         else:
             pstate = "kept after a failed fetch"
     perims_out = [dict(p, properties=dict(p["properties"])) for p in perims]
+    for p in perims_out:
+        pid = p["properties"].get("id")
+        if pid and pid.startswith("BC_"):
+            p["properties"]["id"] = bc_ids.get(pid[3:], pid)
     fold_complexes(perims_out, [], cpx)
     write_perims(perims_out, now)
 
     # 3. hotspots
     hs, seen, n_firms = [], set(), 0
+    out_of_time = False
     for sat, path in (("V", "noaa-20-viirs-c2/csv/J1_VIIRS_C2"), ("V", "noaa-21-viirs-c2/csv/J2_VIIRS_C2"),
                       ("V", "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2"), ("M", "modis-c6.1/csv/MODIS_C6_1")):
+        if out_of_time:
+            break
         for area in ("USA_contiguous_and_Hawaii", "Canada"):
             if time.time() - t_start > DEADLINE_S:
                 log("fires: FIRMS: out of time before %s %s" % (path.rsplit("/", 1)[-1], area))
+                out_of_time = True
                 break
             body = _try(log, "FIRMS %s %s" % (path.rsplit("/", 1)[-1], area), fetch, "%s%s_%s_%dh.csv" % (FIRMS, path, area, FIRMS_H))
             if body is None:
@@ -581,13 +601,29 @@ def build(log=print, now=None):
             n_firms += len(got)
     t1 = dt.datetime.fromtimestamp(now, dt.timezone.utc)
     t0 = t1 - dt.timedelta(hours=HOT_H)
-    q = urllib.parse.urlencode({"f": "json", "datetime": "%s/%s" % (t0.strftime("%Y-%m-%dT%H:%M:%SZ"), t1.strftime("%Y-%m-%dT%H:%M:%SZ")),
-                                "datetime-column": "acq_date_time", "limit": 5000, "bbox": "%.3f,%.3f,%.3f,%.3f" % (bbox[2], bbox[0], bbox[3], bbox[1])})
-    ng = _try(log, "NGFS", lambda: json.loads(fetch((NGFS % ngfs_scene()) + "?" + q)[0]))
+    q_params = {"f": "json", "datetime": "%s/%s" % (t0.strftime("%Y-%m-%dT%H:%M:%SZ"), t1.strftime("%Y-%m-%dT%H:%M:%SZ")),
+                "datetime-column": "acq_date_time", "limit": 5000, "bbox": "%.3f,%.3f,%.3f,%.3f" % (bbox[2], bbox[0], bbox[3], bbox[1])}
+    ngfs_url = NGFS % ngfs_scene()
+    ng = None
+    if not out_of_time and time.time() - t_start < DEADLINE_S:
+        ng = _try(log, "NGFS", lambda: json.loads(fetch(ngfs_url + "?" + urllib.parse.urlencode(q_params))[0]))
     ngfs_ok = ng is not None
     if ng is not None:
-        if ng.get("numberMatched") and ng.get("numberReturned") and ng["numberMatched"] > ng["numberReturned"]:
-            log("fires: NGFS returned %d of %d (cap); consider paging" % (ng["numberReturned"], ng["numberMatched"]))
+        matched, returned = ng.get("numberMatched"), ng.get("numberReturned")
+        if matched and returned and matched > returned:
+            feats, offset, pages = list(ng.get("features", [])), returned, 0
+            while offset < matched and pages < 4 and time.time() - t_start < DEADLINE_S:
+                qp = dict(q_params, offset=offset)
+                page = _try(log, "NGFS page offset=%d" % offset, lambda: json.loads(fetch(ngfs_url + "?" + urllib.parse.urlencode(qp))[0]))
+                pages += 1
+                if page is None:
+                    break
+                pfeats = page.get("features", [])
+                feats += pfeats
+                offset += page.get("numberReturned") or len(pfeats) or matched
+            ng = dict(ng, features=feats)
+            if offset < matched:
+                log("fires: NGFS returned %d of %d; pages left unfetched" % (len(feats), matched))
         ngs = [h for h in parse_ngfs(ng, now) if in_window(h["lat"], h["lon"], bbox)]
         store["ngfs"] = {"t": now, "hs": ngs}
     else:

@@ -90,6 +90,13 @@ def test_parse_bcws_keyed_by_number():
     assert d["K42287"]["name"] == "Big Bar" and d["K42287"]["out"] is True
 
 
+def test_parse_bcws_rejects_non_https_url():
+    g = fc([bc()])
+    g["features"][0]["properties"]["FIRE_URL"] = "javascript:alert(1)"
+    d = fires.parse_bcws(g)
+    assert d["V12186"]["url"] is None
+
+
 def test_join_canada_bcws_wins_and_out_drops():
     cwl = fires.parse_cwfif(fc([cw(), cw(nid="2026_BC_2026-K42287", afid="2026-K42287", lat=51, lon=-122), cw(nid="2026_QC_1", agency="QC", afid="1", lat=48, lon=-71)]))
     bcd = fires.parse_bcws(fc([bc(), bc(num="K42287", status="Out"), bc(num="G12290", status="Being Held", desc="Fraser Canyon", note="Y", lat=50, lon=-121.5)]))
@@ -101,7 +108,7 @@ def test_join_canada_bcws_wins_and_out_drops():
     assert v["bcws"] is True and v["stage"] == "UC" and v["discovered"] == NOW - 20 * 24 * H and v["cause"] == "Person"
     assert out[1]["bcws"] is False and out[1]["url"] is None
     g = out[2]
-    assert (g["src"], g["name"], g["note"], g["stage"], g["lat"], g["state"]) == ("bcws", "Fraser Canyon", True, "Being Held", 50, "BC")
+    assert (g["src"], g["name"], g["note"], g["stage"], g["lat"], g["state"]) == ("bcws", "Fraser Canyon", True, "BH", 50, "BC")
 
 
 # ---------- hotspots ----------
@@ -199,8 +206,9 @@ def test_parse_perims_joins_ids_converts_and_clips():
     wg = fc([perim("{B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3}", "Rowe Creek", -120.2, 44.8),
              perim("{7}", "Far away", -100.0, 30.0)])
     bg = fc([bc_perim("V12186", -121.9, 49.0), bc_perim("G12290", -121.6, 50.0), bc_perim("K42287", -122.1, 51.0)])
+    # parse_perims always stores the raw BC_<n> id now (item 6); the bc_ids arg is unused for BCWS storage
     out = fires.parse_perims(wg, bg, {"V12186": "2026_BC_2026-V12186", "G12290": "BC_G12290"}, BBOX)
-    assert [f["properties"]["id"] for f in out] == ["B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "2026_BC_2026-V12186", "BC_G12290", "BC_K42287"]
+    assert [f["properties"]["id"] for f in out] == ["B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "BC_V12186", "BC_G12290", "BC_K42287"]
     assert out[0]["properties"] == {"id": "B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "name": "Rowe Creek", "acres": 1000.0, "t": NOW - 3 * H}
     assert out[1]["properties"]["acres"] == pytest.approx(100 * 2.4711) and out[1]["properties"]["name"] == "V12186"
     assert out[1]["geometry"]["type"] == "MultiPolygon"
@@ -285,6 +293,15 @@ def rec(**kw):
 ])
 def test_is_active(kw, active):
     assert fires.is_active(rec(**kw), NOW) is active
+
+
+def test_bcws_only_out_of_control_record_is_active():
+    # a real BCWS-only record has modified=None and stage from BCWS_STAGE, not the raw BCWS status text
+    bcd = fires.parse_bcws(fc([bc(num="G12290", status="Out of Control", desc="Fraser Canyon", lat=50, lon=-121.5)]))
+    out = fires.join_canada([], bcd)
+    r = out[0]
+    assert r["stage"] == "OC" and r["modified"] is None
+    assert fires.is_active(r, NOW) is True
 
 
 def test_to_fires_shape():
@@ -376,6 +393,8 @@ def test_build_writes_files_store_and_log(monkeypatch, tmp_path):
     assert [f["properties"]["id"] for f in p["features"]] == ["B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3", "2026_BC_2026-V12186"]
     store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
     assert store["stamps"] == {"wfigs": 10, "bcws": 20} and len(store["perims"]) == 2 and store["ngfs"]["t"] == NOW and len(store["ngfs"]["hs"]) == 1
+    # the store keeps the raw BC_<n> id (item 6); only perimeters.js (built via perims_out) shows the mapped id
+    assert store["perims"][1]["properties"]["id"] == "BC_V12186"
     assert lines[-1] == "fires: 2 fires (2 active, 0 prescribed, 1 Canada), 2 perimeters (new), hotspots 1 FIRMS + 1 NGFS"
     assert sum(1 for u in net.calls if "firms.modaps" in u) == 8
 
@@ -412,6 +431,35 @@ def test_build_ngfs_cache_expires_and_incident_failure_keeps_last_good(monkeypat
     with pytest.raises(RuntimeError):
         fires.build(log=lambda m: None, now=NOW + 900)
     assert (tmp_path / "fires.js").read_text(encoding="utf-8") == before
+
+
+def test_ngfs_pages_when_over_the_cap(monkeypatch, tmp_path):
+    base = full_answers()
+    first = fc([ngfs_feat("ID-2026-09-28T03:31:19.000Z_0001", NOW - 600, lat=49.05, lon=-121.85),
+                ngfs_feat("ID-2026-09-28T03:32:00.000Z_0002", NOW - 500, lat=49.06, lon=-121.86)])
+    first["numberMatched"], first["numberReturned"] = 3, 2
+    second = fc([ngfs_feat("ID-2026-09-28T03:33:00.000Z_0003", NOW - 400, lat=49.07, lon=-121.87)])
+    second["numberMatched"], second["numberReturned"] = 3, 1
+    # offset=2 must be checked before the generic NGFS key (FakeNet matches by first substring hit)
+    answers = {"offset=2": second}
+    for k, v in base.items():
+        answers[k] = first if k == "fire.data.nesdis" else v
+    net = build_env(monkeypatch, tmp_path, answers)
+    fires.build(log=lambda m: None, now=NOW)
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    goes = [h for h in d["hotspots"] if h[3] == "G"]
+    assert len(goes) == 3
+    assert sum(1 for u in net.calls if "fire.data.nesdis" in u) == 2
+
+
+def test_deadline_stops_firms_and_skips_ngfs(monkeypatch, tmp_path):
+    net = build_env(monkeypatch, tmp_path, full_answers())
+    monkeypatch.setattr(fires, "DEADLINE_S", -1)
+    lines = []
+    fires.build(log=lines.append, now=NOW)
+    assert sum(1 for l in lines if "FIRMS" in l and "out of time" in l) == 1
+    assert not any("firms.modaps" in u for u in net.calls)
+    assert not any("fire.data.nesdis" in u for u in net.calls)
 
 
 def test_build_one_incident_source_down_still_writes(monkeypatch, tmp_path):
