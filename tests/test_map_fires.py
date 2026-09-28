@@ -47,6 +47,15 @@ def test_nearest_and_hotspots_near():
     assert run("hotsNear(" + rows + ", 47.51, -120.51, 10, 24)") == 1
 
 
+def test_hotspot_age_counts_time_since_the_file_was_written():
+    assert run("hotAgeNow(0.1, 1000, 1000 + 3600)") == pytest.approx(1.1, abs=1e-9)
+    assert run("hotAgeNow(0.1, 1000, 900)") == pytest.approx(0.1, abs=1e-9)   # clock behind the file: no negative drift
+    assert run("hotAgeNow(null, 1000, 5000)") is None
+    rows = "[[47.5, -120.5, 5, 'V', 3, 'A', 0, null]]"
+    assert run("hotsNear(" + rows + ", 47.5, -120.5, 10, 24, 20)") == 0   # 5 h old + 20 h file age = 25 > 24
+    assert run("hotsNear(" + rows + ", 47.5, -120.5, 10, 24, 0)") == 1
+
+
 def test_fires_data_reloads_after_15_minutes():
     assert run("fireNeedsLoad(null, 0, 1000)") is True
     assert run("fireNeedsLoad({}, 1000, 1000 + 15 * 60 * 1000)") is False
