@@ -20,6 +20,22 @@ Hazards and are not repeated.
 | 5 | **No evacuation layer**: BC's is the only open source and a BC-only layer would imply US fires have none. Fire cards link to the agency page instead. |
 | 6 | **Every fire the agencies list as current is kept, styled by activity**; a "hide quiet fires" sub-control (default on) keeps the map clean. No size floor. |
 | 7 | Data path: one job module, two output files (`fires.js` every run; `perimeters.js` only when the source edit stamps change), a private state file. Not one file per run, not browser-side fetches. |
+| 8 | (08:57, at the data-check gate) **The activity rule stays as built** for now; the alternatives below are kept in case Chris changes it. |
+| 9 | (08:57) **Complex children are folded into their complex:** a child's perimeter and GOES known-incident link are relabelled with the parent's IRWIN id (`CpxID`), so the complex's card, perimeter flag and hotspot count cover its whole footprint. |
+
+### Activity rule: alternatives measured at the gate (PNW, 2026-09-28 15:25 UTC)
+Of 67 active fires, 3 had a hotspot in 24 h, 17 were Canadian fires "being held", and 47 were active only because the
+agency edited the record within 72 h; large US fires at 97–99 % containment get routine daily edits (Rowe Creek Complex,
+99 %, edited 14 h earlier, counted active).
+
+| Rule | Active | Change in `fires.is_active` |
+|---|---|---|
+| As built: edited ≤ 72 h, or hotspots ≤ 24 h, or Canada OC/BH; 100 % contained quiet unless hotspots | 67 | none |
+| Quiet at ≥ 95 % contained unless hotspots (Claude's recommendation) | 55 | `>= 100` → `>= 95` |
+| Quiet at ≥ 90 % contained unless hotspots | 51 | `>= 100` → `>= 90` |
+| Hotspots, or Canada OC/BH, only | 20 | drop the `modified` test; hides most US fires (WFIGS has no control stage) |
+
+Each is a one-line change plus the `test_is_active` edge rows; `fires_check.py` shows the effect before release.
 
 ## What the reader sees
 ```
@@ -157,8 +173,8 @@ Page: `FIRES` and `PERIMS` join the script-tag globals; both files get the `no-c
 ## Parameter ledger (judgment calls and sources; Chris to confirm at the gate)
 | Parameter | Value | Source | Where |
 |---|---|---|---|
-| Incident types kept | WF, CX, RX; complex children dropped; `FireOutDateTime` set = dropped | WFIGS field meanings; sources_notes | fires.py |
-| Active | updated ≤ 72 h, or ≥ 1 linked hotspot ≤ 24 h, or CWFIF stage OC/BH; 100 % contained = quiet unless hotspots | **judgment call** | fires.py, map.html |
+| Incident types kept | WF, CX, RX; complex children dropped as incidents, their polygons and GOES links relabelled to the parent via `CpxID`; `FireOutDateTime` set = dropped | WFIGS field meanings; `CpxID` = parent IRWIN id for 18 of 18 children (checked 2026-09-28) | fires.py |
+| Active | updated ≤ 72 h, or ≥ 1 linked hotspot ≤ 24 h, or CWFIF stage OC/BH; 100 % contained = quiet unless hotspots | **judgment call**; kept as built by Chris 2026-09-28, alternatives above | fires.py, map.html |
 | Hotspot windows | FIRMS 48 h (the 48h files), NGFS 24 h | **judgment call** (FIRMS also offers 24 h and 7 d) | fires.py |
 | Hotspot age chips | < 6, 6–24, 24–48 h | **judgment call** | map.html |
 | Hotspot → fire link | nearest incident point ≤ 2 km, else containing perimeter | **judgment call** (VIIRS pixel 375 m, GOES ~2 km) | fires.py |
