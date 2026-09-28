@@ -129,7 +129,7 @@ Chris looks at these before the map work starts.
 | Category colours | 00E400, FFFF00, FF7E00, FF0000, 8F3F97, 7E0023 | EPA AQI TAD official RGB (AirNow guideline) | map.html, airquality.py |
 | History length | 72 h | judgment call (matches AirNow's 72 h of files) | airquality.py |
 | Stale after | 3 h without a report | **judgment call** | map.html |
-| Trend rule | latest raw hour vs 3 h earlier: rising if up ≥ 5 µg/m³ and ≥ 20 %, falling if down by the same, else steady; temporary monitors use NowCast concentration | **judgment call** | map.html |
+| Trend rule | latest raw hour vs 3 h earlier: rising if up ≥ 5 µg/m³ and ≥ 20 %, falling if down by the same, else steady; `pm` is raw hourly for both kinds (corrected at review, 2026-09-28) | **judgment call** | map.html |
 | Station set | inside `region.bbox()` | judgment call (same window as every other layer) | airquality.py |
 | Grid resampling | nearest neighbour (cKDTree), same output size as the freezing-level overlay | existing pattern; the grid is ~2.5 km, finer than one output pixel at the window scale | airquality.py |
 | Grid nodata | NaN (as decoded) → transparent | AirNow file, checked 2026-09-28 | airquality.py |
