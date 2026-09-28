@@ -88,5 +88,5 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
 - **Effect on the map as built:** the polygons still draw under their own names; the complex's card and `perim` flag
   refer to the 29 ac piece; hotspots inside a child's polygon link to an id that is not a fire, so the complex's
   24 h hotspot count misses them.
-- **Status:** open; proposed fix (remap child ids to the parent through `CpxID` for perimeters and NGFS links) put to Chris
-  at the data-check gate.
+- **Status:** fixed 2026-09-28 (a2c6248, 0e8413e): child polygons and GOES links are relabelled to the parent via
+  `CpxID`; the store keeps raw ids; Hay Creek itself has since left the WFIGS current layers (checked 14:29 PDT).

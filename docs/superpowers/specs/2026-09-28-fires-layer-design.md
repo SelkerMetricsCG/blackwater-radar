@@ -68,8 +68,8 @@ Hazards
   when one exists; "12 hotspots in the last 24 h"; a link to the agency page when there is one; footer
   "Source: NIFC (WFIGS)" or "CWFIF (Natural Resources Canada), BC Wildfire Service".
 - **Hotspot markers:** small circles coloured by age from the three chips; NGFS detections hollow when unconfirmed.
-  Tooltip: satellite, time, fire radiative power (MW), "seen since 03:31 UTC" for GOES features, and the fire's name
-  when linked.
+  Tooltip: satellite, time, fire radiative power (MW), "seen since 8:31 PM (viewer's local time)" for GOES features,
+  and the fire's name when linked.
 - **Click anywhere:** a "Fires" block with the nearest active fire within 50 km (name, distance, acres, containment)
   and the count of hotspots within 10 km in the last 24 h.
 - Data loads only when a switch is turned on (the page preloads the radar loop at open; nothing new waits behind
