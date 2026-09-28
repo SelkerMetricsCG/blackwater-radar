@@ -200,3 +200,116 @@ def join_canada(cw, bc):
                         discovered=b["discovered"], cause=b["cause"], state="BC", stage=b["status"], url=b["url"],
                         note=b["note"], bcws=True))
     return out
+
+
+# ---------- hotspots ----------
+def parse_firms(text, src, seen):
+    """FIRMS active-fire CSV -> hotspots; rows already in `seen` (lat, lon, date, time, satellite) are skipped:
+    the Canada files repeat ~90 % of their rows from the US files"""
+    out = []
+    for r in csv.DictReader(io.StringIO(text)):
+        lat, lon, frp = num(r.get("latitude")), num(r.get("longitude")), num(r.get("frp"))
+        d, tm = r.get("acq_date"), (r.get("acq_time") or "").zfill(4)
+        if lat is None or lon is None or not d or len(tm) != 4:
+            continue
+        key = (r["latitude"], r["longitude"], d, tm, r.get("satellite"))
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            t = int(dt.datetime.strptime(d + tm, "%Y-%m-%d%H%M").replace(tzinfo=dt.timezone.utc).timestamp())
+        except ValueError:
+            continue
+        out.append({"lat": lat, "lon": lon, "t": t, "src": src, "frp": frp, "fire": None, "unc": False, "since": None})
+    return out
+
+
+def parse_ngfs(g, now):
+    """NGFS features -> the newest detection per feature_tracking_id within the last HOT_H hours (a feature is
+    re-reported every ~5 min). fire = the known-incident IRWIN id; unc = not tied to a known incident;
+    since = the first-seen time embedded in the tracking id ('ID-2026-09-28T03:31:19.000Z_0003')."""
+    best = {}
+    for f in g.get("features", []):
+        p = f.get("properties") or {}
+        pt = point(f)
+        t = iso(p.get("acq_date_time"))
+        tid = p.get("feature_tracking_id")
+        if pt is None or t is None or not tid or t > now or now - t > HOT_H * 3600:
+            continue
+        if tid in best and best[tid]["t"] >= t:
+            continue
+        m = re.match(r"ID-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", tid)
+        best[tid] = {"lat": pt[0], "lon": pt[1], "t": t, "src": "G", "frp": num(p.get("total_frp")),
+                     "fire": irwin(p.get("known_incident_id")),
+                     "unc": p.get("type_description") != "Known Wildland Fire Incident",
+                     "since": iso(m.group(1) + "Z") if m else None}
+    return list(best.values())
+
+
+def dist_km(lat1, lon1, lat2, lon2):
+    x = (lon2 - lon1) * math.cos(math.radians((lat1 + lat2) / 2))
+    return math.hypot(x, lat2 - lat1) * 111.2
+
+
+def _rings(geom):
+    if geom.get("type") == "Polygon":
+        return [geom["coordinates"]]
+    if geom.get("type") == "MultiPolygon":
+        return geom["coordinates"]
+    return []
+
+
+def _in_ring(lat, lon, ring):
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi, xj, yj = ring[i][0], ring[i][1], ring[j][0], ring[j][1]
+        if (yi > lat) != (yj > lat) and lon < (xj - xi) * (lat - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def point_in_geom(lat, lon, geom):
+    """point in a GeoJSON Polygon or MultiPolygon, holes respected"""
+    return any(_in_ring(lat, lon, poly[0]) and not any(_in_ring(lat, lon, h) for h in poly[1:]) for poly in _rings(geom))
+
+
+def geom_bbox(geom):
+    xs = [c[0] for poly in _rings(geom) for c in poly[0]]
+    ys = [c[1] for poly in _rings(geom) for c in poly[0]]
+    return (min(ys), max(ys), min(xs), max(xs)) if xs else None
+
+
+def link_hotspots(hs, fire_list, perims, now):
+    """set hotspot['fire']: the known-incident id when it is in fire_list, else the nearest fire within LINK_KM, else the
+    perimeter containing the point; then fire['hot24'] = linked hotspots in the last HOT_H hours"""
+    ids = {f["id"] for f in fire_list}
+    boxes = [(geom_bbox(p["geometry"]), p) for p in perims if p.get("geometry")]
+    for h in hs:
+        if h.get("fire") and h["fire"] in ids:
+            continue
+        h["fire"] = None
+        best, bd = None, LINK_KM
+        for f in fire_list:
+            d = dist_km(h["lat"], h["lon"], f["lat"], f["lon"])
+            if d <= bd:
+                best, bd = f["id"], d
+        if best is None:
+            for b, p in boxes:
+                if b and b[0] <= h["lat"] <= b[1] and b[2] <= h["lon"] <= b[3] and point_in_geom(h["lat"], h["lon"], p["geometry"]):
+                    best = p["properties"]["id"]
+                    break
+        h["fire"] = best
+    counts = {}
+    for h in hs:
+        if h["fire"] and now - h["t"] <= HOT_H * 3600:
+            counts[h["fire"]] = counts.get(h["fire"], 0) + 1
+    for f in fire_list:
+        f["hot24"] = counts.get(f["id"], 0)
+
+
+def hotspot_rows(hs, now):
+    """FIRES.hotspots rows: [lat, lon, age_h, src, frp, fire_id, unconfirmed, since]"""
+    return [[round(h["lat"], 4), round(h["lon"], 4), round(max(0, now - h["t"]) / 3600, 1), h["src"],
+             None if h["frp"] is None else round(h["frp"], 1), h["fire"], 1 if h["unc"] else 0, h["since"]] for h in hs]

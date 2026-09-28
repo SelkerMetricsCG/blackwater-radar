@@ -102,3 +102,81 @@ def test_join_canada_bcws_wins_and_out_drops():
     assert out[1]["bcws"] is False and out[1]["url"] is None
     g = out[2]
     assert (g["src"], g["name"], g["note"], g["stage"], g["lat"], g["state"]) == ("bcws", "Fraser Canyon", True, "Being Held", 50, "BC")
+
+
+# ---------- hotspots ----------
+FIRMS_HDR = "latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,confidence,version,bright_ti5,frp,daynight"
+
+
+def firms_row(lat, lon, t, sat="N20", frp="5.3"):
+    d = dt.datetime.fromtimestamp(t, dt.timezone.utc)
+    return "%s,%s,330.1,0.4,0.4,%s,%s,%s,nominal,2.0NRT,290.0,%s,N" % (lat, lon, d.strftime("%Y-%m-%d"), d.strftime("%H%M"), sat, frp)
+
+
+def test_parse_firms_dedupes_across_files():
+    seen = set()
+    us = "\n".join([FIRMS_HDR, firms_row(47.5, -120.5, NOW - 2 * H), firms_row(49.5, -121.0, NOW - 3 * H)]) + "\n"
+    ca = "\n".join([FIRMS_HDR, firms_row(49.5, -121.0, NOW - 3 * H), firms_row(50.5, -121.5, NOW - 3 * H, sat="N21")]) + "\n"
+    a = fires.parse_firms(us, "V", seen)
+    b = fires.parse_firms(ca, "V", seen)
+    assert [(h["lat"], h["t"]) for h in a] == [(47.5, NOW - 2 * H), (49.5, NOW - 3 * H)]
+    assert [(h["lat"], h["src"], h["frp"], h["fire"], h["unc"]) for h in b] == [(50.5, "V", 5.3, None, False)]
+    assert fires.parse_firms("latitude,longitude\n47,-120\n", "M", set()) == []          # short rows skipped
+
+
+def ngfs_feat(tid, t, lat=47.5, lon=-120.5, known=None, typ="Known Wildland Fire Incident", frp=7.6):
+    p = {"feature_tracking_id": tid, "acq_date_time": dt.datetime.fromtimestamp(t, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000000Z"),
+         "known_incident_id": known, "known_incident_name": "GALENA RX" if known else None, "type_description": typ,
+         "total_frp": frp, "satellite": "GOES-18", "confidence": "nominal"}
+    return {"type": "Feature", "properties": p, "geometry": {"type": "Point", "coordinates": [lon, lat]}}
+
+
+def test_parse_ngfs_newest_per_feature_with_link_and_first_seen():
+    tid = "ID-2026-09-28T03:31:19.000Z_0003"
+    g = fc([ngfs_feat(tid, NOW - 4 * H, known="{4BE3544A-2980-49D2-BB63-10B7E731F7BA}"),
+            ngfs_feat(tid, NOW - 10 * 60, known="{4BE3544A-2980-49D2-BB63-10B7E731F7BA}", lat=47.51),
+            ngfs_feat("ID-2026-09-28T08:26:19.000Z_0001", NOW - 5 * H, lat=49.2, lon=-118.8, typ="Possible Wildland Fire")])
+    hs = fires.parse_ngfs(g, NOW)
+    assert len(hs) == 2
+    a = next(h for h in hs if h["fire"])
+    assert (a["lat"], a["t"], a["src"], a["fire"], a["unc"], a["frp"]) == (47.51, NOW - 10 * 60, "G", "4BE3544A-2980-49D2-BB63-10B7E731F7BA", False, 7.6)
+    assert a["since"] == fires.iso("2026-09-28T03:31:19Z")
+    b = next(h for h in hs if not h["fire"])
+    assert b["unc"] is True and b["since"] == fires.iso("2026-09-28T08:26:19Z")
+
+
+def test_ngfs_ages_clamped_to_window():
+    g = fc([ngfs_feat("ID-2026-09-26T01:00:00.000Z_0001", NOW - 30 * H), ngfs_feat("ID-2026-09-28T12:00:00.000Z_0002", NOW + 600),
+            ngfs_feat("ID-2026-09-28T12:00:00.000Z_0003", NOW - H)])
+    assert [h["t"] for h in fires.parse_ngfs(g, NOW)] == [NOW - H]
+
+
+def test_point_in_geom_with_hole_and_multipolygon():
+    sq = [[[-121, 47], [-120, 47], [-120, 48], [-121, 48], [-121, 47]]]
+    hole = [[[-120.7, 47.3], [-120.3, 47.3], [-120.3, 47.7], [-120.7, 47.7], [-120.7, 47.3]]]
+    assert fires.point_in_geom(47.1, -120.9, {"type": "Polygon", "coordinates": sq})
+    assert not fires.point_in_geom(47.5, -120.5, {"type": "Polygon", "coordinates": sq + hole})
+    assert fires.point_in_geom(47.5, -120.5, {"type": "MultiPolygon", "coordinates": [sq, [[[-119, 45], [-118, 45], [-118, 46], [-119, 46], [-119, 45]]]]})
+    assert not fires.point_in_geom(50, -120.5, {"type": "Polygon", "coordinates": sq})
+
+
+def test_link_hotspots_by_id_distance_then_perimeter_and_hot24():
+    fl = [dict(id="A", lat=47.5, lon=-120.5), dict(id="B", lat=49.0, lon=-119.0)]
+    perims = [{"type": "Feature", "properties": {"id": "B", "name": "B", "acres": 100, "t": NOW},
+               "geometry": {"type": "Polygon", "coordinates": [[[-119.2, 48.8], [-118.8, 48.8], [-118.8, 49.2], [-119.2, 49.2], [-119.2, 48.8]]]}}]
+    hs = [dict(lat=46.0, lon=-118.0, t=NOW - H, src="G", frp=1, fire="A", unc=False, since=None),        # known id wins over distance
+          dict(lat=47.51, lon=-120.51, t=NOW - 30 * H, src="V", frp=1, fire=None, unc=False, since=None),   # 1.3 km from A, but 30 h old
+          dict(lat=47.51, lon=-120.51, t=NOW - 2 * H, src="V", frp=1, fire=None, unc=False, since=None),    # 1.3 km from A
+          dict(lat=49.15, lon=-119.15, t=NOW - 2 * H, src="V", frp=1, fire=None, unc=False, since=None),    # 18 km from B, inside its perimeter
+          dict(lat=44.0, lon=-122.0, t=NOW - 2 * H, src="M", frp=1, fire=None, unc=False, since=None),      # nothing near
+          dict(lat=46.0, lon=-118.0, t=NOW - H, src="G", frp=1, fire="ZZZ", unc=False, since=None)]         # id not in the list -> unlinked
+    fires.link_hotspots(hs, fl, perims, NOW)
+    assert [h["fire"] for h in hs] == ["A", "A", "A", "B", None, None]
+    assert [f["hot24"] for f in fl] == [2, 1]
+    assert fires.dist_km(47.5, -120.5, 47.51, -120.51) == pytest.approx(1.34, abs=0.05)
+
+
+def test_hotspot_rows():
+    hs = [dict(lat=47.5, lon=-120.51234, t=NOW - 90 * 60, src="V", frp=5.34, fire="A", unc=False, since=None),
+          dict(lat=49.2, lon=-118.8, t=NOW - 300, src="G", frp=None, fire=None, unc=True, since=NOW - 3 * H)]
+    assert fires.hotspot_rows(hs, NOW) == [[47.5, -120.5123, 1.5, "V", 5.3, "A", 0, None], [49.2, -118.8, 0.1, "G", None, None, 1, NOW - 3 * H]]
