@@ -1109,6 +1109,32 @@
   $('lyFcst').onchange = e => { if (e.target.checked) { fcst.addTo(map); if (!fcData) loadForecast(); else renderForecast(); } else map.removeLayer(fcst); };
   setInterval(() => { if (map.hasLayer(fcst)) loadForecast(); }, 30 * 60 * 1000);
 
+  // ---------- Air quality: helpers ----------
+  // BEGIN aqHelpers (tests/test_map_airquality.py runs this block under node)
+  // EPA AQI categories and official colours (AQI Technical Assistance Document, May 2024); AirNow's guidelines ask for them
+  const AQ_BINS = [[0, '#00e400'], [51, '#ffff00'], [101, '#ff7e00'], [151, '#ff0000'], [201, '#8f3f97'], [301, '#7e0023']];
+  const AQ_NAMES = ['Good', 'Moderate', 'Unhealthy for sensitive groups', 'Unhealthy', 'Very unhealthy', 'Hazardous'];
+  function aqCat(v) {      // AQI -> 0..5, -1 for no value; half rounds up (airquality.aq_category does the same)
+    if (v == null || isNaN(v)) return -1;
+    const r = Math.floor(v + 0.5); let i = 0;
+    for (let k = 1; k < AQ_BINS.length; k++) if (r >= AQ_BINS[k][0]) i = k;
+    return i;
+  }
+  function aqLast(s) { for (let i = s.aqi.length - 1; i >= 0; i--) if (s.aqi[i] != null) return { i, aqi: s.aqi[i], pm: s.pm[i] }; return null; }
+  // stale: no report for more than 3 h after the end of the last reported hour (judgment call, spec ledger)
+  function aqStale(s, hours, nowSec) { const l = aqLast(s); return !l || nowSec - (hours[l.i] + 3600) > 3 * 3600; }
+  // latest raw hour vs 3 h earlier: rising / falling if the change is at least 5 ug/m3 and 20 % (judgment call, spec ledger)
+  function aqTrend(pm) {
+    let i = pm.length - 1; while (i >= 0 && pm[i] == null) i--;
+    if (i < 3 || pm[i - 3] == null) return null;
+    const a = pm[i - 3], d = pm[i] - a;
+    if (d >= 5 && d >= 0.2 * a) return 'rising';
+    if (-d >= 5 && -d >= 0.2 * a) return 'falling';
+    return 'steady';
+  }
+  function aqEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  // END aqHelpers
+
   // ---------- NWS alerts ----------
   const alertLayer = L.layerGroup();
   function alertColor(p) {
