@@ -46,7 +46,7 @@ LINK_KM = 2.0               # hotspot -> nearest fire link distance (ledger)
 DEADLINE_S = 150            # per region step (airquality.DEADLINE_S)
 WFIGS_FIELDS = ("IncidentName,IrwinID,IncidentTypeCategory,IncidentSize,PercentContained,FireDiscoveryDateTime,"
                 "ModifiedOnDateTime_dt,ContainmentDateTime,FireOutDateTime,FireBehaviorGeneral,TotalIncidentPersonnel,"
-                "IncidentShortDescription,POOCounty,POOState,IncidentManagementOrganization,FireCause,IsCpxChild")
+                "IncidentShortDescription,POOCounty,POOState,IncidentManagementOrganization,FireCause,IsCpxChild,CpxID")
 PERIM_FIELDS = "poly_IncidentName,poly_GISAcres,poly_DateCurrent,attr_IrwinID,attr_IncidentSize"
 BCWS_FIELDS = ("FIRE_NUMBER,FIRE_STATUS,CURRENT_SIZE,GEOGRAPHIC_DESCRIPTION,INCIDENT_NAME,FIRE_URL,IGNITION_DATE,"
                "FIRE_CAUSE,FIRE_OF_NOTE_IND,FIRE_TYPE")
@@ -200,6 +200,32 @@ def join_canada(cw, bc):
                         discovered=b["discovered"], cause=b["cause"], state="BC", stage=b["status"], url=b["url"],
                         note=b["note"], bcws=True))
     return out
+
+
+def complex_parents(g):
+    """WFIGS incidents -> {child IRWIN id: parent complex IRWIN id} from CpxID (WFIGS gives it for every complex child:
+    18 of 18 on 2026-09-28). Children are not incidents here, but their perimeters and GOES links belong to the complex."""
+    out = {}
+    for f in g.get("features", []):
+        p = f.get("properties") or {}
+        if p.get("IsCpxChild") not in (1, True, "1"):
+            continue
+        c, par = irwin(p.get("IrwinID")), irwin(p.get("CpxID"))
+        if c and par and c != par:
+            out[c] = par
+    return out
+
+
+def fold_complexes(perims, hs, cpx):
+    """relabel complex children's perimeters and hotspot links with the parent complex's id, in place (idempotent:
+    a parent id is never a child key). A polygon keeps its own name, e.g. '0476 HOAG' inside the Hay Creek Complex."""
+    for p in perims:
+        pid = p["properties"].get("id")
+        if pid in cpx:
+            p["properties"]["id"] = cpx[pid]
+    for h in hs:
+        if h.get("fire") in cpx:
+            h["fire"] = cpx[h["fire"]]
 
 
 # ---------- hotspots ----------
@@ -500,7 +526,9 @@ def build(log=print, now=None):
     g = _try(log, "WFIGS incidents", arcgis_query, WFIGS_INC, {"where": "1=1", "outFields": WFIGS_FIELDS}, log)
     if g is not None:
         fire_list += parse_wfigs(g)
+        store["cpx"] = complex_parents(g)
         ok.append("wfigs")
+    cpx = store.get("cpx") or {}
     cwg = _try(log, "CWFIF", lambda: json.loads(fetch(CWFIF + "?" + urllib.parse.urlencode({
         "service": "WFS", "version": "2.0.1", "request": "GetFeature", "outputFormat": "application/json",
         "typeName": "public:cwfif_national_activefires", "CQL_FILTER": "now()>=record_start AND now()<=record_end", "srsName": "EPSG:4326"}))[0]))
@@ -533,6 +561,7 @@ def build(log=print, now=None):
             perims, pstate = [], "FAILED"
         else:
             pstate = "kept after a failed fetch"
+    fold_complexes(perims, [], cpx)
     write_perims(perims, now)
 
     # 3. hotspots
@@ -569,6 +598,7 @@ def build(log=print, now=None):
         else:
             ngs = []
     hs += ngs
+    fold_complexes([], hs, cpx)
     link_hotspots(hs, fire_list, perims, now)
 
     # 4. write

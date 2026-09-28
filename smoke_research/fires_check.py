@@ -7,7 +7,7 @@ Runs fires.build() for one region WITHOUT uploading (it never calls r2sync), the
      tracked features, known vs possible; hotspots linked to a fire
   2. independent checks: (a) VIIRS 24 h detections within 2 km of a fire or inside a perimeter, and active fires with
      >= 1 hotspot; big fires without hotspots and dense clusters without a fire; (b) polygon acres vs reported acres;
-     (c) every NGFS known_incident_id exists in WFIGS
+     (c) every NGFS known_incident_id exists in FIRES
   3. a MATLAB-style figure: the window with perimeters, fires and hotspots; the ten largest active fires as bars
 
 Usage (from the repo root):  python smoke_research/fires_check.py [region]   figure -> smoke_research/checks/fires_check_<region>.png
@@ -89,22 +89,27 @@ def main():
         print("  cluster without a fire: %d detections near %.2f, %.2f" % (c, k[0] * 0.05, k[1] * 0.05))
     print("\n== check (b): polygon acres vs reported acres ==")
     byid = {f["id"]: f for f in fl}
-    diffs, outl = [], []
+    area = {}
     for p in perims:
         pp = p["properties"]
-        f = byid.get(pp["id"])
-        if not f or not f["acres"] or not pp["acres"]:
+        if pp["id"] in byid and pp["acres"]:
+            area[pp["id"]] = area.get(pp["id"], 0) + pp["acres"]
+    diffs, outl = [], []
+    for i, a in area.items():
+        f = byid[i]
+        if not f["acres"]:
             continue
-        r = pp["acres"] / f["acres"]
+        r = a / f["acres"]
         diffs.append(r)
         if abs(r - 1) > 0.25:
-            outl.append((pp["name"], pp["acres"], f["acres"], r))
+            outl.append((f["name"], a, f["acres"], r))
     diffs.sort()
+    outl.sort(key=lambda o: -abs(math.log(max(o[3], 1e-6))))
     if diffs:
-        print("%d joined perimeters: polygon/reported median %.2f, 10th %.2f, 90th %.2f; %d more than 25%% apart" % (
+        print("%d fires with perimeters: summed polygon acres / reported acres median %.2f, 10th %.2f, 90th %.2f; %d more than 25%% apart" % (
             len(diffs), diffs[len(diffs) // 2], diffs[int(0.1 * (len(diffs) - 1))], diffs[int(0.9 * (len(diffs) - 1))], len(outl)))
     for o in outl[:10]:
-        print("  %s: polygon %.0f ac vs reported %.0f ac (x%.2f)" % o)
+        print("  %s: polygons %.0f ac vs reported %.0f ac (x%.2f)" % o)
     print("\n== check (c): NGFS known incidents exist in WFIGS ==")
     known = [h for h in hs if h[3] == "G" and not h[6]]
     print("%d NGFS known-incident detections: %d whose fire id is in FIRES" % (len(known), sum(1 for h in known if h[5] in ids)))

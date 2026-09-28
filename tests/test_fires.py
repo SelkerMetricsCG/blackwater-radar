@@ -423,3 +423,67 @@ def test_build_one_incident_source_down_still_writes(monkeypatch, tmp_path):
     fires.build(log=lines.append, now=NOW)
     d = read_js(tmp_path / "fires.js", "window.FIRES = ")
     assert [f["name"] for f in d["fires"]] == ["ROWE CREEK COMPLEX"] and any("CWFIF" in l and "failed" in l for l in lines)
+
+
+# ---------- complexes (Task 4b) ----------
+ROWE = "B8431C26-6A9B-4EF0-88D8-F7EA9A3F56C3"
+
+
+def child(name, irwin_id, cpx_id, lat=44.7, lon=-120.3):
+    f = wf(name, lat, lon, irwin=irwin_id, cpx=1)
+    f["properties"]["CpxID"] = cpx_id
+    return f
+
+
+def test_complex_parents():
+    g = fc([wf("ROWE CREEK COMPLEX", 44.9, -120.1, typ="CX"),
+            child("0445 CROSSWHITE", "{c1}", "{" + ROWE + "}"),
+            child("NO PARENT", "{c2}", None),
+            child("SELF", "{c3}", "{c3}")])
+    g["features"][0]["properties"]["CpxID"] = "{zz}"               # not a child: ignored even with a CpxID
+    assert fires.complex_parents(g) == {"C1": ROWE}
+    assert fires.complex_parents(fc([])) == {}
+
+
+def test_fold_complexes_relabels_children_idempotently():
+    perims = [{"type": "Feature", "properties": {"id": "C1", "name": "0445 CROSSWHITE", "acres": 5, "t": NOW}, "geometry": None},
+              {"type": "Feature", "properties": {"id": ROWE, "name": "Rowe", "acres": 5, "t": NOW}, "geometry": None},
+              {"type": "Feature", "properties": {"id": None, "name": "Orphan", "acres": 5, "t": NOW}, "geometry": None}]
+    hs = [dict(fire="C1"), dict(fire=None), dict(fire="X")]
+    cpx = {"C1": ROWE}
+    for _ in range(2):
+        fires.fold_complexes(perims, hs, cpx)
+        assert [p["properties"]["id"] for p in perims] == [ROWE, ROWE, None]
+        assert perims[0]["properties"]["name"] == "0445 CROSSWHITE"
+        assert [h["fire"] for h in hs] == [ROWE, None, "X"]
+
+
+def test_build_folds_complex_children(monkeypatch, tmp_path):
+    a = full_answers()
+    a["WFIGS_Incident_Locations_Current/FeatureServer/0/query"] = fc([
+        wf("ROWE CREEK COMPLEX", 44.9, -120.1, typ="CX"), child("0445 CROSSWHITE", "{c1}", "{" + ROWE + "}")])
+    a["WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query"] = fc([perim("{c1}", "0445 CROSSWHITE", -120.2, 44.8)])
+    a["fire.data.nesdis"] = fc([ngfs_feat("ID-2026-09-28T03:31:19.000Z_0003", NOW - 600, lat=46.0, lon=-118.0, known="{c1}")])
+    build_env(monkeypatch, tmp_path, a)
+    fires.build(log=lambda m: None, now=NOW)
+    d = read_js(tmp_path / "fires.js", "window.FIRES = ")
+    assert [f["name"] for f in d["fires"]] == ["ROWE CREEK COMPLEX", "Chilliwack River"]      # the child is not an incident
+    rowe = d["fires"][0]
+    assert rowe["perim"] is True and rowe["hot24"] == 2                  # FIRMS inside the child's polygon + GOES by child id
+    assert [h[5] for h in d["hotspots"]] == [ROWE, ROWE]
+    p = read_js(tmp_path / "perimeters.js", "window.PERIMS = ")
+    assert (p["features"][0]["properties"]["id"], p["features"][0]["properties"]["name"]) == (ROWE, "0445 CROSSWHITE")
+    store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
+    assert store["cpx"] == {"C1": ROWE}
+
+
+def test_build_reuses_stored_complex_map_when_wfigs_fails(monkeypatch, tmp_path):
+    a = full_answers()
+    a["WFIGS_Incident_Locations_Current/FeatureServer/0/query"] = OSError("down")
+    a["WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query"] = fc([perim("{c1}", "0445 CROSSWHITE", -120.2, 44.8)])
+    build_env(monkeypatch, tmp_path, a, store={"v": 1, "cpx": {"C1": ROWE}})
+    fires.build(log=lambda m: None, now=NOW)
+    p = read_js(tmp_path / "perimeters.js", "window.PERIMS = ")
+    assert p["features"][0]["properties"]["id"] == ROWE
+    store = json.loads((tmp_path / "fires_cache.json").read_text(encoding="utf-8"))
+    assert store["cpx"] == {"C1": ROWE}
