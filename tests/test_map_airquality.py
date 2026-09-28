@@ -57,3 +57,10 @@ def test_trend(pm, trend):
 def test_escape():
     assert run("aqEsc('<b>A & \"B\"</b>')") == "&lt;b&gt;A &amp; &quot;B&quot;&lt;/b&gt;"
     assert run("aqEsc(null)") == ""
+
+
+def test_air_quality_data_reloads_after_15_minutes():
+    # final review: click-anywhere and the layer switches reused AIRQ loaded hours earlier
+    assert run("aqNeedsLoad(null, 0, 1000)") is True
+    assert run("aqNeedsLoad({}, 1000, 1000 + 15 * 60 * 1000)") is False
+    assert run("aqNeedsLoad({}, 1000, 1000 + 15 * 60 * 1000 + 1)") is True

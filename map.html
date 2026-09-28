@@ -1150,10 +1150,13 @@
     return 'steady';
   }
   function aqEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  // reload AIRQ when this page loaded it more than 15 min ago (the job's cadence), so click-anywhere and a layer
+  // switched on later never show old readings as current
+  function aqNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 15 * 60 * 1000; }
   // END aqHelpers
   // ---------- Air quality: AQI stations (AirNow monitors, AirFire temporary smoke monitors) ----------
   const aqLayer = L.layerGroup(), aqLabelLayer = L.layerGroup();
-  let aqData = null, aqLabels = [];      // [latlng, label, label marker while shown], as for Weather stations
+  let aqData = null, aqLoadedAt = 0, aqLabels = [];      // aqLabels: [latlng, label, label marker while shown], as for Weather stations
   function aqLegend() {
     return legendHtml(AQ_BINS, x => String(x)) + '<div class="note" style="margin-top:18px">' + AQ_NAMES.join(' · ') + '</div>';
   }
@@ -1225,12 +1228,12 @@
   }
   function loadAq() {
     loadScript('data/airquality.js', () => {
-      aqData = window.AIRQ || aqData;
+      aqData = window.AIRQ || aqData; aqLoadedAt = Date.now();
       if (map.hasLayer(aqLayer)) renderAq();
       if (window.renderAqGrid && $('lyAqGrid').checked) window.renderAqGrid();
     }, () => { $('aqStInfo').innerHTML = '<div class="muted">air quality data not available yet</div>'; });
   }
-  $('lyAqSt').onchange = e => { if (e.target.checked) { aqLayer.addTo(map); if (!aqData) loadAq(); else renderAq(); } else map.removeLayer(aqLayer); };
+  $('lyAqSt').onchange = e => { if (e.target.checked) { aqLayer.addTo(map); if (aqNeedsLoad(aqData, aqLoadedAt, Date.now())) loadAq(); else renderAq(); } else map.removeLayer(aqLayer); };
   setInterval(() => { if (map.hasLayer(aqLayer) || $('lyAqGrid').checked) loadAq(); }, 15 * 60 * 1000);
   // ---------- Air quality: AirNow's interpolated AQI (monitors only) ----------
   const aqOv = L.imageOverlay('', bounds(), { opacity: .55, interactive: false, zIndex: 387 });
@@ -1242,7 +1245,7 @@
     $('aqGridInfo').innerHTML = '<div class="muted">AirNow map for ' + new Date((g.t - 3600) * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' }) + '–' + new Date(g.t * 1000).toLocaleTimeString([], { hour: 'numeric' }) + '</div>' + aqLegend() +
       '<div class="note">Interpolated by AirNow from monitors only; it ignores terrain, so a valley and the ridge above it can differ from what’s shown. Blank where no monitor is near.</div>';
   };
-  $('lyAqGrid').onchange = e => { if (e.target.checked) { aqOv.addTo(map); if (!aqData) loadAq(); else window.renderAqGrid(); } else map.removeLayer(aqOv); };
+  $('lyAqGrid').onchange = e => { if (e.target.checked) { aqOv.addTo(map); if (aqNeedsLoad(aqData, aqLoadedAt, Date.now())) loadAq(); else window.renderAqGrid(); } else map.removeLayer(aqOv); };
 
 
 
@@ -1370,7 +1373,7 @@
     await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
     if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">' + (z.properties.center_id || 'forecast') + '</a>' : '') + '</div>'); }
     // air quality: nearest reporting station within 100 km (judgment call, spec ledger); AirNow's grid when that layer is on
-    await new Promise(res => aqData ? res() : loadScript('data/airquality.js', () => { aqData = window.AIRQ || aqData; res(); }, res));
+    await new Promise(res => !aqNeedsLoad(aqData, aqLoadedAt, Date.now()) ? res() : loadScript('data/airquality.js', () => { aqData = window.AIRQ || aqData; aqLoadedAt = Date.now(); res(); }, res));
     if (aqData) {
       const nowS = Date.now() / 1000, rows = [];
       const a = nearest(aqData.stations, ll, s => !aqStale(s, aqData.hours, nowS));

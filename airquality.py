@@ -25,6 +25,7 @@ import shutil
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import region
@@ -55,11 +56,17 @@ class NotPosted(Exception):
     """the file is not on the server (yet)"""
 
 
+class HostDown(Exception):
+    """an earlier request to this host timed out or failed to connect in this job; don't wait on it again"""
+
+
 def _num(s):
+    """a finite number, or None (blank, NA, NaN, inf)"""
     try:
-        return float(s)
+        v = float(s)
     except (TypeError, ValueError):
         return None
+    return v if math.isfinite(v) else None
 
 
 def aqi_from_pm25(c):
@@ -77,8 +84,10 @@ def parse_hourly(text):
     """HourlyAQObs CSV -> [{id, name, agency, lat, lon, elev, t, aqi, pm}] for rows with a PM2.5 AQI (t = UTC hour start)"""
     out = []
     for r in csv.DictReader(io.StringIO(text)):
+        if None in r.values():               # a short row (a truncated file): DictReader fills missing columns with None
+            continue
         aqi = _num(r.get("PM25_AQI"))
-        if aqi is None or not r.get("AQSID"):
+        if aqi is None or aqi < 0 or not r.get("AQSID"):
             continue
         try:
             t = dt.datetime.strptime(r["ValidDate"] + " " + r["ValidTime"], "%m/%d/%Y %H:%M").replace(tzinfo=dt.timezone.utc)
@@ -188,7 +197,7 @@ def fetch(url):
         with open(path, "rb") as f, open(path + ".lm", encoding="utf-8") as g:
             return f.read(), g.read()
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=TIMEOUT) as r:
+        with _open(urllib.request.Request(url, headers={"User-Agent": UA})) as r:
             body, lm = r.read(), r.headers.get("Last-Modified") or ""
     except urllib.error.HTTPError as e:
         if e.code in (403, 404):          # S3 answers 403 for a key that does not exist
@@ -202,9 +211,26 @@ def fetch(url):
     return body, lm
 
 
+def _open(req):
+    """urlopen, except that once a host has timed out or refused in this job (the five region steps share CACHE_DIR),
+    later requests to it fail at once instead of each waiting TIMEOUT: a hung host would otherwise add ~10 min to the
+    15-minute radar job. HTTP errors (the host answered) don't count."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    down = os.path.join(CACHE_DIR, "down_" + urllib.parse.urlsplit(req.full_url).netloc)
+    if os.path.exists(down) and time.time() - os.path.getmtime(down) < CACHE_MAX_AGE_S:
+        raise HostDown(req.full_url)
+    try:
+        return urllib.request.urlopen(req, timeout=TIMEOUT)
+    except urllib.error.HTTPError:
+        raise
+    except OSError:                        # URLError, timeouts, refused connections
+        open(down, "w").close()
+        raise
+
+
 def head_last_modified(url):
     req = urllib.request.Request(url, headers={"User-Agent": UA}, method="HEAD")
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+    with _open(req) as r:
         return r.headers.get("Last-Modified") or ""
 
 
@@ -339,12 +365,12 @@ def build(log=print, now=None):
             break
         try:
             body, _ = fetch(hourly_url(t))
+            merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
         except NotPosted:
             continue
         except Exception as e:  # noqa: BLE001
             log("airquality: %s failed: %r" % (_name(hourly_url(t)), e))
             continue
-        merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
         got.append(t)
     newest = max(got) if got else None
     n_back = 0

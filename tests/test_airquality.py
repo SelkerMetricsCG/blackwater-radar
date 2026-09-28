@@ -335,3 +335,53 @@ def test_values_grid_lines_up_with_the_map(tmp_path, monkeypatch):
         my = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z
         px, py = int((mx - x0) / 5 * meta["w"]), int((my - y0) / 5 * meta["h"])
         assert abs(data[py * meta["w"] + px] * meta["scale"] - (lon + 130) * 10) <= 3
+
+
+# ---------- final review fixes ----------
+def test_row_cut_inside_the_aqi_value_is_skipped():
+    good = row("530330080", "Seattle", "47.59", "-122.31", when(T00), "44", "8.0")
+    cut = row("530330081", "Tacoma", "47.19", "-122.45", when(T00), "153", "60.0")
+    cut = cut[:cut.index('"153"') + 3]                     # the file ends inside the AQI value: "15
+    assert [r["id"] for r in airquality.parse_hourly(hourly(T00, [good, cut]))] == ["530330080"]
+
+
+@pytest.mark.parametrize("bad", ["NaN", "inf", "-999"])
+def test_non_finite_or_negative_aqi_is_skipped(bad):
+    recs = airquality.parse_hourly(hourly(T00, [row("530330081", "Tacoma", "47.19", "-122.45", when(T00), bad, "5.0"),
+                                                row("530330080", "Seattle", "47.59", "-122.31", when(T00), "44", "nan")]))
+    assert [(r["id"], r["pm"]) for r in recs] == [("530330080", None)]
+
+
+def test_a_file_that_fails_to_parse_does_not_stop_the_build(job, monkeypatch):
+    logs = []
+    files = {airquality.hourly_url(T00): "BAD", airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    real = airquality.parse_hourly
+
+    def parse(text):
+        if text == "BAD":
+            raise ValueError("unexpected format")
+        return real(text)
+    monkeypatch.setattr(airquality, "parse_hourly", parse)
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert any("HourlyAQObs_2026092800.dat failed" in m for m in logs)
+
+
+def test_a_hung_host_is_skipped_for_the_rest_of_the_job(tmp_path, monkeypatch):
+    import socket
+    calls = []
+
+    def hang(req, timeout=None):
+        calls.append(req.full_url)
+        raise socket.timeout("timed out")
+    monkeypatch.setattr(airquality, "CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(airquality.urllib.request, "urlopen", hang)
+    with pytest.raises(OSError):
+        airquality.fetch(airquality.hourly_url(T00))
+    with pytest.raises(airquality.HostDown):
+        airquality.fetch(airquality.hourly_url(T00 - 3600))          # same host: no second 30 s wait
+    with pytest.raises(airquality.HostDown):
+        airquality.head_last_modified(airquality.GRID_URL)
+    with pytest.raises(OSError):
+        airquality.fetch(airquality.AIRFIRE + "airnow_PM2.5_latest_meta.csv")   # another host is still tried
+    assert len(calls) == 2
