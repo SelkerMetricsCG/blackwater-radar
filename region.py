@@ -20,6 +20,7 @@ REGIONS = {
         "home": [47.6, -120.7, 7], "focus": (46.5, 48.9, -122.1, -119.2),
         "states": ["WA", "OR", "ID", "MT"], "snotel_states": ["WA", "OR", "ID", "MT", "BC"],
         "cocorahs_states": ["WA"], "ndfd": "pacnwest", "avy": "NWAC",     # "avy": avalanche layer title (default generic)
+        "snow": True,             # keeps the snow-conditions season archive (snow/archive.py); the others can follow
         "asos": ["KEAT", "KSEA", "KPAE", "KYKM", "KELN", "KGEG", "KPUW", "KALW", "KPDT", "KMWH", "KEPH", "KOMK", "KBFI",
                  "KOLM", "KPDX", "KTTD", "KDLS", "KBLI", "KS52", "KAWO", "KRNT", "KTIW", "KHQM", "KSMP", "KCOE", "KLWS", "KBOI"],
     },

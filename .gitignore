@@ -30,3 +30,6 @@ snotel_check/out/
 
 # slope-angle build: downloads, 3 m DEMs, tiles (tens of GB)
 slope/work/
+
+# snow-conditions season archive: written by the hourly job, lives in R2
+regions/*/snow/

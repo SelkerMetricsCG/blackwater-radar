@@ -21,6 +21,7 @@ DATA = region.data_dir()
 OUT = os.path.join(DATA, "avalanche.js")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 URL = "https://api.avalanche.org/v2/public/products/map-layer"
+_LAST = {"features": None}        # this run's zones, for snow/avyproducts.py
 KEEP = ("name", "danger", "danger_level", "travel_advice", "start_date", "end_date", "link", "color",
         "fillOpacity", "off_season", "center", "center_id", "center_link", "warning")
 
@@ -44,9 +45,11 @@ def build(log=print):
             continue
         p = f.get("properties", {})
         props = {k: p.get(k) for k in KEEP}
+        props["zone_id"] = f.get("id", p.get("id"))          # snow/avyproducts.py fetches each zone's full product by it
         w = props.get("warning") or {}
         props["warning"] = (w.get("product") or {}).get("title") if isinstance(w, dict) else None
         feats.append({"type": "Feature", "properties": props, "geometry": f.get("geometry")})
+    _LAST["features"] = feats
     data = {"type": "FeatureCollection", "features": feats,
             "updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time())}
     os.makedirs(DATA, exist_ok=True)

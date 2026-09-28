@@ -37,3 +37,22 @@ def write_grid(name, arr, unit="in", scale=0.01, nodata=None):
                 % (json.dumps(name), json.dumps(payload), json.dumps(name), body))
     os.replace(path + ".tmp", path)
     return path
+
+
+def read_grid(name):
+    """the grid write_grid wrote: (payload dict, (N, N) int64 array with -1 nodata), or None when missing"""
+    import re
+    path = os.path.join(OUT_DIR, name + ".js")
+    try:
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+    except OSError:
+        return None
+    m = re.search(r'=(\{[^;]*\});window\.VALUES\[[^\]]+\]\.data="([^"]*)"', s)
+    if not m:
+        return None
+    payload = json.loads(m.group(1))
+    q = np.array(m.group(2).split(","), dtype=np.int64) if m.group(2) else np.zeros(0, np.int64)
+    if q.size != payload["w"] * payload["h"]:
+        return None
+    return payload, q.reshape(payload["h"], payload["w"])

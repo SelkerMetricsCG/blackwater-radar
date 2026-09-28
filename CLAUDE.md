@@ -19,7 +19,16 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
     `rivers/sync_analysis.bat`.
 - The Roaring Creek SolSat telemetry pull (`solsat.py`) moved to the roaring repo (private
   `SelkerMetricsCG/roaring`) on 2026-09-27; nothing here feeds `roaring-data` any more.
-- `tests/`: pytest, network blocked in `conftest.py`; currently the webcam tests.
+- **Snow-conditions tracker (started 2026-09-28, in progress)**: a snow-surface model for skiing, to be its own site
+  (snow.blackwaterlabs.org) on this repo's Actions and R2. Spec `docs/superpowers/specs/2026-09-28-snow-conditions-model-design.md`,
+  status and next steps in `HANDOFF.md`. Built so far: the season archive (`snow/archive.py`, run last in the hourly job for
+  regions with `"snow": True` in `region.py`, `pnw` only), full avalanche.org products (`snow/avyproducts.py`), NAC
+  observations gated on `NAC_OBS_ORIGIN` (`snow/observations.py`; never send an origin we were not given). Archive layout:
+  `<region>/snow/archive/<local date>/HH.json.gz` (stations, HRRR freezing level f0, MRMS 1 h, zone danger), `daily.json.gz`
+  (74 h SNOTEL series, NDFD grids, freezing f0..f18, MRMS 24 h, SNODAS, full station records), `products/`, `obs/`; every
+  file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
+  (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1.
+- `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
@@ -136,3 +145,4 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-27: YouTube-live webcams through the YouTube Data API (`youtube.py`, `webcams_youtube.json`, `terms.html`).
 - 2026-09-28: Air quality section (AQI stations, AirNow interpolated AQI); spec
   `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`.
+- 2026-09-28: snow-conditions tracker started: design spec, season archive (`snow/`), NWAC access request drafted.
