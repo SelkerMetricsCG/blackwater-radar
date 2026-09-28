@@ -75,17 +75,30 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `RURAL_KM` (3 km), or `URBAN_KM` (10 km) inside the hand-set metro circles in `URBAN`.
 - The research behind the curated list (sources, URL patterns, terms, Chris's 2026-09-27 decisions) is in
   `cams_research/` (`sources_notes.md`; `make_extra.py` rebuilds the list from `combined.json`). Left out on
-  purpose: YouTube thumbnails, ipcamlive/webcam.io cams (owner consent needed), SeeJH, Ambient Weather.
-- Exception (Chris, 2026-09-27): Mission Ridge's three cams are YouTube live only, so they are hand-added to
-  `webcams_extra.json` as `i.ytimg.com/vi/<id>/maxresdefault_live.jpg` (no timestamp; a `make_extra.py` rebuild drops
-  them). If one goes blank, its stream restarted with a new id: read the ids from missionridge.com/mountain-report/.
+  purpose: ipcamlive/webcam.io cams (owner consent needed), SeeJH (Snow King's streams are SeeJH's too), Ambient Weather.
+- YouTube-live cams (2026-09-27): `webcams_youtube.json` (163 cams, 19 marked `off` with the reason; kept by hand,
+  `make_extra.py` never touches it) goes through `youtube.py` each hourly run, via the YouTube Data API only. Key:
+  `YT_API_KEY` (Actions secret of that name; locally `youtube.env`, gitignored); no key = no YouTube cams, nothing fetched.
+  `videos.list` says which ids are live and gives the thumbnail URL; a gone or ended stream triggers `search.list` on
+  its channel, matched by the cam's `match` word (else its last title, else the channel's only stream); the new id is
+  kept in `<region>/data/youtube_cache.json` (in `cloud.py STATE_FILES`; the `_cache.json` name keeps r2sync from
+  publishing it). Quota: free 10,000 units/day per key; worst case ~5,200/day (`SEARCH_CAP` 10 searches per region
+  per 24 h at 100 units, `videos.list` ~220/day); each run logs its units. They go to `WEBCAMS.yt`, not `cams`, so a
+  page without the YouTube credit never shows them. Check the list against the API from a PC:
+  `python cams_research/youtube_enrich.py` (4 units; `--search N` costs 100 each).
+- YouTube terms (Developer Policies, read 2026-09-27) and how they are met: the job calls only
+  `www.googleapis.com/youtube/v3` (never i.ytimg.com or youtube.com; the key rides in a header); API data is refreshed
+  hourly, state unconfirmed for 30 days is dropped, and API-learnt channel ids and titles stay in the state file, not
+  the list; the popup shows the YouTube icon and name linked to the video, says what is not from YouTube, and links
+  YouTube's Terms and Google's Privacy Policy; `terms.html` (copied into `web/` by `build_web.py`, linked at the foot
+  of the panel) is the site's terms and privacy notice.
 - NPS cams: `python cams_research/refresh_nps.py` refreshes them with Chris's key from `nps.env` (gitignored).
 
 ## Rules
 - Free tier only: GitHub Actions, R2, Workers. Do not scrape NWAC (its API is for approved researchers);
   Synoptic is paid; never reuse tokens found in web pages.
-- `r2.env` and `nps.env` are private and gitignored: never print or commit them, and leave `*.env` out of
-  any grep whose output is shown.
+- `r2.env`, `nps.env` and `youtube.env` are private and gitignored: never print or commit them, and leave `*.env`
+  out of any grep whose output is shown.
 - Station windows (`stations.py WINDOWS = [1, 3, 6, 12, 24]`) are shared by every station source, the
   interpolation (`interp.py`) and the map's window chips.
 - SNOTEL is pulled once per hourly run by `snotel.py` (74 h hourly incl. soil sensors, SCAN soil sites, BC automated
@@ -113,3 +126,4 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-26: layer-panel reorder; slope-angle layer from WA lidar started (see `HANDOFF.md`).
 - 2026-09-27: `solsat.py`, its tests and workflow moved to the roaring repo.
 - 2026-09-27: SNOTEL layer (spec `docs/superpowers/specs/2026-09-27-snotel-layer-design.md`); new snow as a storm total.
+- 2026-09-27: YouTube-live webcams through the YouTube Data API (`youtube.py`, `webcams_youtube.json`, `terms.html`).
