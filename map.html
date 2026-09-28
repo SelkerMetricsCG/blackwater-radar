@@ -263,6 +263,8 @@
     <label class="opt"><input type="checkbox" id="lyAlerts"> NWS watches &amp; warnings</label>
     </div>
   </div>
+
+  <div class="sec note" id="legal"><a href="terms.html" target="_blank" rel="noopener" style="color:var(--muted)">Terms &amp; privacy</a> · some webcam images come through the YouTube API Services</div>
 </aside>
 
 <div id="bar">
@@ -901,16 +903,40 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const camAge = ts => { if (!ts) return ''; const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return ' · image ' + (m < 90 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days') + ' old at last refresh'; };
   const camSrc = v => v.img + (v.img.includes('?') ? '&' : '?') + 't=' + Date.now();
+  // BEGIN ytInfo
+  // YouTube cameras (webcams.js `yt`, from the YouTube Data API): the video link and the line under the
+  // thumbnail. A live thumbnail carries no time, so say when the job last saw the stream live and when it started.
+  function ytWatch(id) { return 'https://www.youtube.com/watch?v=' + encodeURIComponent(id); }
+  function ytStatus(v, checkedT, nowS) {
+    const ago = s => { const m = Math.max(0, Math.round((nowS - s) / 60)); return m < 90 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days'; };
+    const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let t = 'Live-stream thumbnail' + (checkedT ? ', live at the last check ' + ago(checkedT) + ' ago' : ', live now');
+    if (v.since) { const d = new Date(v.since * 1000); t += ', streaming since ' + M[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
+    return t + '. YouTube updates these thumbnails every few minutes, sometimes hours late.';
+  }
+  // END ytInfo
+  // the YouTube icon, linked to the video, which the branding guidelines ask for when sources are mixed; drawn to the
+  // official icon's shape and colours (not the downloaded file from brand.youtube: compare before relying on it)
+  const YT_ICON = '<svg viewBox="0 0 176 124" width="28" height="20" role="img" aria-label="YouTube" style="display:block"><path fill="#FF0000" d="M172.3 19.4c-2-7.6-8-13.6-15.6-15.7C143 0 88 0 88 0S33 0 19.3 3.7C11.7 5.8 5.7 11.8 3.7 19.4 0 33.2 0 62 0 62s0 28.8 3.7 42.6c2 7.6 8 13.6 15.6 15.7C33 124 88 124 88 124s55 0 68.7-3.7c7.6-2.1 13.6-8.1 15.6-15.7C176 90.8 176 62 176 62s0-28.8-3.7-42.6z"/><path fill="#FFFFFF" d="M70 88.6 116 62 70 35.4z"/></svg>';
+  const ytCredit = (c, v) => {
+    const w = esc(ytWatch(v.yt)), a = ' target="_blank" rel="noopener"';
+    return '<div style="display:flex;align-items:center;gap:8px"><a href="' + w + '"' + a + ' title="Watch on YouTube" style="flex:none;padding:2px 0">' + YT_ICON + '</a>' +
+      '<span><a href="' + w + '"' + a + '>YouTube</a> · <a href="' + esc(c.link || w) + '"' + a + '>' + esc(c.owner || 'owner') + '</a></span></div>' +
+      '<div style="margin-top:3px">' + esc(ytStatus(v, camData && camData.updated_t, Date.now() / 1000)) + '</div>' +
+      '<div style="margin-top:3px;font-size:11px;color:#777">Image and live status from YouTube; the camera name, place and owner link are this map\'s, not YouTube\'s. ' +
+      '<a href="https://www.youtube.com/t/terms"' + a + '>YouTube Terms of Service</a> · <a href="https://www.google.com/policies/privacy"' + a + '>Google Privacy Policy</a> · <a href="terms.html"' + a + '>this site\'s terms</a></div>';
+  };
   function camPopup(c) {
-    const views = c.views || [{ name: c.name, img: c.img, ts: c.ts }], v = views[0], src = camSrc(v);
+    const views = c.views || [{ name: c.name, img: c.img, ts: c.ts, yt: c.yt, since: c.since }], v = views[0], src = camSrc(v);
     const kind = c.kind === 'road' ? 'road camera' : c.kind === 'fire' ? (c.src === 'FAA' ? 'FAA airport camera' : 'fire camera') + (c.pan != null ? ', facing ' + Math.round(c.pan) + '°' : '')
       : (CAM_KIND[c.kind] ? CAM_KIND[c.kind][0] + ' camera' : 'camera') + (c.stake ? ', snow stake' : '');
-    const credit = /alertwest\.live/.test(c.link || '') ? esc(c.src) + ' via <a href="' + esc(c.link) + '" target="_blank" rel="noopener">AlertWest</a>'
+    const credit = v.yt ? '<div class="ytcredit">' + ytCredit(c, v) + '</div>'
+      : /alertwest\.live/.test(c.link || '') ? esc(c.src) + ' via <a href="' + esc(c.link) + '" target="_blank" rel="noopener">AlertWest</a>'
       : '<a href="' + esc(c.link || '#') + '" target="_blank" rel="noopener">' + esc(c.owner || c.src || 'source') + '</a>' + (c.src && c.owner && !c.owner.includes(c.src) ? ' · ' + esc(c.src) : '');
     const btns = views.length < 2 ? '' : '<div class="camviews" style="margin:5px 0 0;display:flex;flex-wrap:wrap;gap:4px">' + views.map((w, i) =>
       '<button type="button" data-i="' + i + '" title="' + esc(w.name) + '" style="font:12px system-ui;padding:2px 8px;border-radius:5px;border:1px solid #bbb;cursor:pointer;background:' + (i ? '#fff' : '#e5e7eb') + '">' + (i + 1) + '</button>').join('') + '</div>';
     return '<div style="font:13px system-ui;width:min(80vw,440px)"><b>' + esc(c.name) + '</b> <span style="color:#666">' + kind + (views.length > 1 ? ' · ' + views.length + ' views' : '') + '</span>' + btns +
-      '<div style="margin:6px 0"><a class="camlink" href="' + esc(src) + '" target="_blank" rel="noopener"><img class="camimg" src="' + esc(src) + '" alt="' + esc(v.name) + '" style="width:100%;border-radius:6px;background:#eee"></a>' +
+      '<div style="margin:6px 0"><a class="camlink" href="' + esc(v.yt ? ytWatch(v.yt) : src) + '" target="_blank" rel="noopener"><img class="camimg" src="' + esc(src) + '" alt="' + esc(v.name) + '" style="width:100%;border-radius:6px;background:#eee"></a>' +
       (views.length > 1 ? '<div class="camcap" style="color:#444;font-size:12px;margin-top:2px">' + esc(v.name) + '</div>' : '') + '</div>' +
       '<div style="color:#666;font-size:12px">' + credit + '<span class="camage">' + camAge(v.ts) + '</span></div></div>';
   }
@@ -918,9 +944,11 @@
     if (!c.views || !el) return;
     el.querySelectorAll('.camviews button').forEach(b => b.onclick = () => {
       const v = c.views[+b.dataset.i], src = camSrc(v), img = el.querySelector('.camimg');
-      img.src = src; img.alt = v.name; el.querySelector('.camlink').href = src;
+      img.src = src; img.alt = v.name; el.querySelector('.camlink').href = v.yt ? ytWatch(v.yt) : src;
       el.querySelector('.camcap').textContent = v.name;
       el.querySelector('.camage').textContent = camAge(v.ts);
+      const yc = el.querySelector('.ytcredit');
+      if (yc && v.yt) yc.innerHTML = ytCredit(c, v);
       el.querySelectorAll('.camviews button').forEach(x => { x.style.background = x === b ? '#e5e7eb' : '#fff'; });
     });
   }
@@ -930,12 +958,12 @@
     if (!camData) return;
     const z = map.getZoom(), b = map.getBounds().pad(0.3);
     let n = 0;
-    for (const c of camData.cams) {
+    for (const c of camData.cams.concat(camData.yt || [])) {   // yt: YouTube cameras (absent from older webcams.js)
       if (!b.contains([c.lat, c.lon])) continue;
       if (z < 9 && c.kind === 'road') continue;
       n++;
       const m = L.marker([c.lat, c.lon], { icon: camIcon(c) });
-      m.bindTooltip(esc(c.name) + (c.kind === 'fire' && c.pan != null ? ' · facing ' + Math.round(c.pan) + '°' : '') + (c.views ? ' · ' + c.views.length + ' views' : ''), { direction: 'top', offset: [0, -12] });
+      m.bindTooltip(esc(c.name) + (c.kind === 'fire' && c.pan != null ? ' · facing ' + Math.round(c.pan) + '°' : '') + (c.views ? ' · ' + c.views.length + ' views' : '') + (c.yt ? ' · YouTube live' : ''), { direction: 'top', offset: [0, -12] });
       if (c.kind === 'fire' && c.pan != null) {
         let w = null;
         m.on('mouseover', () => { w = wedge(c, 12).addTo(wedgeLayer); });

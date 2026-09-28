@@ -6,13 +6,17 @@ Webcam layer, inside the map window:
 - webcams_extra.json: curated conditions cameras (ski areas, water, towns, national parks). Each is
   fetched once per run (except those marked robots) to log problems and take its Last-Modified time; only
   a Brownrice offline card drops one (see drops()). Prune dead ones from a PC: cams_research/prune_extra.py.
+- webcams_youtube.json: YouTube-live cameras, through the YouTube Data API only (youtube.py; needs YT_API_KEY).
+  Their thumbnails are never fetched here.
 
 Road cameras are grouped by pole (cameras within SITE_M share one marker and every view is kept) and
 thinned to one site per RURAL_KM, or per URBAN_KM inside the metro circles in URBAN.
 
 Output: data/webcams.js -> window.WEBCAMS = {updated, updated_t, cams:[{id, name, lat, lon, img, ts, kind,
-src, link, owner?, pan?, fov?, stake?, views?:[{name, img, ts}]}]}. kind: road, fire, ski, water, river,
-town, park. Image URLs point at each camera's own host; the map adds a cache-buster when a popup opens.
+src, link, owner?, pan?, fov?, stake?, views?:[{name, img, ts}]}], yt:[the same, plus yt (video id) and since
+(stream start, epoch s) on the site and each view]}. kind: road, fire, ski, water, river, town, park. Image
+URLs point at each camera's own host; the map adds a cache-buster when a popup opens. YouTube cameras are kept
+apart in `yt` (grouped only with each other) so a page without YouTube attribution never shows them.
 
 Run standalone:  python webcams.py
 """
@@ -29,6 +33,7 @@ import urllib.error
 import urllib.request
 
 import region
+import youtube
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = region.data_dir()
@@ -277,6 +282,9 @@ def extras(check=True, log=print):
 
 
 # ---------------------------------------------------------------- grouping and thinning
+VIEW_EXTRA = ("yt", "since")   # per-view YouTube fields: video id, stream start
+
+
 def group(cams, site_m=SITE_M):
     """Merge cameras of the same kind within site_m metres into one site; every view is kept in `views`."""
     cell = site_m / 1000.0
@@ -297,8 +305,11 @@ def group(cams, site_m=SITE_M):
             if home:
                 break
         view = {"name": c["name"], "img": c["img"], "ts": c.get("ts")}
+        view.update((k, c[k]) for k in VIEW_EXTRA if k in c)
         if home:
-            home.setdefault("views", [{"name": home["name"], "img": home["img"], "ts": home.get("ts")}]).append(view)
+            first = {"name": home["name"], "img": home["img"], "ts": home.get("ts")}
+            first.update((k, home[k]) for k in VIEW_EXTRA if k in home)
+            home.setdefault("views", [first]).append(view)
             if c.get("stake"):
                 home["stake"] = True
         else:
@@ -340,7 +351,14 @@ def build(log=print, check=True):
             log("webcams: %s feed failed: %s" % (name, e))
     n_road = sum(1 for c in cams if c["kind"] == "road")
     sites = thin(group([c for c in cams if c["kind"] != "fire"])) + [c for c in cams if c["kind"] == "fire"]
-    data = {"updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time()), "cams": sites}
+    try:
+        yt = youtube.cams(log, inside)   # no key: [] and nothing fetched
+    except Exception as e:  # noqa: BLE001  (YouTube must not take the layer down)
+        log("webcams: youtube failed: %s" % e)
+        yt = []
+    yt_sites = group(yt)
+    data = {"updated": dt.datetime.now().strftime("%a %b %d %I:%M %p"), "updated_t": int(time.time()), "cams": sites,
+            "yt": yt_sites}
     os.makedirs(DATA, exist_ok=True)
     with open(OUT + ".tmp", "w", encoding="utf-8") as f:
         f.write("window.WEBCAMS = %s;\n" % json.dumps(data, separators=(",", ":")))
@@ -348,10 +366,11 @@ def build(log=print, check=True):
     by = {}
     for s in sites:
         by[s["kind"]] = by.get(s["kind"], 0) + 1
-    log("webcams: %d markers from %d cameras (AlertWest %d; road cameras %d -> %d sites); %s"
+    log("webcams: %d markers from %d cameras (AlertWest %d; road cameras %d -> %d sites); %s; YouTube %d markers "
+        "from %d cameras"
         % (len(sites), len(cams), n_aw, n_road, by.get("road", 0),
-           ", ".join("%s %d" % kv for kv in sorted(by.items()))))
-    return len(sites)
+           ", ".join("%s %d" % kv for kv in sorted(by.items())), len(yt_sites), len(yt)))
+    return len(sites) + len(yt_sites)
 
 
 if __name__ == "__main__":

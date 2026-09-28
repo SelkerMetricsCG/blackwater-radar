@@ -3,11 +3,13 @@ Build the public site into web/ for the Cloudflare Worker (publish with `npx wra
 
   web/index.html   map.html with the R2 public URL and the region table baked in
   web/stf.js       USBR snow-to-flow site list (from stf_sites.json)
+  web/terms.html   terms and privacy notice (a copy of terms.html; the YouTube API Services policies ask for one)
 
 Usage:  python build_web.py
 """
 import json
 import os
+import shutil
 
 import r2sync
 import region
@@ -43,4 +45,5 @@ with open(os.path.join(ROOT, "stf_sites.json"), encoding="utf-8") as f:
     sites = json.load(f)
 with open(os.path.join(OUT, "stf.js"), "w", encoding="utf-8") as f:
     f.write("window.STF_SITES = %s;" % json.dumps(sites, separators=(",", ":")))
+shutil.copyfile(os.path.join(ROOT, "terms.html"), os.path.join(OUT, "terms.html"))
 print("built web/index.html with base", base, "and regions", ", ".join(regions))

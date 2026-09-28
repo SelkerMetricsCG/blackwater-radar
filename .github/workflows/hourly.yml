@@ -30,6 +30,7 @@ jobs:
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      YT_API_KEY: ${{ secrets.YT_API_KEY }}       # YouTube Data API (webcams); without it the job leaves YouTube cameras out
       R2_BUCKET: radar
       R2_PUBLIC_URL: https://radar-files.blackwaterlabs.org
       PYTHONUNBUFFERED: "1"

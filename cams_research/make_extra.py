@@ -8,6 +8,8 @@ applying Chris's decisions of 2026-09-27:
     fetches them), ColoradoWebcam.net (credit + link), the Gorge hobby sites
   - USGS river, USGS volcano and NOAA buoy cams are left out here: webcams.py pulls them live each hour
   - USCG bar cams that TripCheck serves are dropped when AlertWest already has a camera within 300 m
+YouTube-live cameras are not built here: they live in radar/webcams_youtube.json (kept by hand, read by
+webcams.py through youtube.py and the YouTube Data API), which this script never touches, so a rebuild keeps them.
 
 Run from this folder:  python make_extra.py <folder with AlertWest webcams.js copies>
 """

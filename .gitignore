@@ -21,6 +21,7 @@ cache/
 # private keys (Chris pastes these); solsat.env moved to roaring 2026-09-27, kept here so a stray copy never commits
 solsat.env
 nps.env
+youtube.env
 cams_research/nps_img_cache.json
 
 # rivers dashboard: local analysis outputs (everything lands in R2)
