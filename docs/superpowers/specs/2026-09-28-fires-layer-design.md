@@ -46,7 +46,8 @@ Hazards
   active fire shows its name as an in-view-only label (the divIcon pattern the station labels use). Perimeters draw
   under the markers as a red outline with a light fill; hovering names the fire.
 - **Fire card** (click or hover, like the AQI card): name and a type chip (wildfire / complex / prescribed burn);
-  agency and state or province; acres with the containment percentage and a thin bar; "discovered Sep 12" and
+  county and state or province, the incident management organisation where WFIGS gives one; acres with the
+  containment percentage and a thin bar; "discovered Sep 12" and
   "last update 3 h ago"; behaviour and personnel when present; the short description; "perimeter mapped 14 h ago"
   when one exists; "12 hotspots in the last 24 h"; a link to the agency page when there is one; footer
   "Source: NIFC (WFIGS)" or "CWFIF (Natural Resources Canada), BC Wildfire Service".
@@ -104,7 +105,8 @@ download each national file once) and the hung-host rule (`airquality._open`). B
 6. **Outputs.** `<region>/data/fires.js`, global `FIRES`:
    `{updated, updated_t, ngfs: bool, fires:[{id, name, type, src, lat, lon, acres, contained, discovered, modified,
    behaviour, personnel, desc, county, state, stage, response, url, note, active, perim, hot24}],
-   hotspots:[[lat, lon, age_h, src, frp, fire_id|null, unconfirmed]]}` (`src` V/M/G; expected PNW ~60 KB, NE ~40 KB).
+   hotspots:[[lat, lon, age_h, src, frp, fire_id|null, unconfirmed, since|null]]}` (`src` V/M/G; `since` = a GOES
+   feature's first-seen time, from its tracking id; expected PNW ~60 KB, NE ~40 KB).
    `<region>/data/perimeters.js`, global `PERIMS`: a GeoJSON FeatureCollection with `id`, `name`, `acres`, `age_h`
    per polygon (PNW ~600 KB), rewritten each run from the state file, refetched only on a stamp change.
    `<region>/data/fires_cache.json` (private, `cloud.py STATE_FILES`): the WFIGS and BCWS edit stamps, the last
