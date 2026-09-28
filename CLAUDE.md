@@ -11,7 +11,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   Each region's frame names and labels use the time zone most of its land is in, set per region in both
   workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
-  freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, NWS alerts, click-anywhere point values.
+  freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, air quality (AirNow monitors, AirFire temporary smoke monitors, AirNow's
+  interpolated AQI), NWS alerts, click-anywhere point values.
 - **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -23,7 +24,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
 |---|---|---|
-| `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, `<r>/frames.js` |
+| `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, alerts, air quality (`airquality.py`), `<r>/frames.js` |
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
@@ -56,7 +57,7 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 ## map.html conventions
 - Data comes in by `<script>` tags with a `?t=` cache-buster (the bucket has no CORS header). Globals:
   `RADAR_DATA`, `STATIONS`, `SNOTEL`, `BASINS`, `RIVERS`, `MRMS`, `SNODAS`, `FORECAST`, `FREEZING`, `ALERTS`,
-  `AVALANCHE`, `WEBCAMS`, `VALUES`.
+  `AVALANCHE`, `WEBCAMS`, `AIRQ`, `VALUES`.
 - Panel: groups are `.sec.grp`; a layer is a `label.opt` checkbox followed by a `.subwrap data-for=<id>`
   that opens only while it is on. The group badge counts `.body > .opt > input:checked`, so sub-controls
   must not sit directly in an `.opt` under `.body`.
@@ -105,6 +106,12 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   pillows daily); `stations.py` takes its records from there. New snow from any depth sensor is `newsnow.py`'s storm
   total; its parameters are in `snotel_config.yaml`, the method check in `snotel_check/` (method card `METHOD.md`),
   anomalies in `ANOMALY_LOG.md`.
+- Air quality (`airquality.py`, 15-minute job): permanent monitors show AirNow's `PM25_AQI` unchanged (AirNow
+  guidelines); only temporary monitors (USFS AirFire export) get AQI from `aqi_from_pm25` (EPA 2024 breakpoints).
+  Never take times from `AirNowWildfire.csv` (its rows carry the file's hour; values are 1-3 h older). State:
+  `aq_cache.json`. Check a region with `python smoke_research/aq_check.py <region>` (no upload); preview the page with
+  `smoke_research/aq_serve.py`. Spec and parameter ledger: `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`;
+  sources and endpoints: `smoke_research/sources_notes.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -127,3 +134,5 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-27: `solsat.py`, its tests and workflow moved to the roaring repo.
 - 2026-09-27: SNOTEL layer (spec `docs/superpowers/specs/2026-09-27-snotel-layer-design.md`); new snow as a storm total.
 - 2026-09-27: YouTube-live webcams through the YouTube Data API (`youtube.py`, `webcams_youtube.json`, `terms.html`).
+- 2026-09-28: Air quality section (AQI stations, AirNow interpolated AQI); spec
+  `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`.
