@@ -257,6 +257,23 @@
     </div>
   </div>
 
+  <div class="sec grp" data-grp="air">
+    <h2 class="grph"><span class="chev"></span>Air quality <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyAqSt"> AQI stations
+      <button type="button" class="help" aria-label="About the AQI stations" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Air quality monitors run by state, local, tribal and Canadian agencies, from AirNow. The number is the NowCast AQI for fine particles (PM2.5), the pollutant in wildfire smoke. NowCast weights the latest hours, so it responds within a few hours when smoke arrives; the official daily AQI is a 24 h average and lags. Squares are temporary monitors set up near fires. Data are preliminary and not verified.</span></label>
+    <div class="subwrap" data-for="lyAqSt">
+      <div class="sub" id="aqStInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lyAqGrid"> Interpolated AQI (monitors only)</label>
+    <div class="subwrap" data-for="lyAqGrid">
+      <div class="sub" id="aqGridInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
   <div class="sec grp" data-grp="hazards">
     <h2 class="grph"><span class="chev"></span>Hazards <span class="n"></span></h2>
     <div class="body">
@@ -828,7 +845,7 @@
       const r = svg.getBoundingClientRect(), mx = (e.clientX - r.left) * (W / r.width);
       let best = pts[0]; for (const p of pts) if (Math.abs(p[0] - mx) < Math.abs(best[0] - mx)) best = p;
       const hrs = best[3], when = hrs === 0 ? 'now' : (Math.abs(hrs) < 1 ? Math.round(Math.abs(hrs) * 60) + ' min' : Math.abs(hrs).toFixed(0) + ' h') + (hrs < 0 ? ' ago' : ' ahead');
-      const label = best[2].toLocaleString() + ' cfs · ' + when + (best[4] === 'fc' ? ' (forecast)' : '');
+      const label = best[5] || (best[2].toLocaleString() + ' cfs · ' + when + (best[4] === 'fc' ? ' (forecast)' : ''));
       txt.textContent = label;
       const tw = txt.getComputedTextLength() + 8, bx = Math.min(Math.max(2, best[0] - tw / 2), W - tw - 2);
       ln.setAttribute('x1', best[0]); ln.setAttribute('x2', best[0]);
@@ -1109,6 +1126,129 @@
   $('lyFcst').onchange = e => { if (e.target.checked) { fcst.addTo(map); if (!fcData) loadForecast(); else renderForecast(); } else map.removeLayer(fcst); };
   setInterval(() => { if (map.hasLayer(fcst)) loadForecast(); }, 30 * 60 * 1000);
 
+  // ---------- Air quality: helpers ----------
+  // BEGIN aqHelpers (tests/test_map_airquality.py runs this block under node)
+  // EPA AQI categories and official colours (AQI Technical Assistance Document, May 2024); AirNow's guidelines ask for them
+  const AQ_BINS = [[0, '#00e400'], [51, '#ffff00'], [101, '#ff7e00'], [151, '#ff0000'], [201, '#8f3f97'], [301, '#7e0023']];
+  const AQ_NAMES = ['Good', 'Moderate', 'Unhealthy for sensitive groups', 'Unhealthy', 'Very unhealthy', 'Hazardous'];
+  function aqCat(v) {      // AQI -> 0..5, -1 for no value; half rounds up (airquality.aq_category does the same)
+    if (v == null || isNaN(v)) return -1;
+    const r = Math.floor(v + 0.5); let i = 0;
+    for (let k = 1; k < AQ_BINS.length; k++) if (r >= AQ_BINS[k][0]) i = k;
+    return i;
+  }
+  function aqLast(s) { for (let i = s.aqi.length - 1; i >= 0; i--) if (s.aqi[i] != null) return { i, aqi: s.aqi[i], pm: s.pm[i] }; return null; }
+  // stale: no report for more than 3 h after the end of the last reported hour (judgment call, spec ledger)
+  function aqStale(s, hours, nowSec) { const l = aqLast(s); return !l || nowSec - (hours[l.i] + 3600) > 3 * 3600; }
+  // latest raw hour vs 3 h earlier: rising / falling if the change is at least 5 ug/m3 and 20 % (judgment call, spec ledger)
+  function aqTrend(pm) {
+    let i = pm.length - 1; while (i >= 0 && pm[i] == null) i--;
+    if (i < 3 || pm[i - 3] == null) return null;
+    const a = pm[i - 3], d = pm[i] - a;
+    if (d >= 5 && d >= 0.2 * a) return 'rising';
+    if (-d >= 5 && -d >= 0.2 * a) return 'falling';
+    return 'steady';
+  }
+  function aqEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  // reload AIRQ when this page loaded it more than 15 min ago (the job's cadence), so click-anywhere and a layer
+  // switched on later never show old readings as current
+  function aqNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 15 * 60 * 1000; }
+  // END aqHelpers
+  // ---------- Air quality: AQI stations (AirNow monitors, AirFire temporary smoke monitors) ----------
+  const aqLayer = L.layerGroup(), aqLabelLayer = L.layerGroup();
+  let aqData = null, aqLoadedAt = 0, aqLabels = [];      // aqLabels: [latlng, label, label marker while shown], as for Weather stations
+  function aqLegend() {
+    return legendHtml(AQ_BINS, x => String(x)) + '<div class="note" style="margin-top:18px">' + AQ_NAMES.join(' · ') + '</div>';
+  }
+  function labelAq() {
+    const show = map.hasLayer(aqLayer) && map.getZoom() >= 9, b = map.getBounds().pad(.1);
+    for (const l of aqLabels) {
+      const on = show && b.contains(l[0]);
+      if (on && !l[2]) aqLabelLayer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { aqLabelLayer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  map.on('moveend', labelAq);
+  function aqChart(s, hours) {
+    const n = hours.length, w = 260, h = 64, bw = (w - 4) / n, base = h - 12;
+    const top = Math.max(100, ...s.aqi.filter(v => v != null));
+    const Y = v => base - (v / top) * (base - 8);
+    let bars = '', ticks = '';
+    const pts = [];
+    s.aqi.forEach((v, i) => {
+      const x = 2 + i * bw, d = new Date(hours[i] * 1000);
+      if (d.getHours() === 0) ticks += '<line x1="' + x.toFixed(1) + '" y1="4" x2="' + x.toFixed(1) + '" y2="' + base + '" stroke="#ccc"/><text x="' + (x + 2).toFixed(1) + '" y="' + (h - 2) + '" font-size="9" fill="#666">' + d.toLocaleDateString([], { weekday: 'short' }) + '</text>';
+      if (v == null) return;
+      const y = Y(v);
+      bars += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(1, bw - 0.6).toFixed(1) + '" height="' + (base - y).toFixed(1) + '" fill="' + AQ_BINS[aqCat(v)][1] + '" stroke="#333" stroke-width=".3"/>';
+      const when = d.toLocaleString([], { weekday: 'short', hour: 'numeric' });
+      pts.push([+(x + bw / 2).toFixed(1), +y.toFixed(1), v, 0, 'obs', 'AQI ' + v + (s.pm[i] != null ? ' · ' + s.pm[i] + ' µg/m³' : '') + ' · ' + when]);
+    });
+    if (pts.length < 2) return '';
+    return '<svg class="rvchart" width="' + w + '" height="' + h + '" style="display:block;margin:6px 0;cursor:crosshair;overflow:visible" data-pts=\'' + JSON.stringify(pts).replace(/'/g, '&#39;') + '\'>' + ticks + bars +
+      '<g class="trk" style="display:none"><line y1="2" y2="' + (h - 2) + '" stroke="#333" stroke-dasharray="2 2"/><circle r="3.5" fill="#fff" stroke="#333" stroke-width="1.5"/><rect rx="3" fill="#111" opacity=".85" height="16"/><text fill="#fff" font-size="11" font-family="system-ui" dy="11.5"></text></g></svg>' +
+      '<div style="font-size:11px;color:#666">hourly AQI, last 72 h · hover for values</div>';
+  }
+  function aqCard(s) {
+    const hours = aqData.hours, last = aqLast(s);
+    let html = '<div style="font:13px system-ui;min-width:230px"><b>' + aqEsc(s.name) + '</b> <span style="color:#666">' + (s.temp ? 'temporary smoke monitor' : aqEsc(s.agency)) + (s.elev != null ? ' · ' + Math.round(s.elev * 3.28084).toLocaleString() + ' ft' : '') + '</span>';
+    if (!last) return html + '<div style="margin:6px 0;color:#666">no report in the last 72 h</div></div>';
+    const c = aqCat(last.aqi), t0 = hours[last.i], ago = Math.round((Date.now() / 1000 - (t0 + 3600)) / 60);
+    const hr = t => new Date(t * 1000).toLocaleTimeString([], { hour: 'numeric' });
+    html += '<div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span style="font-size:22px;font-weight:700">' + last.aqi + '</span><span style="background:' + AQ_BINS[c][1] + ';color:' + (c >= 3 ? '#fff' : '#111') + ';padding:1px 6px;border-radius:3px">' + AQ_NAMES[c] + '</span></div>';
+    html += '<div>PM2.5 ' + (last.pm != null ? '<b>' + last.pm + ' µg/m³</b>, ' : '') + hr(t0) + '–' + hr(t0 + 3600) + ' <span style="color:#666">(' + (ago < 90 ? ago + ' min' : Math.round(ago / 60) + ' h') + ' ago)</span></div>';
+    const tr = aqTrend(s.pm); if (tr) html += '<div>Last 3 h: <b>' + tr + '</b></div>';
+    html += aqChart(s, hours);
+    html += '<div style="font-size:11px;color:#666;margin-top:4px">Preliminary data, not verified. Source: AirNow (U.S. EPA)' + (s.temp ? ' via USFS AirFire' : '') + (s.agency ? ', ' + aqEsc(s.agency) : '') + '.</div></div>';
+    return html;
+  }
+  function aqMarker(s, cat) {      // cat -1 = hollow grey (stale or no value)
+    if (s.temp) {
+      const fill = cat < 0 ? 'transparent' : AQ_BINS[cat][1], bd = cat < 0 ? '#6b7280' : '#111';
+      return L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', iconSize: [12, 12], iconAnchor: [6, 6], popupAnchor: [0, -6], html: '<div style="width:10px;height:10px;background:' + fill + ';border:1px solid ' + bd + '"></div>' }) });
+    }
+    return cat < 0 ? L.circleMarker([s.lat, s.lon], { radius: 3, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 })
+                   : L.circleMarker([s.lat, s.lon], { radius: 6, color: '#111', weight: 1, fillColor: AQ_BINS[cat][1], fillOpacity: .95 });
+  }
+  function renderAq() {
+    aqLayer.clearLayers(); aqLabelLayer.clearLayers(); aqLayer.addLayer(aqLabelLayer); aqLabels = [];
+    if (!aqData) return;
+    const now = Date.now() / 1000; let n = 0, nt = 0;
+    for (const s of aqData.stations) {
+      const last = aqLast(s), cat = last && !aqStale(s, aqData.hours, now) ? aqCat(last.aqi) : -1;
+      const m = aqMarker(s, cat);
+      if (cat >= 0) { n++; if (s.temp) nt++; aqLabels.push([m.getLatLng(), String(last.aqi), null]); }
+      m.bindPopup(() => aqCard(s), { maxWidth: 300 });
+      m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
+      aqLayer.addLayer(m);
+    }
+    labelAq();
+    $('aqStInfo').innerHTML = '<div class="muted">' + n + ' of ' + aqData.stations.length + ' stations reporting (' + nt + ' temporary) · updated ' + aqData.updated + '</div>' + aqLegend() +
+      '<div class="note">NowCast AQI for PM2.5 (smoke and fine particles), hourly; preliminary data from AirNow and reporting agencies. Squares: temporary smoke monitors. Hollow: no report for 3 h.</div>';
+  }
+  function loadAq() {
+    loadScript('data/airquality.js', () => {
+      aqData = window.AIRQ || aqData; aqLoadedAt = Date.now();
+      if (map.hasLayer(aqLayer)) renderAq();
+      if (window.renderAqGrid && $('lyAqGrid').checked) window.renderAqGrid();
+    }, () => { $('aqStInfo').innerHTML = '<div class="muted">air quality data not available yet</div>'; });
+  }
+  $('lyAqSt').onchange = e => { if (e.target.checked) { aqLayer.addTo(map); if (aqNeedsLoad(aqData, aqLoadedAt, Date.now())) loadAq(); else renderAq(); } else map.removeLayer(aqLayer); };
+  setInterval(() => { if (map.hasLayer(aqLayer) || $('lyAqGrid').checked) loadAq(); }, 15 * 60 * 1000);
+  // ---------- Air quality: AirNow's interpolated AQI (monitors only) ----------
+  const aqOv = L.imageOverlay('', bounds(), { opacity: .55, interactive: false, zIndex: 387 });
+  window.renderAqGrid = function () {
+    if (!aqData) return;
+    const g = aqData.grid;
+    if (!g) { $('aqGridInfo').innerHTML = '<div class="muted">interpolated map not available yet</div>'; return; }
+    aqOv.setUrl(BASE + g.file);
+    $('aqGridInfo').innerHTML = '<div class="muted">AirNow map for ' + new Date((g.t - 3600) * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' }) + '–' + new Date(g.t * 1000).toLocaleTimeString([], { hour: 'numeric' }) + '</div>' + aqLegend() +
+      '<div class="note">Interpolated by AirNow from monitors only; it ignores terrain, so a valley and the ridge above it can differ from what’s shown. Blank where no monitor is near.</div>';
+  };
+  $('lyAqGrid').onchange = e => { if (e.target.checked) { aqOv.addTo(map); if (aqNeedsLoad(aqData, aqLoadedAt, Date.now())) loadAq(); else window.renderAqGrid(); } else map.removeLayer(aqOv); };
+
+
+
   // ---------- NWS alerts ----------
   const alertLayer = L.layerGroup();
   function alertColor(p) {
@@ -1234,6 +1374,15 @@
     if (rvData) { const g = nearest(rvData.sites, ll, s => s.flow != null); if (g && g.km < 40) sec.push('<div style="margin-top:6px;color:#666">Nearest gauge</div><div>' + g.s.name.replace(/, (WA|OR|ID|MT)$/, '') + ' <span style="color:#666">(' + g.km.toFixed(0) + ' km)</span>: <b>' + g.s.flow.toLocaleString() + ' cfs</b>' + (g.s.pctmed != null ? ', ' + g.s.pctmed + '% of normal' : '') + (g.s.chg24 != null ? ', ' + (g.s.chg24 > 0 ? '+' : '') + g.s.chg24 + '% / 24 h' : '') + '</div>'); }
     await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
     if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">' + (z.properties.center_id || 'forecast') + '</a>' : '') + '</div>'); }
+    // air quality: nearest reporting station within 100 km (judgment call, spec ledger); AirNow's grid when that layer is on
+    await new Promise(res => !aqNeedsLoad(aqData, aqLoadedAt, Date.now()) ? res() : loadScript('data/airquality.js', () => { aqData = window.AIRQ || aqData; aqLoadedAt = Date.now(); res(); }, res));
+    if (aqData) {
+      const nowS = Date.now() / 1000, rows = [];
+      const a = nearest(aqData.stations, ll, s => !aqStale(s, aqData.hours, nowS));
+      if (a && a.km <= 100) { const l = aqLast(a.s); rows.push('<div>' + aqEsc(a.s.name) + ' <span style="color:#666">(' + a.km.toFixed(0) + ' km' + (a.s.temp ? ', temporary' : '') + ')</span>: <b>AQI ' + l.aqi + '</b>, ' + AQ_NAMES[aqCat(l.aqi)] + '</div>'); }
+      if ($('lyAqGrid').checked) { const v = sample(await getGrid('aqi'), ll); if (v != null) rows.push('<div>interpolated AQI <b>' + Math.round(v) + '</b>, ' + AQ_NAMES[aqCat(v)] + ' <span style="color:#666">(AirNow, monitors only)</span></div>'); }
+      if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Air quality</div>' + rows.join(''));
+    }
     render('<div style="color:#666">loading hourly forecast…</div>');
     // NWS hourly point forecast (US only)
     try {
@@ -1254,7 +1403,7 @@
   });
 
   // ---------- refresh ----------
-  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
+  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv, aqOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
   function refresh() {
     loadScript('frames.js', () => { const wasPlaying = !!timer; pause(); data = window.RADAR_DATA || data; applyData(); if (wasPlaying) play(); });
   }
@@ -1302,7 +1451,7 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAlerts'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyAlerts'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }

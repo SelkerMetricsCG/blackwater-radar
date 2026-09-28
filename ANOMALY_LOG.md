@@ -58,3 +58,19 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
 - **Test to run:** each sensor's record through last winter's wet season (a failed sensor stays at 0.0).
 - **Decision:** none yet. The map shows the values as reported (spec judgment call: Chris decides whether to hide them).
 - **Status:** open, for Chris.
+
+## 2026-09-27: AirFire's NowCast for the newest hour can lag one hour (air quality check, Boundary County ID)
+- **Seen:** data check 2026-09-28 ~03:00 UTC (pnw), `smoke_research/aq_check.py`: AirNow's PM25_AQI matched AirFire's
+  NowCast (2024 breakpoints) at 241 of 242 stations; the exception, Boundary County (160210002, Idaho DEQ), had AirNow
+  AQI 7 at 01 UTC against AirFire NowCast 2.3 ug/m3 (AQI 13). Hours 22, 23 and 00 UTC agreed exactly (0.7, 1.7, 2.3 ->
+  AQI 4, 9, 13). AirFire's 01 UTC NowCast equals its 00 UTC value, and its in-progress 02 UTC row holds 1.3 (AQI 7),
+  which is AirNow's 01 UTC value.
+- **Hypotheses:** (1) the site's 01 UTC reading reached AirFire late, so AirFire computed the 01 UTC NowCast without it
+  (carried forward) and folded it into the next row; predicts agreement at every other hour and at most sites.
+  (2) AirFire and AirNow use different instruments at the site; rejected: AirFire has one deployment for the AQSID and
+  the earlier hours agree. (3) a bug in our comparison; rejected: the same code agrees at 241 stations and every other hour.
+- **Why it matters:** permanent monitors show AirNow's own AQI, so they are unaffected. Temporary monitors take AQI from
+  AirFire's NowCast, so a late reading could leave a temporary monitor's newest hour one hour stale.
+- **Decision:** none; the layer uses AirFire only for temporary monitors (spec decision 9). Chris to decide whether that
+  one-hour risk matters.
+- **Status:** explained (hypothesis 1), open for Chris.

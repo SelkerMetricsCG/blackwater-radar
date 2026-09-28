@@ -1,0 +1,424 @@
+"""
+Air quality stations and AirNow's interpolated AQI map (the map's "Air quality" section).
+
+Every 15-minute radar run, for the region in REGION:
+  data/airquality.js     window.AIRQ = {updated, updated_t, hours:[72 UTC hour starts, epoch s], grid, stations:[...]}
+  data/aq_cache.json     private rolling store (cloud.py STATE_FILES): 72 h per station, the grid's Last-Modified
+  frames/aq/aqi.webp     AirNow's gridded NowCast AQI in the official category colours (rewritten when it changes)
+  data/values/aqi.js     the same grid for click-anywhere
+
+Permanent monitors: AirNow's public HourlyAQObs files, values unchanged (PM25_AQI is AirNow's NowCast AQI).
+Temporary smoke monitors: USFS AirFire's export of the same AirNow feed, which keeps true hour stamps
+(AirNowWildfire.csv does not: see the spec, decision 9). Their AQI comes from NowCast PM2.5 with EPA's 2024 breakpoints.
+Design: docs/superpowers/specs/2026-09-27-air-quality-layer-design.md; sources: smoke_research/sources_notes.md.
+
+Run standalone (writes local files, uploads nothing):  python airquality.py
+"""
+import csv
+import datetime as dt
+import hashlib
+import io
+import json
+import math
+import os
+import shutil
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+import region
+
+AIRNOW = "https://files.airnowtech.org/airnow"
+AIRFIRE = "https://airfire-data-exports.s3.us-west-2.amazonaws.com/monitoring/v2/latest/data/"
+GRID_URL = AIRNOW + "/today/current_pm25.grib2"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
+TIMEOUT = 30
+KEEP_H = 72                 # hours of history per station (AirNow keeps 72 h of hourly files)
+BACKFILL_PER_RUN = 24       # missing AirNow hours fetched per run; an empty store fills in 3 runs
+DEADLINE_S = 150            # stop backfilling after this long so the 15-minute job stays short
+CACHE_MAX_AGE_S = 600       # the five region steps of one Actions job share each download
+STEP = 2                    # grid computed at half the 1280 px window, like freezing.py
+AQ_EDGES = (51, 101, 151, 201, 301)            # AQI category starts (EPA AQI TAD, May 2024)
+AQ_COLORS = ((0, 228, 0), (255, 255, 0), (255, 126, 0), (255, 0, 0), (143, 63, 151), (126, 0, 35))
+PM25_BP = ((0.0, 9.0, 0, 50), (9.1, 35.4, 51, 100), (35.5, 55.4, 101, 150), (55.5, 125.4, 151, 200),
+           (125.5, 225.4, 201, 300), (225.5, 325.4, 301, 500))     # EPA AQI TAD, May 2024
+
+DATA = region.data_dir()
+OUT = os.path.join(DATA, "airquality.js")
+STORE = os.path.join(DATA, "aq_cache.json")
+FRAME_DIR = os.path.join(region.frames_dir(), "aq")
+CACHE_DIR = os.path.join(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir(), "airnow_cache")
+
+
+class NotPosted(Exception):
+    """the file is not on the server (yet)"""
+
+
+class HostDown(Exception):
+    """an earlier request to this host timed out or failed to connect in this job; don't wait on it again"""
+
+
+def _num(s):
+    """a finite number, or None (blank, NA, NaN, inf)"""
+    try:
+        v = float(s)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def aqi_from_pm25(c):
+    """NowCast PM2.5 (ug/m3) -> AQI with EPA's 2024 breakpoints; above 325.4 the last segment is extended (judgment call)"""
+    if c is None or c < 0:
+        return None
+    c = math.floor(c * 10 + 1e-9) / 10                   # EPA: truncate to 0.1 ug/m3
+    for clo, chi, ilo, ihi in PM25_BP:
+        if c <= chi:
+            break
+    return int(math.floor((ihi - ilo) / (chi - clo) * (c - clo) + ilo + 0.5))
+
+
+def parse_hourly(text):
+    """HourlyAQObs CSV -> [{id, name, agency, lat, lon, elev, t, aqi, pm}] for rows with a PM2.5 AQI (t = UTC hour start)"""
+    out = []
+    for r in csv.DictReader(io.StringIO(text)):
+        if None in r.values():               # a short row (a truncated file): DictReader fills missing columns with None
+            continue
+        aqi = _num(r.get("PM25_AQI"))
+        if aqi is None or aqi < 0 or not r.get("AQSID"):
+            continue
+        try:
+            t = dt.datetime.strptime(r["ValidDate"] + " " + r["ValidTime"], "%m/%d/%Y %H:%M").replace(tzinfo=dt.timezone.utc)
+            lat, lon = float(r["Latitude"]), float(r["Longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        out.append({"id": r["AQSID"], "name": (r.get("SiteName") or "").strip(), "agency": (r.get("DataSource") or "").strip(),
+                    "lat": lat, "lon": lon, "elev": _num(r.get("Elevation")), "t": int(t.timestamp()),
+                    "aqi": int(aqi), "pm": _num(r.get("PM25"))})
+    return out
+
+
+def _stamp(s):
+    """'2026-09-28T01:00:00Z' -> epoch seconds"""
+    return int(dt.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp())
+
+
+def parse_airfire(meta_text, raw_text, nowcast_text):
+    """AirFire's wide hourly files -> the same records for temporary monitors. An hour counts only with a raw value:
+    the newest row is the hour in progress, raw all NA and NowCast carried forward (checked 2026-09-28)."""
+    raw = list(csv.reader(io.StringIO(raw_text)))
+    nc = list(csv.reader(io.StringIO(nowcast_text)))
+    if not raw or not nc:
+        return []
+    rcol = {d: i for i, d in enumerate(raw[0])}
+    ncol = {d: i for i, d in enumerate(nc[0])}
+    nrow = {r[0]: r for r in nc[1:] if r}
+    out = []
+    for m in csv.DictReader(io.StringIO(meta_text)):
+        dev = m.get("deviceDeploymentID")
+        if m.get("deploymentType") != "Temporary" or dev not in rcol or dev not in ncol:
+            continue
+        lat, lon = _num(m.get("latitude")), _num(m.get("longitude"))
+        if lat is None or lon is None:
+            continue
+        addr = (m.get("address") or "").strip()
+        name = addr.split(",")[0].strip() if addr and addr != "NA" else (m.get("locationName") or dev)
+        agency = m.get("airnow_agencyName") or ""
+        for r in raw[1:]:
+            if len(r) <= rcol[dev]:
+                continue
+            n = nrow.get(r[0])
+            pm = _num(r[rcol[dev]])
+            c = _num(n[ncol[dev]]) if n and len(n) > ncol[dev] else None
+            if pm is None or c is None:
+                continue
+            try:
+                t = _stamp(r[0])
+            except ValueError:
+                continue
+            out.append({"id": dev, "name": name, "agency": "" if agency == "NA" else agency, "lat": lat, "lon": lon,
+                        "elev": _num(m.get("elevation")), "t": t, "aqi": aqi_from_pm25(c), "pm": pm})
+    return out
+
+
+def in_window(lat, lon, bbox):
+    lat0, lat1, lon0, lon1 = bbox
+    return lat0 <= lat <= lat1 and lon0 <= lon <= lon1
+
+
+def merge(store, recs, temp, bbox):
+    """add records to the store (a revised hour overwrites); records outside the region window are dropped"""
+    st = store.setdefault("st", {})
+    for r in recs:
+        if not in_window(r["lat"], r["lon"], bbox):
+            continue
+        s = st.setdefault(r["id"], {"h": {}})
+        s.update(name=r["name"], agency=r["agency"], lat=r["lat"], lon=r["lon"], elev=r["elev"], temp=temp)
+        s["h"][str(r["t"])] = [r["aqi"], None if r["pm"] is None else round(r["pm"], 1)]
+    return store
+
+
+def prune(store, newest):
+    """drop hours older than the 72 h window ending at newest (a UTC hour start), then stations left empty"""
+    first = newest - (KEEP_H - 1) * 3600
+    st = store.get("st", {})
+    for sid in list(st):
+        h = st[sid]["h"]
+        for k in [k for k in h if int(k) < first]:
+            del h[k]
+        if not h:
+            del st[sid]
+    store["have"] = sorted(t for t in store.get("have", []) if t >= first)
+    return store
+
+
+def to_airq(store, newest, now):
+    """the window.AIRQ object: 72 hour slots ending at newest, one aqi and one pm value per slot (None = no report)"""
+    hours = [newest - (KEEP_H - 1 - i) * 3600 for i in range(KEEP_H)]
+    stations = []
+    for sid in sorted(store.get("st", {})):
+        s = store["st"][sid]
+        vals = [s["h"].get(str(t)) for t in hours]
+        stations.append({"id": sid, "name": s["name"], "agency": s["agency"], "lat": s["lat"], "lon": s["lon"],
+                         "elev": s["elev"], "temp": s["temp"],
+                         "aqi": [v[0] if v else None for v in vals], "pm": [v[1] if v else None for v in vals]})
+    g = store.get("grid")
+    return {"updated": dt.datetime.fromtimestamp(now).strftime("%a %b %d %I:%M %p"), "updated_t": int(now),
+            "hours": hours, "grid": {"t": g["t"], "file": g["file"]} if g else None, "stations": stations}
+
+
+def fetch(url):
+    """-> (bytes, Last-Modified). The five region steps of one Actions job share each download for CACHE_MAX_AGE_S."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    path = os.path.join(CACHE_DIR, hashlib.sha1(url.encode()).hexdigest())
+    if os.path.exists(path) and os.path.exists(path + ".lm") and time.time() - os.path.getmtime(path) < CACHE_MAX_AGE_S:
+        with open(path, "rb") as f, open(path + ".lm", encoding="utf-8") as g:
+            return f.read(), g.read()
+    try:
+        with _open(urllib.request.Request(url, headers={"User-Agent": UA})) as r:
+            body, lm = r.read(), r.headers.get("Last-Modified") or ""
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 404):          # S3 answers 403 for a key that does not exist
+            raise NotPosted(url) from e
+        raise
+    with open(path + ".lm", "w", encoding="utf-8") as g:
+        g.write(lm)
+    with open(path + ".tmp", "wb") as f:
+        f.write(body)
+    os.replace(path + ".tmp", path)
+    return body, lm
+
+
+def _open(req):
+    """urlopen, except that once a host has timed out or refused in this job (the five region steps share CACHE_DIR),
+    later requests to it fail at once instead of each waiting TIMEOUT: a hung host would otherwise add ~10 min to the
+    15-minute radar job. HTTP errors (the host answered) don't count."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    down = os.path.join(CACHE_DIR, "down_" + urllib.parse.urlsplit(req.full_url).netloc)
+    if os.path.exists(down) and time.time() - os.path.getmtime(down) < CACHE_MAX_AGE_S:
+        raise HostDown(req.full_url)
+    try:
+        return urllib.request.urlopen(req, timeout=TIMEOUT)
+    except urllib.error.HTTPError:
+        raise
+    except OSError:                        # URLError, timeouts, refused connections
+        open(down, "w").close()
+        raise
+
+
+def head_last_modified(url):
+    req = urllib.request.Request(url, headers={"User-Agent": UA}, method="HEAD")
+    with _open(req) as r:
+        return r.headers.get("Last-Modified") or ""
+
+
+def hourly_url(t):
+    d = dt.datetime.fromtimestamp(t, dt.timezone.utc)
+    return "%s/%s/%s/HourlyAQObs_%s.dat" % (AIRNOW, d.strftime("%Y"), d.strftime("%Y%m%d"), d.strftime("%Y%m%d%H"))
+
+
+def load_store():
+    try:
+        with open(STORE, encoding="utf-8") as f:
+            s = json.load(f)
+        if isinstance(s, dict) and s.get("v") == 1:
+            return s
+    except (OSError, ValueError):
+        pass
+    return {"v": 1}
+
+
+def _write(path, text):
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(path + ".tmp", path)
+
+
+def _name(url):
+    return url.rsplit("/", 1)[-1]
+
+
+def aq_category(a):
+    """AQI (number or numpy array) -> category 0 (Good) .. 5 (Hazardous), after rounding half up like the map does"""
+    import numpy as np
+    return np.digitize(np.floor(np.asarray(a, dtype=float) + 0.5), AQ_EDGES)
+
+
+def window_latlon():
+    """latitudes (rows) and longitudes (columns) of the map window's pixel centres, every STEP pixels"""
+    import numpy as np
+    z, x0, x1, y0, y1 = region.window()
+    n, tile = 2 ** z, 256
+    ys = (np.arange(0, (y1 - y0 + 1) * tile, STEP) + STEP / 2) / tile + y0
+    xs = (np.arange(0, (x1 - x0 + 1) * tile, STEP) + STEP / 2) / tile + x0
+    return np.degrees(np.arctan(np.sinh(np.pi - 2 * np.pi * ys / n))), xs / n * 360.0 - 180.0
+
+
+def resample(a, lat, lon):
+    """nearest-neighbour lookup of a regular lat/lon grid onto the window (either latitude order; longitude 0..360 or
+    -180..180), as mrms.py does; NaN outside the source grid"""
+    import numpy as np
+    lat_w, lon_w = window_latlon()
+    lon = np.where(lon > 180, lon - 360, lon)
+    iy = np.round((lat_w - lat[0]) / (lat[1] - lat[0])).astype(int)
+    ix = np.round((lon_w - lon[0]) / (lon[1] - lon[0])).astype(int)
+    oky, okx = (iy >= 0) & (iy < len(lat)), (ix >= 0) & (ix < len(lon))
+    g = np.asarray(a, dtype=np.float32)[np.ix_(np.clip(iy, 0, len(lat) - 1), np.clip(ix, 0, len(lon) - 1))]
+    g[~oky, :] = np.nan
+    g[:, ~okx] = np.nan
+    return g
+
+
+def colorize(aqi):
+    """(H, W) AQI -> RGBA image in the official category colours; NaN (AirNow's blanked cells) transparent"""
+    import numpy as np
+    from PIL import Image
+    ok = ~np.isnan(aqi)
+    cat = aq_category(np.where(ok, aqi, 0))
+    rgb = np.zeros(aqi.shape + (3,), np.uint8)
+    for i, c in enumerate(AQ_COLORS):
+        rgb[cat == i] = c
+    return Image.fromarray(np.dstack([rgb, np.where(ok, 255, 0).astype(np.uint8)]), "RGBA")
+
+
+def build_grid(store, log=print):
+    """AirNow's interpolated NowCast AQI -> frames/aq/aqi.webp and data/values/aqi.js. False (nothing downloaded) when
+    its Last-Modified is the one in the store. Checked 2026-09-28: one variable 'aerot', regular lat/lon 1778 x 3700,
+    latitude ascending from 20 N, longitude 0..360, blanked cells NaN, valid_time one hour after the data hour."""
+    lm = head_last_modified(GRID_URL)
+    if lm and lm == (store.get("grid") or {}).get("lm"):
+        return False
+    import cfgrib
+    import numpy as np
+    from PIL import Image
+    body, lm2 = fetch(GRID_URL)
+    work = os.path.join(CACHE_DIR, "grid")
+    os.makedirs(work, exist_ok=True)
+    path = os.path.join(work, "current_pm25.grib2")
+    with open(path, "wb") as f:
+        f.write(body)
+    try:
+        ds = cfgrib.open_datasets(path)[0]
+        lat, lon = ds.latitude.values, ds.longitude.values
+        if lat.ndim != 1:
+            raise RuntimeError("AirNow grid is not regular lat/lon")
+        a = ds[list(ds.data_vars)[0]].values.astype(np.float32)
+        with np.errstate(invalid="ignore"):
+            a[(a < 0) | (a >= 9999)] = np.nan
+        grid = resample(a, lat, lon)
+        valid = int(np.datetime64(ds.valid_time.values, "s").astype("int64"))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)            # the GRIB and cfgrib's .idx files
+    os.makedirs(FRAME_DIR, exist_ok=True)
+    img = colorize(grid)
+    img = img.resize((img.width * STEP, img.height * STEP), Image.NEAREST)
+    tmp = os.path.join(FRAME_DIR, "aqi.tmp.webp")
+    img.save(tmp, "WEBP", lossless=True)
+    os.replace(tmp, os.path.join(FRAME_DIR, "aqi.webp"))
+    write_values(grid)
+    store["grid"] = {"lm": lm or lm2, "t": valid, "file": "frames/aq/aqi.webp?v=%d" % int(time.time())}
+    log("airquality: grid valid %s, %d%% of the window has data" % (
+        dt.datetime.fromtimestamp(valid, dt.timezone.utc).strftime("%H:%MZ"), round(100 * float(np.isfinite(grid).mean()))))
+    return True
+
+
+def write_values(grid):
+    """click-anywhere value grid -> data/values/aqi.js. values.write_grid needs the full 1280 px window (as freezing.py
+    passes it): given the 640 px grid it keeps only the top-left 512 px and stretches them over the map."""
+    import numpy as np
+    import values
+    return values.write_grid("aqi", np.kron(grid, np.ones((STEP, STEP), np.float32)), unit="AQI", scale=1)
+
+
+def build(log=print, now=None):
+    t_start = time.time()
+    now = now or time.time()
+    bbox = region.bbox()
+    store = load_store()
+    have = set(store.get("have", []))
+    top = int(now) // 3600 * 3600 - 3600          # newest hour AirNow could have posted (UTC hour start)
+    got = []
+    for t in (top, top - 3600, top - 7200):       # the two newest posted hours, every run (AirNow revises the older one)
+        if len(got) == 2:
+            break
+        try:
+            body, _ = fetch(hourly_url(t))
+            merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
+        except NotPosted:
+            continue
+        except Exception as e:  # noqa: BLE001
+            log("airquality: %s failed: %r" % (_name(hourly_url(t)), e))
+            continue
+        got.append(t)
+    newest = max(got) if got else None
+    n_back = 0
+    if newest is not None:
+        have.update(got)
+        for t in range(newest - 3600, newest - KEEP_H * 3600, -3600):
+            if n_back >= BACKFILL_PER_RUN or time.time() - t_start > DEADLINE_S:
+                break
+            if t in have:
+                continue
+            try:
+                body, _ = fetch(hourly_url(t))
+                merge(store, parse_hourly(body.decode("utf-8", "replace")), False, bbox)
+            except NotPosted:
+                pass                                   # a missing old hour stays missing; don't ask again
+            except Exception as e:  # noqa: BLE001
+                log("airquality: backfill %s failed: %r" % (_name(hourly_url(t)), e))
+                continue
+            have.add(t)
+            n_back += 1
+    temps = []
+    try:
+        texts = [fetch(AIRFIRE + fn)[0].decode("utf-8", "replace") for fn in
+                 ("airnow_PM2.5_latest_meta.csv", "airnow_PM2.5_latest_data.csv", "airnow_PM2.5_nowcast_latest_data.csv")]
+        temps = [r for r in parse_airfire(*texts) if in_window(r["lat"], r["lon"], bbox)]
+        merge(store, temps, True, bbox)
+    except Exception as e:  # noqa: BLE001
+        log("airquality: AirFire temporary monitors failed: %r" % e)
+    t_temp = max((r["t"] for r in temps), default=None)
+    if newest is None and t_temp is None:
+        raise RuntimeError("no AirNow or AirFire data this run; keeping the last good file")
+    newest = max(t for t in (newest, t_temp) if t is not None)
+    store["have"] = sorted(have)
+    prune(store, newest)
+    try:
+        grid = "new" if build_grid(store, log) else "unchanged"
+    except Exception as e:  # noqa: BLE001
+        grid = "FAILED %r" % e
+    airq = to_airq(store, newest, now)
+    _write(OUT, "window.AIRQ = %s;\n" % json.dumps(airq, separators=(",", ":")))
+    _write(STORE, json.dumps(store, separators=(",", ":")))
+    n_temp = sum(1 for s in airq["stations"] if s["temp"])
+    log("airquality: %d stations (%d temporary), newest %sZ, %d backfilled, grid %s" % (
+        len(airq["stations"]), n_temp, dt.datetime.fromtimestamp(newest, dt.timezone.utc).strftime("%H"), n_back, grid))
+    return len(airq["stations"])
+
+
+if __name__ == "__main__":
+    t0 = time.time()
+    build()
+    print("done in %.0fs" % (time.time() - t0))

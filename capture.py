@@ -62,7 +62,7 @@ PALETTE_FILE = os.path.join(ROOT, "rv_palette.json")
 # overrides used by cloud.py (None = decide from the clock / missing files)
 FORCE_HOURLY = None
 FORCE_HALF = None
-HOURLY_ONLY = False      # hourly job: skip radar, satellite, accumulation, manifest and alerts (the radar job owns those)
+HOURLY_ONLY = False      # hourly job: skip radar, satellite, accumulation, manifest, alerts and air quality (the radar job owns those)
 _palette = None
 
 
@@ -222,6 +222,11 @@ def capture_all():
             ok.append("alerts %d" % alerts.build(log))
         except Exception as e:  # noqa: BLE001
             log("alerts FAILED: %r" % e)
+        try:
+            import airquality
+            ok.append("airquality %d" % airquality.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("airquality FAILED: %r" % e)
     # river gauges and webcams: every half hour, or if missing
     rv_file = os.path.join(region.data_dir(), "rivers.js")
     half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15 or not os.path.exists(rv_file))

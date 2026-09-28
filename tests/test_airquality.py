@@ -1,0 +1,387 @@
+"""Air quality layer (airquality.py): AirNow HourlyAQObs, AirFire temporary monitors, store, AIRQ (no network)."""
+import datetime as dt
+import json
+
+import pytest
+
+import airquality
+
+BBOX = (43.0, 52.5, -126.6, -112.5)          # the pnw window, rounded
+T00 = int(dt.datetime(2026, 9, 28, 0, tzinfo=dt.timezone.utc).timestamp())
+HDR = ('"AQSID","SiteName","Status","EPARegion","Latitude","Longitude","Elevation","GMTOffset","CountryCode","StateName",'
+       '"ValidDate","ValidTime","DataSource","ReportingArea_PipeDelimited","OZONE_AQI","PM10_AQI","PM25_AQI","NO2_AQI",'
+       '"OZONE_Measured","PM10_Measured","PM25_Measured","NO2_Measured","PM25","PM25_Unit","OZONE","OZONE_Unit","NO2",'
+       '"NO2_Unit","CO","CO_Unit","SO2","SO2_Unit","PM10","PM10_Unit"')
+
+
+def row(aqsid, name, lat, lon, when, aqi, pm, agency="Washington Dept. of Ecology", elev="30.0"):
+    return ('"%s","%s","Active","R10","%s","%s","%s","-8","US","WA","%s","%s","%s","","","","%s","","0","0","1","0",'
+            '"%s","UG/M3","","","","","","","","","",""' % (aqsid, name, lat, lon, elev, when.strftime("%m/%d/%Y"),
+                                                           when.strftime("%H:%M"), agency, aqi, pm))
+
+
+def hourly(t, rows):
+    return "\n".join([HDR] + rows) + "\n"
+
+
+def when(t):
+    return dt.datetime.fromtimestamp(t, dt.timezone.utc)
+
+
+def airfire(hours, temp_vals, perm_vals=None):
+    """AirFire wide files: one temporary monitor inside the window, one outside, one permanent (ignored)."""
+    meta = ("deviceDeploymentID,deviceID,locationName,longitude,latitude,elevation,address,airnow_agencyName,deploymentType\n"
+            "d_tmp,840MMWA1,MMWA1,-120.66,47.60,350,\"Leavenworth Fish Hatchery, Icicle Road, Chelan County, WA\",USFS,Temporary\n"
+            "d_far,840MMCA9,MMCA9,-119.6,37.7,2200,NA,California Air Resources Board,Temporary\n"
+            "d_perm,530330080,Seattle,-122.3,47.6,30,NA,Washington Dept. of Ecology,Permanent\n")
+    stamps = [when(t).strftime("%Y-%m-%dT%H:%M:%SZ") for t in hours]
+    raw = ["datetime,d_tmp,d_far,d_perm"] + ["%s,%s,5,7" % (s, r) for s, (r, _) in zip(stamps, temp_vals)]
+    nc = ["datetime,d_tmp,d_far,d_perm"] + ["%s,%s,5,7" % (s, n) for s, (_, n) in zip(stamps, temp_vals)]
+    return meta, "\n".join(raw) + "\n", "\n".join(nc) + "\n"
+
+
+# ---------- AQI conversion (EPA AQI TAD, May 2024) ----------
+@pytest.mark.parametrize("c,aqi", [(0.0, 0), (4.6, 26), (6.6, 37), (9.0, 50), (9.1, 51), (12.0, 56), (35.4, 100),
+                                   (35.5, 101), (55.4, 150), (125.4, 200), (225.4, 300), (325.4, 500), (9.05, 50)])
+def test_aqi_from_pm25_breakpoints(c, aqi):
+    # 4.6 -> 26 and 6.6 -> 37 are AirNow's own values for two temporary monitors (AirNowWildfire.csv, 2026-09-28)
+    assert airquality.aqi_from_pm25(c) == aqi
+
+
+def test_aqi_above_the_top_breakpoint_extends_the_last_segment():
+    assert airquality.aqi_from_pm25(425.3) == 699
+    assert airquality.aqi_from_pm25(None) is None and airquality.aqi_from_pm25(-1) is None
+
+
+# ---------- parsing ----------
+def test_parse_hourly_keeps_pm25_rows_with_utc_hour_start():
+    text = hourly(T00, [row("530330080", "Seattle-10th & Weller", "47.5965", "-122.3197", when(T00), "44", "8.0"),
+                        row("000010601", "Goose Bay", "53.3047", "-60.3644", when(T00), "", "")])
+    recs = airquality.parse_hourly(text)
+    assert [r["id"] for r in recs] == ["530330080"]
+    r = recs[0]
+    assert (r["t"], r["aqi"], r["pm"], r["agency"], r["elev"]) == (T00, 44, 8.0, "Washington Dept. of Ecology", 30.0)
+
+
+def test_aqi_without_raw_value_is_kept_with_pm_none():
+    # AirNow sometimes has PM25_AQI but a blank PM25 (seen at an Oakland site, 2026-09-28)
+    recs = airquality.parse_hourly(hourly(T00, [row("060010011", "Oakland", "37.74", "-122.17", when(T00), "44", "")]))
+    assert recs[0]["aqi"] == 44 and recs[0]["pm"] is None
+
+
+def test_malformed_rows_are_skipped():
+    good = row("530330080", "Seattle", "47.59", "-122.31", when(T00), "44", "8.0")
+    bad_lat = row("530330081", "Bad lat", "x", "-122.31", when(T00), "44", "8.0")
+    no_id = row("", "No id", "47.59", "-122.31", when(T00), "44", "8.0")
+    truncated = good[:40]
+    recs = airquality.parse_hourly(hourly(T00, [bad_lat, no_id, good, truncated]))
+    assert [r["id"] for r in recs] == ["530330080"]
+
+
+def test_parse_airfire_takes_temporary_monitors_hours_with_a_raw_value():
+    hours = [T00 - 3600, T00, T00 + 3600]
+    # the last row is the hour in progress: raw NA, NowCast carried forward
+    meta, raw, nc = airfire(hours, [("15", "7.8"), ("9", "8.4"), ("NA", "8.4")])
+    recs = airquality.parse_airfire(meta, raw, nc)
+    tmp = [r for r in recs if r["id"] == "d_tmp"]
+    assert [r["t"] for r in tmp] == [T00 - 3600, T00]
+    assert [(r["pm"], r["aqi"]) for r in tmp] == [(15.0, 43), (9.0, 47)]
+    assert tmp[0]["name"] == "Leavenworth Fish Hatchery" and tmp[0]["agency"] == "USFS" and tmp[0]["elev"] == 350.0
+    assert {r["id"] for r in recs} == {"d_tmp", "d_far"}        # the permanent column is ignored
+
+
+def test_parse_airfire_falls_back_to_location_name():
+    meta, raw, nc = airfire([T00], [("9", "8.4")])
+    far = [r for r in airquality.parse_airfire(meta, raw, nc) if r["id"] == "d_far"][0]
+    assert far["name"] == "MMCA9"
+
+
+# ---------- store ----------
+def recs_at(t, aqi, pm=8.0, sid="530330080", lat=47.59, lon=-122.31):
+    return [{"id": sid, "name": "Seattle", "agency": "Ecology", "lat": lat, "lon": lon, "elev": 30.0, "t": t,
+             "aqi": aqi, "pm": pm}]
+
+
+def test_merge_clips_to_the_region_window():
+    store = airquality.merge({"v": 1}, recs_at(T00, 40) + recs_at(T00, 60, sid="080310026", lat=39.7, lon=-105.0),
+                             False, BBOX)
+    assert list(store["st"]) == ["530330080"]
+
+
+def test_a_revised_hour_overwrites_the_older_value():
+    store = airquality.merge({"v": 1}, recs_at(T00, 40, 7.9), False, BBOX)
+    airquality.merge(store, recs_at(T00, 45, 9.2), False, BBOX)
+    assert store["st"]["530330080"]["h"][str(T00)] == [45, 9.2]
+
+
+def test_prune_drops_hours_older_than_72_and_empty_stations():
+    store = airquality.merge({"v": 1, "have": [T00 - 72 * 3600, T00]}, recs_at(T00 - 72 * 3600, 30), False, BBOX)
+    airquality.merge(store, recs_at(T00 - 71 * 3600, 31, sid="530330081"), False, BBOX)
+    airquality.prune(store, T00)
+    assert list(store["st"]) == ["530330081"] and store["have"] == [T00]
+
+
+def test_to_airq_aligns_72_hours_ending_at_newest():
+    store = airquality.merge({"v": 1}, recs_at(T00, 44, 8.0) + recs_at(T00 - 2 * 3600, 41, 7.0), False, BBOX)
+    store["grid"] = {"lm": "x", "t": T00 + 3600, "file": "frames/aq/aqi.webp?v=1"}
+    a = airquality.to_airq(store, T00, T00 + 5400)
+    assert len(a["hours"]) == 72 and a["hours"][-1] == T00 and a["hours"][0] == T00 - 71 * 3600
+    s = a["stations"][0]
+    assert s["aqi"][-3:] == [41, None, 44] and s["pm"][-3:] == [7.0, None, 8.0] and s["temp"] is False
+    assert a["grid"] == {"t": T00 + 3600, "file": "frames/aq/aqi.webp?v=1"}
+    json.dumps(a)                                    # must serialise
+
+
+def test_to_airq_of_an_empty_store_is_valid():
+    a = airquality.to_airq({"v": 1}, T00, T00 + 5400)
+    assert a["stations"] == [] and a["grid"] is None and len(a["hours"]) == 72
+
+
+# ---------- build(): fetch, backfill, keep last good ----------
+import urllib.error          # noqa: E402
+
+NOW = T00 + 2 * 3600 + 1800          # 02:30 UTC: 01 UTC may not be posted yet, 00 and 23 are
+LM = "Mon, 28 Sep 2026 01:44:48 GMT"
+
+
+def serve(files, calls=None):
+    """fake airquality.fetch: url -> text (or an Exception to raise); anything else is not posted"""
+    def fetch(url):
+        if calls is not None:
+            calls.append(url)
+        v = files.get(url)
+        if v is None:
+            raise airquality.NotPosted(url)
+        if isinstance(v, Exception):
+            raise v
+        return v.encode(), LM
+    return fetch
+
+
+def af_urls(meta, raw, nc):
+    return {airquality.AIRFIRE + "airnow_PM2.5_latest_meta.csv": meta,
+            airquality.AIRFIRE + "airnow_PM2.5_latest_data.csv": raw,
+            airquality.AIRFIRE + "airnow_PM2.5_nowcast_latest_data.csv": nc}
+
+
+def seattle(t, aqi, pm="8.0"):
+    return hourly(t, [row("530330080", "Seattle-10th & Weller", "47.5965", "-122.3197", when(t), str(aqi), pm)])
+
+
+@pytest.fixture
+def job(tmp_path, monkeypatch):
+    monkeypatch.setattr(airquality, "OUT", str(tmp_path / "airquality.js"))
+    monkeypatch.setattr(airquality, "STORE", str(tmp_path / "aq_cache.json"))
+    monkeypatch.setattr(airquality.region, "bbox", lambda: BBOX)
+    monkeypatch.setattr(airquality, "build_grid", lambda store, log=print: False)
+    return tmp_path
+
+
+def read_airq(path):
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("window.AIRQ = ")
+    return json.loads(text[len("window.AIRQ = "):].rstrip().rstrip(";"))
+
+
+def test_first_run_writes_permanent_and_temporary_monitors(job, monkeypatch):
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    files.update(af_urls(*airfire([T00, T00 + 3600, T00 + 7200], [("9", "8.4"), ("2", "4.3"), ("NA", "4.3")])))
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    assert airquality.build(log=lambda *a: None, now=NOW) == 2
+    a = read_airq(job / "airquality.js")
+    assert a["hours"][-1] == T00 + 3600                     # newest: the temporary monitor's 01 UTC hour
+    by = {s["id"]: s for s in a["stations"]}
+    assert by["530330080"]["aqi"][-3:] == [40, 44, None]
+    assert by["d_tmp"]["aqi"][-2:] == [47, 24] and by["d_tmp"]["temp"] is True   # NowCast 8.4 and 4.3 ug/m3
+    assert "d_far" not in by                               # outside the window
+
+
+def test_unposted_top_hour_falls_back(job, monkeypatch):
+    calls = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files, calls))
+    airquality.build(log=lambda *a: None, now=NOW)
+    hourly_calls = [u for u in calls if "HourlyAQObs" in u]
+    assert hourly_calls[:3] == [airquality.hourly_url(T00 + 3600), airquality.hourly_url(T00), airquality.hourly_url(T00 - 3600)]
+
+
+def test_backfill_is_capped_per_run_and_remembered(job, monkeypatch):
+    calls = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files, calls))
+    airquality.build(log=lambda *a: None, now=NOW)
+    first = [u for u in calls if "HourlyAQObs" in u]
+    assert len(first) == 3 + airquality.BACKFILL_PER_RUN      # 01 (not posted), 00, 23, then 24 older hours
+    calls.clear()
+    airquality.build(log=lambda *a: None, now=NOW + 900)
+    second = [u for u in calls if "HourlyAQObs" in u]
+    assert airquality.hourly_url(T00 - 3 * 3600) not in second   # asked last run: not again
+    assert len(second) == 3 + airquality.BACKFILL_PER_RUN        # the next 24 missing hours
+
+
+def test_second_run_takes_the_revised_hour(job, monkeypatch):
+    files = {airquality.hourly_url(T00): seattle(T00, 44), airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    airquality.build(log=lambda *a: None, now=NOW)
+    files[airquality.hourly_url(T00)] = seattle(T00, 47, "9.9")
+    airquality.build(log=lambda *a: None, now=NOW + 900)
+    s = read_airq(job / "airquality.js")["stations"][0]
+    assert s["aqi"][-1] == 47 and s["pm"][-1] == 9.9
+
+
+def test_everything_down_keeps_the_last_good_file(job, monkeypatch):
+    out = job / "airquality.js"
+    out.write_text('window.AIRQ = {"stations": [1]};\n', encoding="utf-8")
+    monkeypatch.setattr(airquality, "fetch", serve({}))
+    with pytest.raises(RuntimeError):
+        airquality.build(log=lambda *a: None, now=NOW)
+    assert out.read_text(encoding="utf-8") == 'window.AIRQ = {"stations": [1]};\n'
+
+
+def test_airfire_down_still_writes_permanent_monitors(job, monkeypatch):
+    logs = []
+    files = {airquality.hourly_url(T00): seattle(T00, 44)}
+    files.update({u: urllib.error.URLError("timed out") for u in af_urls("", "", "")})
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert any("AirFire" in m and "failed" in m for m in logs)
+
+
+def test_grid_failure_still_writes_stations(job, monkeypatch):
+    logs = []
+
+    def broken(store, log=print):
+        raise RuntimeError("cfgrib exploded")
+    monkeypatch.setattr(airquality, "build_grid", broken)
+    monkeypatch.setattr(airquality, "fetch", serve({airquality.hourly_url(T00): seattle(T00, 44)}))
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert "grid FAILED" in logs[-1]
+
+
+def test_corrupt_store_starts_fresh(job, monkeypatch):
+    (job / "aq_cache.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(airquality, "fetch", serve({airquality.hourly_url(T00): seattle(T00, 44)}))
+    assert airquality.build(log=lambda *a: None, now=NOW) == 1
+    assert json.loads((job / "aq_cache.json").read_text(encoding="utf-8"))["v"] == 1
+
+
+# ---------- grid ----------
+def test_unchanged_grid_is_not_downloaded(monkeypatch):
+    monkeypatch.setattr(airquality, "head_last_modified", lambda url: LM)
+
+    def no_fetch(url):
+        raise AssertionError("downloaded an unchanged grid")
+    monkeypatch.setattr(airquality, "fetch", no_fetch)
+    store = {"v": 1, "grid": {"lm": LM, "t": T00, "file": "frames/aq/aqi.webp?v=1"}}
+    assert airquality.build_grid(store) is False and store["grid"]["lm"] == LM
+
+
+def test_category_rounds_half_up_like_the_map():
+    np = pytest.importorskip("numpy")
+    got = airquality.aq_category(np.array([0, 50, 50.4, 50.5, 51, 100, 101, 150, 151, 200, 201, 300, 301, 500]))
+    assert got.tolist() == [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
+
+
+def test_resample_known_answer():
+    np = pytest.importorskip("numpy")
+    # a regular grid like AirNow's (latitude ascending, longitude 0..360) that stops at -125 E: AQI 120 north of 48 N, 20 south
+    lat = np.arange(40.0, 55.0001, 0.25)
+    lon = np.arange(235.0, 250.0001, 0.25)
+    a = np.where(lat[:, None] >= 48.0, 120.0, 20.0) * np.ones((1, lon.size))
+    g = airquality.resample(a, lat, lon)
+    lat_w, lon_w = airquality.window_latlon()
+    assert g.shape == (lat_w.size, lon_w.size)
+    r_n, r_s = np.argmin(abs(lat_w - 50.0)), np.argmin(abs(lat_w - 45.0))
+    c_in, c_out = np.argmin(abs(lon_w + 120.0)), np.argmin(abs(lon_w + 126.0))
+    assert g[r_n, c_in] == 120 and g[r_s, c_in] == 20
+    assert np.isnan(g[r_n, c_out])                          # west of the source grid
+
+
+def test_colorize_uses_the_official_colours_and_hides_nan():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    img = airquality.colorize(np.array([[0, 51, 101], [151, 201, 301], [np.nan, 50, 100]], dtype=np.float32))
+    px = np.asarray(img)
+    assert [tuple(px[0, 0, :3]), tuple(px[0, 1, :3]), tuple(px[1, 2, :3])] == [(0, 228, 0), (255, 255, 0), (126, 0, 35)]
+    assert px[2, 0, 3] == 0 and px[2, 1, 3] == 255
+
+
+def test_all_blank_grid_is_transparent(tmp_path, monkeypatch):
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    import values
+    img = airquality.colorize(np.full((640, 640), np.nan, dtype=np.float32))
+    assert np.asarray(img)[..., 3].max() == 0
+    monkeypatch.setattr(values, "OUT_DIR", str(tmp_path))
+    path = values.write_grid("aqi", np.full((640, 640), np.nan, dtype=np.float32), unit="AQI", scale=1)
+    assert set(open(path, encoding="utf-8").read().split('data="')[1].split('"')[0].split(",")) == {"-1"}
+
+
+def test_values_grid_lines_up_with_the_map(tmp_path, monkeypatch):
+    # found at the data check (2026-09-27): a 640 px grid given to values.write_grid is cropped to 512 px and then
+    # stretched over the whole window, so click-anywhere read values up to ~2.5 deg away
+    import math
+    np = pytest.importorskip("numpy")
+    import values
+    monkeypatch.setattr(values, "OUT_DIR", str(tmp_path))
+    lat_w, lon_w = airquality.window_latlon()
+    grid = (np.round((lon_w[None, :] + 130.0) * 10) * np.ones((lat_w.size, 1))).astype(np.float32)   # AQI ramps W to E
+    text = open(airquality.write_values(grid), encoding="utf-8").read()
+    meta = json.loads(text.split("]=", 1)[1].split(";", 1)[0])
+    data = [int(v) for v in text.split('.data="')[1].split('"')[0].split(",")]
+    z, x0, x1, y0, y1 = airquality.region.window()
+    for lat, lon in ((47.0, -115.0), (50.0, -125.0), (44.0, -114.0)):
+        mx = (lon + 180) / 360 * 2 ** z                                   # as map.html sample()
+        my = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z
+        px, py = int((mx - x0) / 5 * meta["w"]), int((my - y0) / 5 * meta["h"])
+        assert abs(data[py * meta["w"] + px] * meta["scale"] - (lon + 130) * 10) <= 3
+
+
+# ---------- final review fixes ----------
+def test_row_cut_inside_the_aqi_value_is_skipped():
+    good = row("530330080", "Seattle", "47.59", "-122.31", when(T00), "44", "8.0")
+    cut = row("530330081", "Tacoma", "47.19", "-122.45", when(T00), "153", "60.0")
+    cut = cut[:cut.index('"153"') + 3]                     # the file ends inside the AQI value: "15
+    assert [r["id"] for r in airquality.parse_hourly(hourly(T00, [good, cut]))] == ["530330080"]
+
+
+@pytest.mark.parametrize("bad", ["NaN", "inf", "-999"])
+def test_non_finite_or_negative_aqi_is_skipped(bad):
+    recs = airquality.parse_hourly(hourly(T00, [row("530330081", "Tacoma", "47.19", "-122.45", when(T00), bad, "5.0"),
+                                                row("530330080", "Seattle", "47.59", "-122.31", when(T00), "44", "nan")]))
+    assert [(r["id"], r["pm"]) for r in recs] == [("530330080", None)]
+
+
+def test_a_file_that_fails_to_parse_does_not_stop_the_build(job, monkeypatch):
+    logs = []
+    files = {airquality.hourly_url(T00): "BAD", airquality.hourly_url(T00 - 3600): seattle(T00 - 3600, 40)}
+    monkeypatch.setattr(airquality, "fetch", serve(files))
+    real = airquality.parse_hourly
+
+    def parse(text):
+        if text == "BAD":
+            raise ValueError("unexpected format")
+        return real(text)
+    monkeypatch.setattr(airquality, "parse_hourly", parse)
+    assert airquality.build(log=logs.append, now=NOW) == 1
+    assert any("HourlyAQObs_2026092800.dat failed" in m for m in logs)
+
+
+def test_a_hung_host_is_skipped_for_the_rest_of_the_job(tmp_path, monkeypatch):
+    import socket
+    calls = []
+
+    def hang(req, timeout=None):
+        calls.append(req.full_url)
+        raise socket.timeout("timed out")
+    monkeypatch.setattr(airquality, "CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(airquality.urllib.request, "urlopen", hang)
+    with pytest.raises(OSError):
+        airquality.fetch(airquality.hourly_url(T00))
+    with pytest.raises(airquality.HostDown):
+        airquality.fetch(airquality.hourly_url(T00 - 3600))          # same host: no second 30 s wait
+    with pytest.raises(airquality.HostDown):
+        airquality.head_last_modified(airquality.GRID_URL)
+    with pytest.raises(OSError):
+        airquality.fetch(airquality.AIRFIRE + "airnow_PM2.5_latest_meta.csv")   # another host is still tried
+    assert len(calls) == 2

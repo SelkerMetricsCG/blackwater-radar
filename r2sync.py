@@ -129,7 +129,7 @@ def sync(log=print):
                 _save_state(done)
 
     # accumulation maps: overwritten each cycle, short cache
-    for sub in ("accum", "interp", "forecast", "mrms", "freezing", "snodas"):
+    for sub in ("accum", "interp", "forecast", "mrms", "freezing", "snodas", "aq"):
         acc = os.path.join(region.frames_dir(), sub)
         if os.path.isdir(acc):
             for fn in os.listdir(acc):

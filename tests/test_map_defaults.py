@@ -41,3 +41,10 @@ def test_new_saves_are_left_alone():
     d = {"checks": {"lySnotel": True, "lyStations": False}, "selects": {}, "snMode": "both", "snEl": "new",
          "snWin": "48", "stMode": "wind"}
     assert migrate(dict(d, checks=dict(d["checks"]), selects={})) == d
+
+
+def test_air_quality_switches_are_saved_with_the_default():
+    with open(os.path.join(ROOT, "map.html"), encoding="utf-8") as f:
+        html = f.read()
+    checks = re.search(r"const DEF_CHECKS = \[([^\]]*)\]", html).group(1)
+    assert "'lyAqSt'" in checks and "'lyAqGrid'" in checks
