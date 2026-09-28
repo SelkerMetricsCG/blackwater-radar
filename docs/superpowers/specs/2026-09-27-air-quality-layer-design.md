@@ -18,6 +18,12 @@ temporary smoke monitors, plus AirNow's own interpolated AQI map, in a new **Air
 | 6 | **PurpleAir left out** (paid API; terms limit use to "internal, non-commercial, non-public"). |
 | 7 | Show AirNow's own NowCast AQI unchanged; nothing is recomputed. |
 | 8 | Ozone left out of phase 1 (same file; easy to add later). |
+| 9 | (19:40, after the plan-stage check below) **Temporary monitors come from the USFS AirFire export**, not `AirNowWildfire.csv`. Their AQI is computed from AirFire's NowCast concentration with EPA's 2024 PM2.5 breakpoints (the one exception to #7). If AirFire is down, the squares go grey. |
+
+Why #9: checked 2026-09-28 02:25 UTC, `AirNowWildfire.csv` stamps every row with the hour the file was written
+("10:00 PM EDT" = 02 UTC) while its values are 1–3 h older: of 33 temporary monitors, 23 equalled AirFire's 00 UTC
+NowCast, 10 its 01 UTC, 3 its 23 UTC; values also carry over unchanged between files. A history built from it would be
+shifted and repeated. AirFire's hourly files carry true UTC hour starts, raw and NowCast PM2.5, and 10 days of history.
 
 ## What the reader sees
 ```
@@ -43,7 +49,8 @@ Hazards
   monitor" tag where it applies; large AQI number with category chip; "PM2.5 12.3 µg/m³ last hour · as of 6 PM (40 min
   ago)"; trend word (rising / falling / steady) from the raw hourly values; a 72 h chart of hourly AQI bars coloured by
   category with day ticks and a hover readout (the rivers chart's tracker); footer "Preliminary data, not verified.
-  Source: AirNow (U.S. EPA), <agency>." No airnow.gov link while its DNS fails (see notes).
+  Source: AirNow (U.S. EPA), <agency>." (temporary monitors: "Source: AirNow (U.S. EPA) via USFS AirFire, <agency>").
+  No airnow.gov link while its DNS fails (see notes).
 - **Click anywhere:** the point panel gains an air-quality line: nearest station's AQI and distance; with the grid on,
   also "interpolated AQI 87, Moderate".
 - **Grid overlay:** one image per region, category colours, AirNow's blanked cells transparent.
@@ -53,27 +60,35 @@ Hazards
 New module `airquality.py`, `build(log)`, called in `capture.py`'s 15-minute block (`if not HOURLY_ONLY`, next to
 alerts): AirNow posts each hour ~:23 after it ends and revises it ~:45, so the hourly job (:04) would always be an hour late.
 
-1. **Stations.** Fetch the two newest `https://files.airnowtech.org/airnow/YYYY/YYYYMMDD/HourlyAQObs_YYYYMMDDHH.dat`
-   (the newer one plus the one AirNow revises) and `https://files.airnowtech.org/airnow/today/AirNowWildfire.csv`.
-   Skip all work when neither has changed since the last run (Last-Modified kept in state).
+1. **Permanent monitors.** Fetch the two newest `https://files.airnowtech.org/airnow/YYYY/YYYYMMDD/HourlyAQObs_YYYYMMDDHH.dat`
+   (the newer one plus the one AirNow revises) every run; the station records are cheap to rebuild each time.
    - `HourlyAQObs` columns used: `AQSID` (id), `SiteName`, `Latitude`, `Longitude`, `Elevation`, `DataSource` (agency),
      `ValidDate` + `ValidTime` (UTC, hour-begin), `PM25_AQI` (NowCast AQI), `PM25` (raw hourly µg/m³). Rows without
-     `PM25_AQI` are not PM2.5 sites for that hour and are skipped.
-   - `AirNowWildfire.csv`: `Latitude, Longitude, SiteName, Time, NowCast Concentration, NowCast AQI`; id = `SiteName`;
-     `Time` is local with a zone abbreviation ("Sun 09/27/2026 09:00 PM EDT") and is converted to UTC. Latest hour only.
+     `PM25_AQI` are not PM2.5 sites for that hour and are skipped. (This file has no temporary monitors.)
+   **Temporary monitors.** From `https://airfire-data-exports.s3.us-west-2.amazonaws.com/monitoring/v2/latest/data/`:
+   `airnow_PM2.5_latest_meta.csv` (rows with `deploymentType` = Temporary: `deviceDeploymentID`, `locationName`,
+   `address`, `airnow_agencyName`, `latitude`, `longitude`, `elevation` m), `airnow_PM2.5_latest_data.csv` (raw hourly)
+   and `airnow_PM2.5_nowcast_latest_data.csv` (NowCast); both data files are wide (`datetime` = UTC hour start, one
+   column per `deviceDeploymentID`, `NA` = missing). Use the plain `.csv` files (the `.gz` copies are stale). An hour
+   counts only if the raw value is present: the newest row is the hour in progress, raw all `NA` and NowCast carried
+   forward (checked 02:28 UTC: raw 0 of 52 temporary monitors, NowCast 29). AQI from NowCast concentration with the
+   2024 breakpoints (ledger).
 2. **Rolling store.** `aq_cache.json` in `cloud.py STATE_FILES` (private; the `_cache.json` name keeps r2sync from
-   publishing it): per station, 72 hourly slots of NowCast AQI and raw µg/m³. A revised hour overwrites the older value.
-   First run (store empty) fills it from the 72 hourly files AirNow keeps. Temporary monitors' history builds up from launch.
+   publishing it): per station, 72 hourly slots of AQI and µg/m³. A revised hour overwrites the older value.
+   First run (store empty) fills it from the hourly files AirNow keeps, up to 24 files a run (full after 3 runs);
+   temporary monitors get their 72 h from AirFire's 10-day files at once.
    The five regions run in one Actions job, so downloads are cached on the runner and fetched once, not five times.
 3. **Output `<region>/data/airquality.js`**, global `AIRQ`:
    `{updated, updated_t, hours:[72 UTC hour stamps], grid:{t, file} | null,
      stations:[{id, name, agency, lat, lon, elev, temp:bool, aqi:[72], pm:[72]}]}`
-   (`null` for missing hours; for temporary monitors, which AirNow publishes without raw hourly values, `pm` holds the
-   NowCast concentration and the card says "NowCast PM2.5"). Only stations inside the region window
+   (`null` for missing hours; `pm` is the raw hourly µg/m³ for both kinds; temporary monitors' `name` is AirFire's
+   `address` when it has one, else `locationName`). Only stations inside the region window
    (`region.bbox()`). Expected ~150 KB for PNW, less elsewhere.
 4. **Grid.** Fetch `https://files.airnowtech.org/airnow/today/current_pm25.grib2` only when its Last-Modified changed;
-   decode with cfgrib; cut to the region window and resample to Web Mercator the way the existing overlays do (cKDTree
-   nearest neighbour); colour by AQI category, 9999 cells transparent; write one WebP in a new `aq/` folder (added to the
+   decode with cfgrib (checked 02:20 UTC: one variable `aerot`, regular lat/lon 1778 × 3700, latitude ascending from
+   20.0°N, longitude 0–360 from 227.0°, blanked cells already NaN, `valid_time` 01:00 for the 00 UTC hour); cut to the
+   region window and resample to Web Mercator by nearest-neighbour index lookup on the regular grid (as `mrms.py` does);
+   colour by AQI category, NaN cells transparent; write one WebP in a new `aq/` folder (added to the
    image-folder list in `r2sync.py`) and a click-anywhere grid with `values.write_grid("aqi", ...)`.
 5. **Failure.** Any failed fetch keeps the last good `airquality.js`, image and store; the page greys stations whose
    newest report is more than 3 h old. Log line per run: `airquality: 242 stations (12 temporary), newest 00Z, grid 01:44Z`.
@@ -84,11 +99,14 @@ Page: `AIRQ` joins the script-tag globals; the overlay and markers refresh throu
 Run `airquality.build()` locally for `pnw` with no upload (`r2.env` absent, or call `build()` directly). Show Chris:
 1. The accounting line: rows read, PM2.5 sites, inside the window, temporary monitors, rows skipped and why.
 2. A MATLAB-style figure: the grid overlay with the stations on top, coloured by category, for one hour.
-3. **Independent check:** our AQI for every station in the newest hour against USFS AirFire's NowCast export for the
-   same hour (`monitoring/v2/latest/geojson/mv4_airnow_PM2.5_latest.geojson`; a different pipeline from the same
-   monitors), converted to AQI with the 2024 breakpoints. Expect exact agreement at ~93% of stations and within 2
+3. **Independent check:** our AQI for every permanent station at its newest hour against USFS AirFire's NowCast for the
+   same monitor and hour (`monitoring/v2/latest/data/airnow_PM2.5_nowcast_latest_data.csv`; a different pipeline from
+   the same monitors; not the "latest" GeoJSON, whose newest hour often runs one ahead of AirNow's), converted to AQI
+   with the 2024 breakpoints. Expect exact agreement at ~93% of stations and within 2
    points at ~97% (the research agent's figures); list the outliers. Also the grid value at each station against its
-   station AQI (research: mean difference 1.0).
+   station AQI (research: mean difference 1.0). For the temporary monitors, check our breakpoint conversion against
+   AirNow's own: every row of `AirNowWildfire.csv` pairs a NowCast concentration with AirNow's NowCast AQI, so
+   `aqi_from_pm25(concentration)` must equal that AQI (expect exact agreement; its times are not used).
 4. Three stations' 72 h series (one urban, one mountain valley, one temporary monitor) as a plot, raw beside AQI.
 Chris looks at these before the map work starts.
 
@@ -114,8 +132,11 @@ Chris looks at these before the map work starts.
 | Trend rule | latest raw hour vs 3 h earlier: rising if up ≥ 5 µg/m³ and ≥ 20 %, falling if down by the same, else steady; temporary monitors use NowCast concentration | **judgment call** | map.html |
 | Station set | inside `region.bbox()` | judgment call (same window as every other layer) | airquality.py |
 | Grid resampling | nearest neighbour (cKDTree), same output size as the freezing-level overlay | existing pattern; the grid is ~2.5 km, finer than one output pixel at the window scale | airquality.py |
-| Grid nodata | 9999 → transparent | AirNow file | airquality.py |
+| Grid nodata | NaN (as decoded) → transparent | AirNow file, checked 2026-09-28 | airquality.py |
 | Label zoom | 9+ | existing station labels | map.html |
+| PM2.5 → AQI (temporary monitors only) | µg/m³ truncated to 0.1; 0–9.0 → 0–50, 9.1–35.4 → 51–100, 35.5–55.4 → 101–150, 55.5–125.4 → 151–200, 125.5–225.4 → 201–300, 225.5–325.4 → 301–500, above 325.4 the last segment extended | EPA AQI TAD (May 2024); the extension above 500 is a **judgment call** | airquality.py |
+| Click-anywhere nearest AQ station | within 100 km, reporting in the last 3 h | **judgment call** | map.html |
+| Temporary monitor hour counts | only with a raw value that hour | AirFire's in-progress row (checked 2026-09-28) | airquality.py |
 
 ## Open items found while designing
 - airnow.gov (www, fire., document.) fails to resolve through 1.1.1.1 and 8.8.8.8 (checked 2026-09-28 02:00 UTC);
@@ -124,5 +145,5 @@ Chris looks at these before the map work starts.
   whether to send it (he sends it himself).
 
 ## Out of scope
-Ozone and PM10; PurpleAir and other low-cost sensors; the HRRR-fused AQI surface; AirFire temporary-monitor history
-backfill; fires; smoke forecast; smoke outlooks and blog feeds (phases 2 and 3).
+Ozone and PM10; PurpleAir and other low-cost sensors (incl. the SensWA/SensOR state sensors AirFire carries); the
+HRRR-fused AQI surface; fires; smoke forecast; smoke outlooks and blog feeds (phases 2 and 3).
