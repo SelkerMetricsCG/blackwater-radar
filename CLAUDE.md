@@ -12,7 +12,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
   freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, air quality (AirNow monitors, AirFire temporary smoke monitors, AirNow's
-  interpolated AQI), fires (WFIGS, CWFIF and BC Wildfire Service incidents and perimeters) and satellite hotspots (NASA FIRMS, NOAA NGFS), NWS alerts, click-anywhere point values.
+  interpolated AQI), fires (WFIGS, CWFIF and BC Wildfire Service incidents and perimeters) and
+  satellite hotspots (NASA FIRMS, NOAA NGFS), NWS alerts, click-anywhere point values.
 - **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -112,7 +113,20 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `aq_cache.json`. Check a region with `python smoke_research/aq_check.py <region>` (no upload); preview the page with
   `smoke_research/aq_serve.py`. Spec and parameter ledger: `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`;
   sources and endpoints: `smoke_research/sources_notes.md`.
-- Fires (`fires.py`, 15-minute job, after air quality): every fire the agencies list as current (WFIGS for the US, CWFIF joined with BC Wildfire Service by fire number for Canada), styled by activity: active = edited within 72 h, or a hotspot linked in the last 24 h, or Canada out of control / being held; 100 % contained is quiet unless it has hotspots (Chris kept this rule 2026-09-28; measured alternatives are in the spec, "Activity rule: alternatives"). Complex children are not incidents, but their perimeters and GOES links are relabelled to the parent through WFIGS `CpxID`. Perimeters are refetched only when a layer's edit stamp changes; hotspots come from FIRMS 48 h + NGFS 24 h (newest detection per tracked feature; unconfirmed shown hollow); the page ages hotspots by the time since `FIRES.updated_t`. State `fires_cache.json` (keeps raw ids). Check a region with `python smoke_research/fires_check.py <region>` (no upload); preview with `smoke_research/fires_serve.py` (port 8796; it reads `web/index.html` once at start, so restart it after `build_web.py`). Spec and ledger: `docs/superpowers/specs/2026-09-28-fires-layer-design.md`; anomalies in `ANOMALY_LOG.md`.
+- Fires (`fires.py`, 15-minute job, after air quality): every fire the agencies list as
+  current (WFIGS for the US, CWFIF joined with BC Wildfire Service by fire number for
+  Canada), styled by activity: active = edited within 72 h, or a hotspot linked in the last
+  24 h, or Canada out of control / being held; 100 % contained is quiet unless it has hotspots
+  (Chris kept this rule 2026-09-28; measured alternatives are in the spec, "Activity rule:
+  alternatives"). Complex children are not incidents, but their perimeters and GOES links are
+  relabelled to the parent through WFIGS `CpxID`. Perimeters are refetched only when a layer's
+  edit stamp changes; hotspots come from FIRMS 48 h + NGFS 24 h (newest detection per tracked
+  feature; unconfirmed shown hollow); the page ages hotspots by the time since `FIRES.updated_t`.
+  State `fires_cache.json` (keeps raw ids). Check a region with `python
+  smoke_research/fires_check.py <region>` (no upload); preview with `smoke_research/fires_serve.py`
+  (port 8796; it reads `web/index.html` once at start, so restart it after `build_web.py`). Spec
+  and ledger: `docs/superpowers/specs/2026-09-28-fires-layer-design.md`; anomalies in
+  `ANOMALY_LOG.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
