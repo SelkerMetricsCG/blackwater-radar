@@ -15,7 +15,7 @@ Set TZ=America/Los_Angeles so file names and labels stay in Pacific time.
 
 Usage:  python cloud.py [radar|hourly]
 
-The two modes write disjoint sets of files (radar: frames, accumulation, manifest, alerts;
+The two modes write disjoint sets of files (radar: frames, accumulation, manifest, alerts, air quality;
 hourly: stations, rivers, forecast, MRMS QPE, freezing level, SNODAS, webcams, avalanche,
 basins), so they run at the same time without sharing a lock.
 """
@@ -36,7 +36,7 @@ DATA = region.data_dir()
 RETAIN_H = 30                      # rolling archive: keep this many hours of scans
 STATE_PREFIX = region.prefix() + "state/"
 STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "snotel_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
-               "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js", "youtube_cache.json"]
+               "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js", "youtube_cache.json", "aq_cache.json"]
 STAMP = re.compile(r"[rs](\d{8}_\d{4})\.")
 
 
@@ -109,7 +109,7 @@ def main():
     log("layout: %d placeholders, %d reflectivity scans fetched" % (n_ph, n_dl))
 
     # ---- 3. one cycle: "radar" mode is the quick 15-minute pass (radar, satellite, accumulation,
-    #         alerts); "hourly" mode also runs stations, rivers, forecast, MRMS, freezing level,
+    #         alerts, air quality); "hourly" mode also runs stations, rivers, forecast, MRMS, freezing level,
     #         SNODAS, webcams, avalanche and basins ----
     import capture
     due = hourly

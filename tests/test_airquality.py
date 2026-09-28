@@ -315,3 +315,23 @@ def test_all_blank_grid_is_transparent(tmp_path, monkeypatch):
     monkeypatch.setattr(values, "OUT_DIR", str(tmp_path))
     path = values.write_grid("aqi", np.full((640, 640), np.nan, dtype=np.float32), unit="AQI", scale=1)
     assert set(open(path, encoding="utf-8").read().split('data="')[1].split('"')[0].split(",")) == {"-1"}
+
+
+def test_values_grid_lines_up_with_the_map(tmp_path, monkeypatch):
+    # found at the data check (2026-09-27): a 640 px grid given to values.write_grid is cropped to 512 px and then
+    # stretched over the whole window, so click-anywhere read values up to ~2.5 deg away
+    import math
+    np = pytest.importorskip("numpy")
+    import values
+    monkeypatch.setattr(values, "OUT_DIR", str(tmp_path))
+    lat_w, lon_w = airquality.window_latlon()
+    grid = (np.round((lon_w[None, :] + 130.0) * 10) * np.ones((lat_w.size, 1))).astype(np.float32)   # AQI ramps W to E
+    text = open(airquality.write_values(grid), encoding="utf-8").read()
+    meta = json.loads(text.split("]=", 1)[1].split(";", 1)[0])
+    data = [int(v) for v in text.split('.data="')[1].split('"')[0].split(",")]
+    z, x0, x1, y0, y1 = airquality.region.window()
+    for lat, lon in ((47.0, -115.0), (50.0, -125.0), (44.0, -114.0)):
+        mx = (lon + 180) / 360 * 2 ** z                                   # as map.html sample()
+        my = (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z
+        px, py = int((mx - x0) / 5 * meta["w"]), int((my - y0) / 5 * meta["h"])
+        assert abs(data[py * meta["w"] + px] * meta["scale"] - (lon + 130) * 10) <= 3

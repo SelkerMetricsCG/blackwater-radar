@@ -287,7 +287,6 @@ def build_grid(store, log=print):
     import cfgrib
     import numpy as np
     from PIL import Image
-    import values
     body, lm2 = fetch(GRID_URL)
     work = os.path.join(CACHE_DIR, "grid")
     os.makedirs(work, exist_ok=True)
@@ -312,11 +311,19 @@ def build_grid(store, log=print):
     tmp = os.path.join(FRAME_DIR, "aqi.tmp.webp")
     img.save(tmp, "WEBP", lossless=True)
     os.replace(tmp, os.path.join(FRAME_DIR, "aqi.webp"))
-    values.write_grid("aqi", grid, unit="AQI", scale=1)
+    write_values(grid)
     store["grid"] = {"lm": lm or lm2, "t": valid, "file": "frames/aq/aqi.webp?v=%d" % int(time.time())}
     log("airquality: grid valid %s, %d%% of the window has data" % (
         dt.datetime.fromtimestamp(valid, dt.timezone.utc).strftime("%H:%MZ"), round(100 * float(np.isfinite(grid).mean()))))
     return True
+
+
+def write_values(grid):
+    """click-anywhere value grid -> data/values/aqi.js. values.write_grid needs the full 1280 px window (as freezing.py
+    passes it): given the 640 px grid it keeps only the top-left 512 px and stretches them over the map."""
+    import numpy as np
+    import values
+    return values.write_grid("aqi", np.kron(grid, np.ones((STEP, STEP), np.float32)), unit="AQI", scale=1)
 
 
 def build(log=print, now=None):
