@@ -1232,6 +1232,18 @@
   }
   $('lyAqSt').onchange = e => { if (e.target.checked) { aqLayer.addTo(map); if (!aqData) loadAq(); else renderAq(); } else map.removeLayer(aqLayer); };
   setInterval(() => { if (map.hasLayer(aqLayer) || $('lyAqGrid').checked) loadAq(); }, 15 * 60 * 1000);
+  // ---------- Air quality: AirNow's interpolated AQI (monitors only) ----------
+  const aqOv = L.imageOverlay('', bounds(), { opacity: .55, interactive: false, zIndex: 387 });
+  window.renderAqGrid = function () {
+    if (!aqData) return;
+    const g = aqData.grid;
+    if (!g) { $('aqGridInfo').innerHTML = '<div class="muted">interpolated map not available yet</div>'; return; }
+    aqOv.setUrl(BASE + g.file);
+    $('aqGridInfo').innerHTML = '<div class="muted">AirNow map for ' + new Date((g.t - 3600) * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' }) + '–' + new Date(g.t * 1000).toLocaleTimeString([], { hour: 'numeric' }) + '</div>' + aqLegend() +
+      '<div class="note">Interpolated by AirNow from monitors only; it ignores terrain, so a valley and the ridge above it can differ from what’s shown. Blank where no monitor is near.</div>';
+  };
+  $('lyAqGrid').onchange = e => { if (e.target.checked) { aqOv.addTo(map); if (!aqData) loadAq(); else window.renderAqGrid(); } else map.removeLayer(aqOv); };
+
 
 
   // ---------- NWS alerts ----------
@@ -1357,6 +1369,15 @@
     if (rvData) { const g = nearest(rvData.sites, ll, s => s.flow != null); if (g && g.km < 40) sec.push('<div style="margin-top:6px;color:#666">Nearest gauge</div><div>' + g.s.name.replace(/, (WA|OR|ID|MT)$/, '') + ' <span style="color:#666">(' + g.km.toFixed(0) + ' km)</span>: <b>' + g.s.flow.toLocaleString() + ' cfs</b>' + (g.s.pctmed != null ? ', ' + g.s.pctmed + '% of normal' : '') + (g.s.chg24 != null ? ', ' + (g.s.chg24 > 0 ? '+' : '') + g.s.chg24 + '% / 24 h' : '') + '</div>'); }
     await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
     if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">' + (z.properties.center_id || 'forecast') + '</a>' : '') + '</div>'); }
+    // air quality: nearest reporting station within 100 km (judgment call, spec ledger); AirNow's grid when that layer is on
+    await new Promise(res => aqData ? res() : loadScript('data/airquality.js', () => { aqData = window.AIRQ || aqData; res(); }, res));
+    if (aqData) {
+      const nowS = Date.now() / 1000, rows = [];
+      const a = nearest(aqData.stations, ll, s => !aqStale(s, aqData.hours, nowS));
+      if (a && a.km <= 100) { const l = aqLast(a.s); rows.push('<div>' + aqEsc(a.s.name) + ' <span style="color:#666">(' + a.km.toFixed(0) + ' km' + (a.s.temp ? ', temporary' : '') + ')</span>: <b>AQI ' + l.aqi + '</b>, ' + AQ_NAMES[aqCat(l.aqi)] + '</div>'); }
+      if ($('lyAqGrid').checked) { const v = sample(await getGrid('aqi'), ll); if (v != null) rows.push('<div>interpolated AQI <b>' + Math.round(v) + '</b>, ' + AQ_NAMES[aqCat(v)] + ' <span style="color:#666">(AirNow, monitors only)</span></div>'); }
+      if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Air quality</div>' + rows.join(''));
+    }
     render('<div style="color:#666">loading hourly forecast…</div>');
     // NWS hourly point forecast (US only)
     try {
@@ -1377,7 +1398,7 @@
   });
 
   // ---------- refresh ----------
-  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
+  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv, aqOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
   function refresh() {
     loadScript('frames.js', () => { const wasPlaying = !!timer; pause(); data = window.RADAR_DATA || data; applyData(); if (wasPlaying) play(); });
   }
