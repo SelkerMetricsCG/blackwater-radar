@@ -163,24 +163,12 @@ its files, workflow and the solsat part of `tests/conftest.py` are gone from rad
 - After the deploy the live page matched the local build exactly (checked with curl + diff). Only open item: Chris tries a scroll-wheel zoom.
 - Not watched: animated (scroll-wheel) zoom, because the in-app browser pane was hidden (timings used `animate: false`).
 
-## 9. R2 Class A budget: LIVE 2026-09-28 18:26 (`a545b31`, pushed); checked on the first runs; two small items open
-- Before (measured 2026-09-28, bucket snapshots every 5 min + Actions logs): ~121 PUTs per capture run, ~405 per hourly
-  run, 102 + 29 runs a day, ~775k Class A per 31-day month (free: 1 million); the hourly job wrote stale `aq_cache.json`
-  over newer capture copies. Fix (Chris: "do all three"): caches pushed only when their MD5 changed; rewritten files
-  skipped when MD5 = listed ETag (cloud.py lists `<region>/frames` and `<region>/data/`, never `<region>/`: 109k slope
-  tiles under pnw/); an hourly run exits if `stations.js` went up this UTC hour under 30 min ago (`SKIP_WITHIN_MIN`,
-  judgment call; hourly.yml `force` input overrides). Tests `tests/test_r2_uploads.py`.
-- After (logs of runs 36508194272.. and 36515481556, snapshots 01:27-02:38 UTC 2026-09-29): capture per region 17-19
-  updated, 1 unchanged, 1-2 caches (was 3-5); hourly 03:04 UTC (an ordinary hour) 301 PUTs, 81 skipped (was ~405);
-  no stale cache write-back from new-code runs (the one seen, pnw 01:51 UTC, came from an old-code `hourly.yml` run
-  dispatched on the snow branch). Estimate now ~20k Class A/day, ~630k per 31-day month incl. fires, excl. snow and smoke.
-- Checked 2026-09-29: the three GitHub-schedule hourly runs since the push (05:34, 12:40, 18:34 UTC) each logged "already
-  went up ... nothing to do" in all five regions.
-- Open: (1) Chris's dashboard number: radar-bucket 24 h Class A read after 2026-09-29 23:00 UTC (clean of the slope
-  upload); ~20k from the measured pipeline, plus whatever smoke and snow add. (2) `CLAUDE.md` lines, not added (an
-  uncommitted 3-line edit from 2026-09-28 still sits in radar's working copy): under "How it runs", r2sync uploads
-  only changed files (MD5 vs ETag), caches pushed by content, one hourly run per UTC hour (`force` input).
-- Not counted yet: the snow model's daily R2 store and the smoke layer's hourly frames (`smoke.py`) add Class A.
+## 9. R2 Class A budget: done 2026-09-29 (`a545b31`, live since 2026-09-28 18:26); one reading left for Chris
+- How it works now: `CLAUDE.md`, "How it runs". Before/after: ~775k Class A per 31-day month, now ~630k incl. fires
+  (capture ~115 PUTs/run, hourly ~300; GitHub-schedule duplicate hourly runs exit, seen 3 times 2026-09-29).
+- Open: Chris reads the radar bucket's 24 h Class A in the dashboard after 2026-09-29 23:00 UTC (clean of the slope
+  upload): ~20k expected from the measured pipeline plus whatever `smoke.py` and the snow model add (not measured).
+  Far above ~25k would mean something is uncounted; the free 1 million/month is per account.
 
 ## 12. HANDOFF: snow-conditions tracker (started 2026-09-28) (tracked handoff from PR #2-#4, merged here 2026-09-28)
 Spec: `docs/superpowers/specs/2026-09-28-snow-conditions-model-design.md` (read it first). The project is a

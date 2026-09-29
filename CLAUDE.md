@@ -57,6 +57,12 @@ Deploy it with `npx wrangler deploy` from `cron/`.
 Data goes to the public R2 bucket `radar` (https://radar-files.blackwaterlabs.org) under `<region>/`.
 `cloud.py` rebuilds state from R2 each run and prunes scans older than 30 h. `r2sync.py` sets
 cache headers per file type (frames immutable, `data/*.js` and `frames.js` no-cache).
+Every PUT and LIST is an R2 Class A operation (free: 1 million a month, whole account). So `r2sync` skips a rewritten file
+whose MD5 equals the ETag `cloud.py` listed; a state cache goes back only if the run changed it; and an hourly run exits if
+the region's `stations.js` went up this UTC hour under 30 min ago (hourly.yml's `force` input overrides). List narrow
+prefixes (`<region>/frames`, `<region>/data/`), never `<region>/`: pnw holds 109k slope tiles. Measured 2026-09-29:
+~20k Class A a day before the smoke and snow jobs. Recheck with the bucket's Metrics tab or a read-only snapshot of
+LastModified/ETag.
 
 ## Publishing the map page (no workflow does this)
 ```
