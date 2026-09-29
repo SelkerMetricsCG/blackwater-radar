@@ -1,9 +1,186 @@
-# HANDOFF: snow-conditions tracker (started 2026-09-28)
+# Handoff: radar map work (2026-09-28 19:40)
 
+Read `CLAUDE.md` in this folder for how the site works. Two pieces of work are open (2 and 3).
+Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE.md`); read his Terminal panel afterwards.
+
+## 11. Hillshade basemap chip: LIVE 2026-09-28 19:36 (`2c854e1`, deploy d34e91d3); push pending the smoke session's merge
+- Fifth chip in the Basemap row (`map.html`): Esri `Elevation/World_Hillshade` (native to z16, upsampled to 17) under the
+  same Esri boundaries/places and transportation reference tiles Satellite uses. Saved defaults pick it up (`bases[d.base]`).
+- Checked locally 19:40 (`build_web.py`, served `web/`): chip switches, 18 hillshade + 36 reference tiles load, no console
+  errors, relief crisp at Leavenworth z11. Chris chose this ("option 4") over a real 3D engine; the 3D options he was
+  offered, in order: MapLibre terrain port of the whole page, a "3D view" MapLibre panel beside Leaflet, CesiumJS.
+- Deployed 19:36 with ski (`f95e5e8`): live page byte-identical to the local build. Chris's push was rejected
+  (origin/main had the snow-tracker PR merges, `d526b24` and below). The HRRR smoke session said it is merging
+  origin/main plus these two commits in its worktree and will fast-forward radar/main, then hand Chris one push;
+  so no local merge here. If that never lands: `git merge origin/main` on main is conflict-free (merge-tree checked).
+
+## 10. Ski reports layer: on `main` as `f95e5e8` (2026-09-28 19:35), push and deploy handed to Chris
+- What: Snow > "Ski reports". 520 operating lift-served downhill areas in the five windows (`ski_areas.json`, built by
+  `ski_research/build_ski_areas.py` from OpenSkiMap's `ski_areas.geojson`, ODbL, credited in the layer note). The 52 on
+  the Ikon/Alterra resort feed (`ski.py`, `mtnpowder.com/feed?resortId=N`, the undocumented JSON the resort sites load;
+  Chris accepted using it 2026-09-28) show the resort's own numbers: 24/48/72 h, 7 d at base/mid/summit, base depth,
+  storm and season totals, report time; chips switch the label (mid-mountain leads, then summit, then base). Others are
+  hollow dots linking to the resort page (Chris: link out for Epic and independents; no scraping, no bot evasion).
+  Hourly job: `capture.py` calls `ski.build` after basins; output `<region>/data/ski.js`. Tests `tests/test_ski.py`,
+  `tests/test_map_ski.py` (230 pass). Preview: `python ski.py; python ski_research/ski_serve.py` (port 8798, launch entry
+  `ski-preview`), checked in the in-app browser: 94 PNW markers, season labels, cards for a feed area and a link-out area.
+- **After the push:** the first hourly run (minute 4) writes `ski.js`; until then the layer says "ski data not available yet".
+  Check a run's log for `ski: N areas, F on the resort feed, R with a report, X failed`. Off season nearly every report
+  is months old (drawn faded, "not updated lately"); the real test is opening day (mid-Nov): labels, stale rule (36 h),
+  whether resorts fill base/mid/summit as expected (Schweitzer's points were all `--` in May).
+- **Deploy caveat (19:33):** another session has an uncommitted Hillshade basemap in the main checkout's `map.html`
+  (7 lines) and rebuilt `web/index.html` with it; a deploy now ships both. Not mine; whoever owns it commits it.
+- **CLAUDE.md lines still to add** (its working copy is dirty from another session, so left alone): hourly table row
+  "ski (resort reports)"; a Rules bullet: ski areas from OpenSkiMap via `ski_research/build_ski_areas.py` (rebuild
+  from a PC; `ski_research/work/review.txt` lists areas OpenSkiMap has no lifts for; hand fixes in
+  `ski_research/overrides.json`, keyed by the 12-char area id: `mp`, `report`, `name`, `drop`, `keep`, `add`); Ikon feed
+  once per resort per hourly run, plain UA, 20 s timeout; Timeline 2026-09-28.
+- Open for Chris (none blocking): (1) Stevens Pass numbers: the research agent found WSDOT's daily pass snowfall JSON
+  (`wsdot.com/Travel/Real-time/Service/api/MountainPass/SnowFallData?MountainPassId=10&Year=2025`, undocumented; WSDOT's
+  summit measurement, not the resort's; 305 in vs the resort's 342 in 2025-26) and suggests emailing WSDOT before using
+  it; NOHRSC's public-domain snowfall grids as a cross-check; SnoCountry (paid key) covers Vail resorts. (2) Add
+  `report` links for areas whose snow report is not the website (all 468 link-outs point at the website now).
+  (3) `review.txt` has 86 lines, mostly nordic or tiny hills; Cochran's VT is a real T-bar hill OpenSkiMap has no lifts
+  for (`keep`). (4) Bear Mountain CA (feed 57) and Snowshoe WV (feed 2) were not matched; Boyne (MI) and Alyeska are
+  outside the windows.
+
+**SolSat moved out (2026-09-27, another session):** the daily pull runs from the private repo `SelkerMetricsCG/roaring`;
+its files, workflow and the solsat part of `tests/conftest.py` are gone from radar. Nothing to do here.
+
+## 1. Layer-panel changes: live, nothing open
+- Commit `67543af` (pushed to GitHub), deployed 2026-09-26 16:18; live page matches the local build.
+- `517d708` (pushed, deployed 16:33): (?) help tips on Radar loop and Rain / snow totals (`.help` button +
+  `.helptip` span inside the `.opt` label), Satellite loop last. Radar keeps 30 h of scans (`cloud.py RETAIN_H`),
+  so the tip offers 3–24 h.
+
+## 2. Slope-angle layer: LIVE 2026-09-28 (`6c6fa71`, deployed with `afc3e8f`; tiles on R2 `pnw/slope/v1`, 109,109)
+- Checked live 17:30: page = local build, 40/40 sampled R2 tiles identical, 16 tiles load at Colchuck z15, no console errors.
+- How to rebuild or extend: `slope/README.md`. README commit is local (Chris pushes).
+- 17:37 Chris approved every judgment call (recorded in `slope_config.yaml` `approved:`) and the ~1 m offset; local tiles
+  deleted (`slope/work/` now 17 GB). Open, optional: Rainier lidar via the WA DNR portal. Commits to push: README + approvals.
+
+## 3. SNOTEL layer: live 2026-09-27 16:30 (`8367e53`..`8951b56`; spec and plan in `docs/superpowers/`)
+- Open for Chris, none blocking: soil-moisture colours (`SMS_BINS`, judgment call); 26 soil sensors at exactly 0.0 %
+  (`ANOMALY_LOG.md`); one 2.5 in floor zeroes most 2 in rises in 1-6 h windows (per-window floor?); deferred review minors
+  (latest reading unsmoothed, possible false 3 in at North Fork OR / Brundage Reservoir ID, arrow keys reach greyed radios,
+  new-snow label decimals, SNOTEL depth freshness in stations.js); caching daily medians would save ~2 min per run.
+- Watch 1 Oct: the water-year reset of PREC may zero SNOTEL 24 h precipitation for a day.
+
+## 4. More webcams: YouTube-live cams deployed and pushed 2026-09-27 18:28 (`d959fb3`, docs `78c8a98`); first hourly run on it is 19:04
+- `youtube.py` + `webcams_youtube.json` (163 cams, 19 `off` with reasons) through the YouTube Data API only; how it works,
+  quota budget and terms: `CLAUDE.md` "Webcams". Chris set the Actions secret `YT_API_KEY` 2026-09-27; `youtube.env` is the
+  local copy. Mission Ridge moved from `webcams_extra.json` into the new list in `d959fb3`.
+- Released 18:28: page deployed first (live page == `web/index.html`; `/terms.html` 307 -> `/terms` 200), then pushed
+  (tests passed on `78c8a98`). Runs up to 18:04 used `97ab270`, so R2 `webcams.js` has no `yt` yet and Mission Ridge still
+  shows the old hotlinked way until the 19:04 run moves it into `yt`.
+- **Next check (not done yet):** after the 19:04 run, R2 `<region>/data/webcams.js` should carry a `yt` list (pnw about 62
+  cams live of 72; sierra, utco, imw too; ne none) and each region's log a `youtube:` line (units, searches, left out);
+  first runs may each spend their 10 searches (~1,000 units), fine within 10,000/day.
+- Local check 18:00 (pnw, `webcams.build(check=False)`, no upload): without key 940 markers + 0 YouTube; with key 72 cams,
+  62 live -> 31 markers; 10 searches (the cap) found 11 cams again (La Grande downtown, Nanaimo, Tamarack snow stake,
+  Mt Spokane Chair 4 had restarted with new ids; Snoqualmie/Alpental/Cypress found by title); 1,003 units. Popup checked
+  in the in-app browser (icon, credit links, view switching, no console errors). Local state: `regions/pnw/data/youtube_cache.json`.
+- Enrichment (`cams_research/youtube_enrich.py`, 18:00, 1,212 units incl. 12 searches): of 144 cams on, 104 live on their
+  research id, 20 ended, 1 missing, 19 had no id. Labels fixed from API titles (Snow King's were shuffled, Willamette's
+  swapped, Brundage/Kelly Canyon/Schweitzer/Snow Summit/Snow Valley renamed). Session total ~2,220 units today.
+- Open for Chris: (1) Snow King is See Jackson Hole's channel, so it is `off` like SeeJH; say if the API route makes SeeJH
+  OK. (2) `terms.html` wording (it says using the map means agreeing to YouTube's Terms; the policy wants users to agree
+  to a privacy policy before use, done here as a notice, not a click-through). (3) API key restriction: done at creation
+  (YouTube Data API v3 only). (4) Compare the drawn YouTube icon with the official file from brand.youtube. (5) Dodge Ridge
+  (3) and Dillon are `off`: ids gone and no channel id; add a channel id from the owner's embed to bring them back.
+- Optional ideas: ask City of Stevenson to allow its 3 ipcamlive Gorge cams; more Stevens Pass cams; Skaping resolver.
+
+## 5. New England region, avalanche titles, radar-cron, time zones: done 2026-09-27 (`17bc3b7`..`b2838e4`)
+- Only check left: if `git log origin/main` lacks `b2838e4`, ask Chris to push it (no redeploy needed).
+  Token renewal due 2027-09-27; Chris has a calendar reminder for 2027-09-20.
+
+## 7. Smoke, fires and air quality: Air quality LIVE 2026-09-28 05:37 (`2b4b204`); fires LIVE 2026-09-28 (`afc3e8f`, deploy fec14efe)
+- **State:** pushed and deployed; live page == `web/index.html` (and terms). First job run 12:30Z on `a3735af`: pnw 251
+  stations (4 temporary), sierra 194 (31), utco 116 (6), imw 110 (7), ne 251 (0); each "24 backfilled", grid new; the
+  72 h history is full after 3 runs (~13:00Z). Live check in the in-app browser (sierra): Yosemite temporary monitors
+  in a Moderate patch. Observation: at page open the radar loop preloads 144 frames (~20 s here), and any data file
+  asked for meanwhile (AQ included) waits behind it; pre-existing, not changed.
+- **Where things are:** spec (decisions, parameter ledger) `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`;
+  plan `docs/superpowers/plans/2026-09-27-air-quality-layer.md`; data check `python smoke_research/aq_check.py <region>`;
+  local preview `smoke_research/aq_serve.py` (BlackwaterLabs `.claude/launch.json` "aq-preview", port 8795).
+- **Open for Chris (none blocking):** the spec's judgment calls (grey after 3 h; trend 5 µg/m³ and 20 %; click radius
+  100 km; overlay opacity .55); AirFire's one-hour NowCast lag on temporary monitors (`ANOMALY_LOG.md`); the AirNow
+  data-exchange form (he sends it if he wants); Missoula's AQI-50 episode ~2026-09-25 not cross-checked.
+- **Deferred minors (final review):** a region's grid can lag an hour (store `lm2 or lm` in `build_grid`); a store with
+  `v: 1` but the wrong shape crashes every run (only after an unbumped schema change); the trend can describe an older
+  hour than the card's AQI and still shows on stale stations.
+- **Phase 2 fires: LIVE 2026-09-28** (`afc3e8f`, merged fast-forward into `main` 15:38; on GitHub under `a545b31`;
+  deploy version fec14efe, which also shipped the slope layer). Live page == `web/index.html` (curl + diff, 18:30).
+  First capture runs (00:15Z on `afc3e8f`, then every 15 min, no failures): pnw ~185 fires / 125 perimeters, sierra ~90 / 13,
+  utco ~74 / 17, imw ~72 / 39, ne 8 / 3; FIRMS 170–600 and NGFS 3–50 hotspots per region.
+  Spec `docs/superpowers/specs/2026-09-28-fires-layer-design.md` (decisions 1–9, ledger, "Activity rule: alternatives");
+  plan `docs/superpowers/plans/2026-09-28-fires-layer.md`; check `python smoke_research/fires_check.py <region>`; preview
+  `smoke_research/fires_serve.py` (port 8796; restart after `build_web.py`). The worktree, branch and preview entry are removed.
+  Observed after release: both perimeter layers are edited more often than every 15 min (01:17 and 01:26 UTC at a 01:30
+  check), so every run re-downloads perimeters; the stamp rule rarely saves a fetch.
+  **Deferred for Chris (before next fire season, none blocking):** incremental NGFS window merged per feature;
+  `link_hotspots` spatial prefilter and a hotspot cap; keep the last good incident list per source 1 h when WFIGS/CWFIF
+  fail; write `perimeters.js` only when polygons change; hotspot canvas sits under perimeter fills (hotspot tooltip
+  unreachable inside a perimeter; fix: own pane); a fire under 0.5 acre shows "0 acres"; two NGFS paging cases log nothing.
+  **Phase 3 smoke forecast: on `main` as `f9f3ad3` (2026-09-28 19:42), built and released in one session without review
+  stops (Chris's brief, `smoke_research/NEXT_SESSION_hrrr_smoke.md`). Push and deploy handed to Chris; see the session
+  report for the release state and every decision taken on his behalf.**
+  - What: `smoke.py` (hourly job, after freezing level) turns HRRR `MASSDEN` 8 m for f01-f48 of the newest complete
+    00/06/12/18Z run into 48 lossless WebP frames in alternating slots `a`/`b`, one value series (128 x 128 x 48, tenths of
+    ug/m3) and `data/smoke.js`; builds only when a new run's f48 index exists (51 R2 writes per run per region, <= 32k a
+    month). Page: third layer in Smoke & fires, own player, badge bottom-right, AQI-category colours with a light-smoke
+    band (2-9 ug/m3), PNW masked north of the model's edge (18 % of the window, dashed line), click-anywhere value and
+    48 h curve. Spec (decisions 1-12 with alternatives and cost if wrong, ledger, data-check results, RRFS switch plan):
+    `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`; plan `docs/superpowers/plans/2026-09-28-hrrr-smoke-layer.md`.
+  - Data check (run 2026-09-29 00Z): geometry 100 % (drawn values within their 4 nearest model points, ecCodes' own
+    coordinates), frame colours 100 % of pixels; monitors check was a clean evening (Sierra 179 sites, PNW 244, none
+    >= 35.5 ug/m3): Spearman 0.13 / -0.30 overall, +0.36 at the 5 smoke-affected PNW sites, no shift wins; logged in
+    `ANOMALY_LOG.md`. Figures: `smoke_research/checks/smoke_check_sierra.png`, `smoke_check_pnw.png` (gitignored).
+  - Two reviews (fresh subagents) found: integer cells vs frame categories (fixed: tenths, EPA truncation); a
+    never-uploaded build followed by a newer run could write into the live slot (fixed); run-out branch left the last
+    frame up (fixed). Preload of 48 frames at once hit ERR_NO_BUFFER_SPACE beside the radar loop (fixed: chained).
+  - **Open for Chris (none blocking):** the judgment calls in the spec ledger (floor 2, light band, opacity .65, hours
+    shown from now - 30 min, 10 km cells); HMS column smoke later (decision 5); RRFS switch plan (decision 6); re-run
+    `python smoke_research/smoke_check.py pnw` on a smoky day for a real skill number.
+  - **Next check after the deploy:** the first hourly runs' `smoke:` lines for all five regions (expected `smoke: HRRR
+    00Z Sep 29 -> slot a, 48 h, peak N ug/m3 ...` on the first run, then `already on the map` until the 06Z run is
+    complete ~08:05 UTC); R2 `<region>/data/smoke.js` present; the layer on the live page.
+
+## 8. Point-panel sunrise/sunset 12 h swap: fixed 2026-09-28 (`4a4fdcb`, pushed; live since the air-quality deploy)
+- Nothing open. `tests/test_map_suntimes.py` runs the `// BEGIN sunTimes` block under node against NOAA's calculator.
+- Open for Chris (optional): (1) push race: his 05:20 push of `main` also carried the air-quality merge made 3 min after
+  the sunrise build; proposed rule, not yet in `CLAUDE.md`: sessions hand over `git push origin <sha>:main` for the commit
+  they tested. (2) capture #180 (2026-09-28 10:30 UTC) failed once on pypi.org read timeouts in `pip install` (next run
+  fine); optional hardening: `--retries 10 --timeout 60` on the pip step, pinned versions.
+
+## 6. Station-label lag fix: live (`9ffc919` pushed; deployed 2026-09-27 09:50, version 620d4f28)
+- Zoom 9+ froze 1.4-4 s per zoom (1,047 permanent tooltips in PNW precip). Now divIcon labels for stations in view only.
+- After the deploy the live page matched the local build exactly (checked with curl + diff). Only open item: Chris tries a scroll-wheel zoom.
+- Not watched: animated (scroll-wheel) zoom, because the in-app browser pane was hidden (timings used `animate: false`).
+
+## 9. R2 Class A budget: three fixes on `main` as `a545b31` (2026-09-28 18:30), waiting for Chris's push
+- Why: measured 2026-09-28 (bucket snapshots every 5 min, 21:27-22:42 UTC, + Actions logs): ~121 PUTs per capture run,
+  ~405 per hourly run, 102 + 29 runs a day, so ~775k Class A in a 31-day month (free: 1 million). 16% of rewritten files
+  were byte-identical. The hourly job wrote its start-of-run `aq_cache.json` over newer capture copies (imw, utco, ne).
+- Fix (Chris: "do all three", 17:39): (1) caches go back only if their MD5 differs from the downloaded copy; (2) r2sync
+  skips rewritten files whose MD5 equals the listed ETag (cloud.py lists `<region>/frames` and `<region>/data/` in both
+  modes, never `<region>/`: pnw holds 109k slope tiles); (3) an hourly run exits if `stations.js` went up this UTC hour
+  and under 30 min ago (`SKIP_WITHIN_MIN`, judgment call); hourly.yml `force` input overrides. Tests
+  `tests/test_r2_uploads.py` (33). A reviewer agent found two gaps before merge (hourly maps need the frames listing;
+  late-run edge case); both fixed test-first. Accepted: if an upload fails mid-sync the rest waits for the next hour.
+- Expected after the push: ~-165k/month, to ~610k. Check: capture log `r2 +N new, U updated, S unchanged, T total`
+  and a few `caches pushed`; a queued second hourly run logs "already went up ... nothing to do"; an hour of bucket
+  snapshots shows 0 byte-identical PUTs and 0 cache rollbacks; from 2026-09-29 23:00 UTC the dashboard's radar-bucket
+  24 h Class A (clean of the slope upload) should read ~20k.
+- Not done: `CLAUDE.md` lines (another session has uncommitted edits there). Add under "How it runs": r2sync uploads only
+  changed files (MD5 vs ETag), caches pushed by content, one hourly run per UTC hour (`force` input), Class A ~610k/month.
+- Still open for Chris: the dashboard Class A number (step 1 of the original ask).
+
+## 12. HANDOFF: snow-conditions tracker (started 2026-09-28) (tracked handoff from PR #2-#4, merged here 2026-09-28)
 Spec: `docs/superpowers/specs/2026-09-28-snow-conditions-model-design.md` (read it first). The project is a
 snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org) on the same repo, Actions and R2.
 
-## Done (2026-09-28, cloud session)
+### Done (2026-09-28, cloud session)
 - `snow/archive.py`: the season archive, run last in the hourly job for regions with `"snow": True` (`pnw` only).
   Hourly `HH.json.gz` and one `daily.json.gz` per day under `regions/pnw/snow/archive/<date>/`, uploaded by `r2sync`
   (immutable). `values.read_grid` reads the click-anywhere grids back.
@@ -14,7 +191,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   and parameters unverified; test with `NAC_OBS_ORIGIN=... python -m snow.observations` once granted.
 - Tests: `tests/test_snow_archive.py` (10). `tests.yml` now installs numpy.
 
-## Done (2026-09-29, cloud session)
+### Done (2026-09-29, cloud session)
 - `snow/lattice.py` + `snow_static.yml` (workflow_dispatch): the 100 m UTM 10N terrain lattice over NWAC's area
   (`snow/snow_config.yaml` `lattice`, bbox 124.9-120.0 W, 45.2-49.0 N) from 20 USGS 1 arc-second tiles
   (prd-tnm.s3.amazonaws.com, reachable from the cloud session; 63 s, 4267 x 3850 cells, 39 MB npz). Elevation,
@@ -43,7 +220,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   Tests `test_snow_state.py` (4): storm -> sun crust south / powder north -> wind -> dust on crust -> no snow; spring
   corn -> isothermal; forcing from a fake archive day. 163 tests.
 
-## Waiting on Chris
+### Waiting on Chris
 - Email to forecasters@nwac.us (draft given in chat 2026-09-28): telemetry API access, observation feed access.
 - Merge `claude/fervent-maxwell-q8kphc` so the hourly job on main keeps the archive going (a run was dispatched from
   the branch on 2026-09-29 to start it: check `pnw/snow/archive/<date>/` on R2 and the `products/*.json` shape).
@@ -52,7 +229,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   archive day and read its log (class distribution, forcing line). Off season it should say mostly `no_snow`.
 - Enable R2 billing (Chris, 2026-09-29: "let's just pay for it"); the archive is ~1.5 MB/day, the lattice 40 MB.
 
-## Next, in order
+### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into
    the archive so wind can be scoured vs loaded by aspect.
@@ -63,7 +240,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
    the brief from the ledger. `ANTHROPIC_API_KEY` as an Actions secret; `snow.yml` daily workflow.
 4. `snow.html` and its Worker; then a `SNOW` global and layer group in `map.html`.
 
-## Gotchas
+### Gotchas
 - The cloud session's network policy blocks api.avalanche.org and nwac.us; add them to the environment's allowed
   domains (or run those checks from a PC).
 - The archive keys a day by the region's local date (TZ from `hourly.yml`); the daily file is written by the first
