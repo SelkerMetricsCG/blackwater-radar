@@ -65,3 +65,24 @@ def test_refreeze_index_ordering():
     clear_warm = solar.refreeze_index(4, 0.0, -10, 0)
     assert solar.refreeze_index(-6, 0.0, -10, 4) < clear_cold
     assert clear_cold == pytest.approx(1.0) and 0 < cloudy_cold < clear_cold and clear_warm == 0
+
+
+def test_binned_daily_matches_direct_within_a_few_percent():
+    d = dt.date(2026, 2, 10)
+    rng = np.random.default_rng(1)
+    n = 200
+    lat = rng.uniform(45.5, 48.9, n).astype(np.float32)
+    lon = rng.uniform(-124.5, -120.2, n).astype(np.float32)
+    slope = rng.uniform(0, 45, n).astype(np.float32)
+    aspect = rng.uniform(0, 360, n).astype(np.float32)
+    aspect[:20] = -1
+    alt = rng.uniform(200, 3000, n).astype(np.float32)
+    cloud = rng.uniform(0, 1, n).astype(np.float32)
+    direct = np.array([solar.daily_mj(lat[i], lon[i], d, slope[i], aspect[i], alt[i], cloud[i]) for i in range(n)])
+    binned = solar.daily_mj_binned(lat, lon, d, slope, aspect, alt, cloud)
+    assert binned.shape == (n,) and binned.dtype == np.float32
+    err = np.abs(binned - direct)
+    rel = err / np.maximum(direct, 0.5)
+    assert ((err < 0.6) | (rel < 0.08)).all() and np.median(rel) < 0.03      # a 5 deg aspect bin on a steep slope
+    flat_direct = solar.daily_mj(47.0, -121.0, d, 0, -1, 1000)
+    assert abs(solar.daily_mj_binned(47.0, -121.0, d, 30.0, -1.0, 1000.0) - flat_direct) < 0.05 * flat_direct   # flat ignores slope

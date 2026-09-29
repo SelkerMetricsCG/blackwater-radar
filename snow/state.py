@@ -213,8 +213,8 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print):
     f["depth_in"] = forcing.sample(sd["depth"], latg, long_).astype(np.float32) if sd.get("depth") else np.full(latg.shape, np.nan, np.float32)
     # solar on the cell under the day's cloud
     t0 = time.time()
-    f["solar_mj"] = solar.daily_mj(latg, long_, day, lat["slope"].astype(np.float32), lat["aspect"].astype(np.float32),
-                                   np.maximum(lat["elev"], 0).astype(np.float32), np.nan_to_num(cloud_day, nan=0.5), scfg).astype(np.float32)
+    f["solar_mj"] = solar.daily_mj_binned(latg, long_, day, lat["slope"].astype(np.float32), lat["aspect"].astype(np.float32),
+                                          np.maximum(lat["elev"], 0).astype(np.float32), np.nan_to_num(cloud_day, nan=0.5), scfg)
     f["solar_mj"][lat["elev"] == -32768] = 0
     log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, solar %.0f s"
         % (d, len(hourlies), np.nanmax(f["precip_in"]) if np.isfinite(f["precip_in"]).any() else 0,
@@ -252,7 +252,7 @@ def summary(s, lat, meta, day):
     return out
 
 
-def run(day, log=print, upload=True):
+def run(day, log=print, upload=True, force=False):
     t0 = time.time()
     p, scfg = load_params()
     lp = store.fetch("static/lattice.npz", log)
@@ -267,8 +267,12 @@ def run(day, log=print, upload=True):
     f = day_forcing(day, lat, meta, latlon, tz, scfg, p, log)
     prev_path = store.fetch("state/latest.npz", log)
     if prev_path:
-        s = dict(np.load(prev_path))
-        prev_day = str(np.load(prev_path).get("day", ""))
+        prev = np.load(prev_path)
+        prev_day = str(prev["day"]) if "day" in prev else None
+        if prev_day and prev_day >= day.isoformat() and not force:
+            log("state: latest state is for %s, nothing to do for %s (use --force to step again)" % (prev_day, day))
+            return None
+        s = {k: prev[k] for k in FIELDS}
     else:
         s = new_state(lat["elev"].shape, f["depth_in"], p["min_depth_in"], lat["elev"] != -32768)
         prev_day = None
@@ -295,6 +299,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=None, help="YYYY-MM-DD (default: yesterday, local)")
     ap.add_argument("--no-upload", action="store_true")
+    ap.add_argument("--force", action="store_true", help="step even when the saved state is already at or past this date")
     a = ap.parse_args()
     d = dt.date.fromisoformat(a.date) if a.date else dt.date.today() - dt.timedelta(days=1)
-    run(d, upload=not a.no_upload)
+    run(d, upload=not a.no_upload, force=a.force)
