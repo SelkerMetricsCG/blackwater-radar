@@ -43,6 +43,7 @@ state:
   settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
   solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
   wind_mph: {value: 25, bounds: [15, 40], max_step: 3, source: judgment call, note: "NDFD 10 m wind speed treated as transporting snow (ridgetop winds run higher; revisit with NWAC telemetry)"}
+  wind_sector_deg: {value: 60, bounds: [30, 90], max_step: 10, source: judgment call, note: "a cell counts as lee (loading) or windward (scouring) when its aspect is within this many degrees of the downwind or upwind direction"}
   wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above wind_mph since the last fresh snow that make the surface wind-affected"}
   rain_line_margin_ft: {value: 1000, bounds: [500, 2000], max_step: 250, source: literature, note: "snow level sits about this far below the HRRR freezing level"}
   rain_mix_ft: {value: 500, bounds: [200, 1000], max_step: 100, source: judgment call, note: "half-width of the mixed band around the snow level"}

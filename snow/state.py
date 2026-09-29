@@ -7,6 +7,8 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
   hn24_cm    yesterday's new snow on the cell (MRMS liquid x snow fraction from the freezing level x SLR from temperature)
   solar_mj   MJ/m2 on the cell since the last fresh snow (snow/solar.py, NDFD sky cover)
   wind_h     hours of NDFD 10 m wind above wind_mph since the last fresh snow
+  wind_lee_h / wind_wwd_h   of those, the hours the cell was in the lee (aspect within wind_sector of the downwind
+             direction: loading) or windward (facing the wind: scouring), from NDFD wind direction
   rain       1 when rain fell on the cell since the last fresh snow
   melt_days  consecutive days of surface melt without a solid overnight refreeze
   refreeze   last night's refreeze index (0..1)
@@ -14,7 +16,8 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
 
 Rules and parameters: snow_config.yaml `state` (all placeholders until the residual ledger exists; see the spec).
 Class priority, first match wins: no_snow, fresh, dust_on_crust, isothermal, melt_freeze, rain_crust, sun_crust,
-wind, fresh (settling), settled, old (aged powder with no crust trigger: the north-facing pocket).
+wind_scoured, wind_loaded, wind (direction unknown), fresh (settling), settled, old (aged powder with no crust
+trigger: the north-facing pocket).
 
   python -m snow.state --date 2026-01-15      run one day (yesterday by default); reads and writes R2 through snow/store.py
 """
@@ -31,11 +34,13 @@ from snow import forcing, solar, store
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(ROOT, "snow_config.yaml")
-CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old"]
+CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
+           "wind_loaded", "wind_scoured"]
 CID = {c: i for i, c in enumerate(CLASSES)}
-CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"])
+CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
 OLD_DAYS = 14
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
+          "wind_lee_h": np.float32, "wind_wwd_h": np.float32,
           "rain": np.uint8, "melt_days": np.uint8, "refreeze": np.float32, "depth_in": np.float32}
 
 
@@ -71,6 +76,8 @@ def step(s, f, lat, p, scfg):
     days = np.where(fresh, 0, np.minimum(s["days"].astype(np.int32) + 1, 250))
     solar_mj = np.where(fresh, 0, s["solar_mj"] + np.nan_to_num(f["solar_mj"], nan=0.0))
     wind_h = np.where(fresh, 0, s["wind_h"] + np.nan_to_num(f["wind_h"], nan=0.0))
+    wind_lee_h = np.where(fresh, 0, s.get("wind_lee_h", 0) + np.nan_to_num(f.get("wind_lee_h", 0.0), nan=0.0))
+    wind_wwd_h = np.where(fresh, 0, s.get("wind_wwd_h", 0) + np.nan_to_num(f.get("wind_wwd_h", 0.0), nan=0.0))
     rain = np.where(fresh, 0, np.maximum(s["rain"], rain_in >= p["rain_in"])).astype(np.uint8)
     refreeze = solar.refreeze_index(np.nan_to_num(f["tmin_c"], nan=-5.0), np.nan_to_num(f["cloud_night"], nan=0.5),
                                     np.nan_to_num(f["td_night_c"], nan=-5.0), np.nan_to_num(f["wind_night_ms"], nan=2.0))
@@ -84,6 +91,8 @@ def step(s, f, lat, p, scfg):
     cls[days <= OLD_DAYS] = CID["settled"]
     cls[days < p["settle_days"]] = CID["fresh"]
     cls[wind_h >= p["wind_hours"]] = CID["wind"]
+    cls[wind_lee_h >= p["wind_hours"]] = CID["wind_loaded"]
+    cls[wind_wwd_h >= p["wind_hours"]] = CID["wind_scoured"]
     cls[solar_mj >= p["solar_crust_mj"]] = CID["sun_crust"]
     cls[rain == 1] = CID["rain_crust"]
     cls[corn] = CID["melt_freeze"]
@@ -94,7 +103,8 @@ def step(s, f, lat, p, scfg):
     cls[depth < p["min_depth_in"]] = CID["no_snow"]
     cls[~valid] = 255
     return {"cls": cls, "days": days.astype(np.uint8), "hn24_cm": hn24.astype(np.float32), "solar_mj": solar_mj.astype(np.float32),
-            "wind_h": wind_h.astype(np.float32), "rain": rain, "melt_days": melt_days.astype(np.uint8),
+            "wind_h": wind_h.astype(np.float32), "wind_lee_h": wind_lee_h.astype(np.float32), "wind_wwd_h": wind_wwd_h.astype(np.float32),
+            "rain": rain, "melt_days": melt_days.astype(np.uint8),
             "refreeze": refreeze.astype(np.float32), "depth_in": depth}
 
 
@@ -155,6 +165,12 @@ def snotel_day(daily_next, day, tz_offset_h, zone, band, meta, log):
     return {k: forcing.band_values(pts, zone, band, k, meta) for k in ("hn24", "tmax", "tmin")}
 
 
+def aspect_within(aspect, direction, half_width):
+    """True where a cell's aspect (deg, -1 flat) is within half_width of `direction` (deg); flat cells never are"""
+    diff = np.abs((np.asarray(aspect, np.float32) - np.asarray(direction, np.float32) + 180.0) % 360.0 - 180.0)
+    return (aspect >= 0) & (diff <= half_width) & np.isfinite(diff)
+
+
 def fill_by_band(values, zone, band, fallback):
     """per-cell array from {(zone, band): v}; cells without a value take `fallback` (array or scalar)"""
     out = np.array(np.broadcast_to(np.asarray(fallback, np.float32), zone.shape), np.float32, copy=True)
@@ -195,11 +211,21 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print):
     f["td_night_c"] = _mean_grid(td, _steps_in(td, day, p["cloud_night_hours"], tz_offset_h) if td else [], latg, long_, 5 / 9.0, -32 * 5 / 9.0)
     f["wind_night_ms"] = _mean_grid(ws, _steps_in(ws, day, p["cloud_night_hours"], tz_offset_h) if ws else [], latg, long_, 0.44704)
     wh = np.zeros(latg.shape, np.float32)
+    lee = np.zeros(latg.shape, np.float32)
+    wwd = np.zeros(latg.shape, np.float32)
+    wd = nd.get("wdir") or {}
+    aspect = lat["aspect"].astype(np.float32)
     if ws:
         idx = [i for i, v in enumerate(ws.get("valid_utc") or []) if _local_hour(v, tz_offset_h).date() == day and str(ws["steps"][i]) in ws.get("grids", {})]
         for i in idx:
-            wh += 3.0 * (forcing.sample(ws["grids"][str(ws["steps"][i])], latg, long_) >= p["wind_mph"])
-    f["wind_h"] = wh
+            strong = forcing.sample(ws["grids"][str(ws["steps"][i])], latg, long_) >= p["wind_mph"]
+            wh += 3.0 * strong
+            sk = str(ws["steps"][i])
+            if sk in wd.get("grids", {}):
+                d = forcing.sample(wd["grids"][sk], latg, long_)          # direction the wind comes from
+                lee += 3.0 * (strong & aspect_within(aspect, d + 180.0, p["wind_sector_deg"]))
+                wwd += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
+    f["wind_h"], f["wind_lee_h"], f["wind_wwd_h"] = wh, lee, wwd
     # temperature by zone x band from SNOTEL, NDFD max/min where no site
     sn = snotel_day(daily_next, day, tz_offset_h, lat["zone"], lat["band"], meta, log)
     fc = (daily.get("forecast") or {}).get("grids") or {}
@@ -272,7 +298,7 @@ def run(day, log=print, upload=True, force=False):
         if prev_day and prev_day >= day.isoformat() and not force:
             log("state: latest state is for %s, nothing to do for %s (use --force to step again)" % (prev_day, day))
             return None
-        s = {k: prev[k] for k in FIELDS}
+        s = {k: (prev[k] if k in prev else np.zeros(prev["cls"].shape, t)) for k, t in FIELDS.items()}
     else:
         s = new_state(lat["elev"].shape, f["depth_in"], p["min_depth_in"], lat["elev"] != -32768)
         prev_day = None

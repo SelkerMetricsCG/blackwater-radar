@@ -45,9 +45,15 @@ def test_storm_then_sun_crust_on_south_and_pockets_on_north():
         solar[:, 1] = 5.0
         s = state.step(s, _forcing((4, 4), solar_mj=solar), lat, p, scfg)
     assert s["cls"][2, 1] == state.CID["sun_crust"] and s["cls"][2, 0] == state.CID["settled"] and s["days"][2, 0] == 7
-    # then wind: north slope goes wind-affected; then a dusting on the crust
+    # then wind: north slope goes wind-affected; with a direction it is loaded or scoured; then a dusting on the crust
     s = state.step(s, _forcing((4, 4), wind_h=9.0), lat, p, scfg)
     assert s["cls"][2, 0] == state.CID["wind"]
+    lee = np.zeros((4, 4), np.float32)
+    lee[:, 0] = 9.0
+    s2 = state.step(s, dict(_forcing((4, 4), wind_h=9.0), wind_lee_h=lee), lat, p, scfg)
+    assert s2["cls"][2, 0] == state.CID["wind_loaded"] and s2["cls"][2, 1] == state.CID["sun_crust"]
+    s2 = state.step(s, dict(_forcing((4, 4), wind_h=9.0), wind_wwd_h=lee), lat, p, scfg)
+    assert s2["cls"][2, 0] == state.CID["wind_scoured"]
     s = state.step(s, _forcing((4, 4), precip_in=0.1), lat, p, scfg)
     assert s["cls"][2, 1] == state.CID["dust_on_crust"] and s["cls"][2, 0] == state.CID["dust_on_crust"]
     # snow gone below
@@ -103,7 +109,8 @@ def test_day_forcing_from_a_fake_archive(tmp_path, monkeypatch):
     steps = list(range(3, 27, 3))
     ndfd = {"sky": {"steps": steps, "valid_utc": valid, "grids": {str(s): grid(50) for s in steps}},
             "td": {"steps": steps, "valid_utc": valid, "grids": {str(s): grid(14) for s in steps}},          # 14 F = -10 C
-            "wspd": {"steps": steps, "valid_utc": valid, "grids": {str(s): grid(30) for s in steps}}}       # 30 mph: above wind_mph
+            "wspd": {"steps": steps, "valid_utc": valid, "grids": {str(s): grid(30) for s in steps}},       # 30 mph: above wind_mph
+            "wdir": {"steps": steps, "valid_utc": valid, "grids": {str(s): grid(180) for s in steps}}}      # from the south
     _write_gz(str(tmp_path / "archive" / "2026-01-15" / "daily.json.gz"),
               {"ndfd": {"fields": ndfd}, "forecast": {"grids": {"maxt": grid(20), "mint": grid(5)}}})
     t = lambda h: int(dt.datetime(2026, 1, 15, h, tzinfo=dt.timezone.utc).timestamp())  # noqa: E731
@@ -120,7 +127,17 @@ def test_day_forcing_from_a_fake_archive(tmp_path, monkeypatch):
     assert f["precip_in"][1, 1] == pytest.approx(0.5) and f["fzl_ft"][1, 1] == 3000 and f["depth_in"][1, 1] == 30
     assert f["cloud_night"][1, 1] == pytest.approx(0.5) and f["td_night_c"][1, 1] == pytest.approx(-10, abs=0.01)
     assert f["wind_h"][1, 1] == 3 * 5 and f["wind_night_ms"][1, 1] == pytest.approx(30 * 0.44704)
+    # south wind: the north-facing column is in the lee (loaded), the south-facing column windward (scoured), flat neither
+    assert f["wind_lee_h"][1, 0] == 15 and f["wind_wwd_h"][1, 0] == 0
+    assert f["wind_wwd_h"][1, 1] == 15 and f["wind_lee_h"][1, 1] == 0
+    assert f["wind_lee_h"][1, 2] == 0 and f["wind_wwd_h"][1, 2] == 0
     # SNOTEL site sits in zone 1130 band 1: its day max/min (30/10 F) fill that band, NDFD (20/5 F) fills the others
     assert f["tmax_c"][1, 1] == pytest.approx((30 - 32) * 5 / 9) and f["tmax_c"][0, 0] == pytest.approx((20 - 32) * 5 / 9)
     assert f["snotel_hn24_in"][1, 1] == pytest.approx(12.0) and np.isnan(f["snotel_hn24_in"][0, 0])
     assert f["solar_mj"][1, 1] > f["solar_mj"][1, 0] > 0 and f["solar_mj"][0, 3] == 0
+
+
+def test_aspect_within_wraps_around_north():
+    a = np.array([350.0, 10.0, 90.0, -1.0, 180.0])
+    assert state.aspect_within(a, 0.0, 30).tolist() == [True, True, False, False, False]
+    assert state.aspect_within(a, 170.0, 60).tolist() == [False, False, False, False, True]
