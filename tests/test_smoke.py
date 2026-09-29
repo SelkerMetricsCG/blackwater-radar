@@ -358,6 +358,30 @@ def test_build_rebuilds_when_remote_is_stale(monkeypatch, tmp_path):
     assert smoke.build(log=lambda m: None, now=RUN_T + 3 * 3600) == "18Z new"
 
 
+def test_build_keeps_the_stored_slot_when_its_upload_never_landed(monkeypatch, tmp_path):
+    """18Z was built into b but never reached R2 (the page still shows 12Z from a); when 00Z arrives it must go to b too"""
+    store = {"v": 1, "run": "2026092818", "slot": "b", "built_t": RUN_T + 7000}
+    old = dt.datetime.fromtimestamp(RUN_T - 4 * 3600, UTC)                    # smoke.js on R2 is the 12Z build
+    build_env(monkeypatch, tmp_path, store=store, remote={"sierra/data/smoke.js": ("etag", old)})
+    monkeypatch.setattr(smoke, "fetch", FakeIdx({"2026092900"}))
+    assert smoke.build(log=lambda m: None, now=RUN_T + 8 * 3600) == "00Z new"
+    assert read_js(tmp_path / "smoke.js")["slot"] == "b" and (tmp_path / "frames" / "b01.webp").exists()
+
+
+def test_latest_run_lookback_limit(monkeypatch):
+    monkeypatch.setattr(smoke, "fetch", FakeIdx({"2026092812"}))
+    assert smoke.latest_run(T(12) + dt.timedelta(hours=27.5)) == T(12)
+    assert smoke.latest_run(T(12) + dt.timedelta(hours=33.5)) is None
+
+
+def test_build_deadline_aborts(monkeypatch, tmp_path):
+    build_env(monkeypatch, tmp_path)
+    monkeypatch.setattr(smoke, "DEADLINE_S", -1)
+    lines = []
+    assert smoke.build(log=lines.append, now=RUN_T + 2 * 3600) == "failed"
+    assert not (tmp_path / "smoke.js").exists() and any("out of time" in ln for ln in lines)
+
+
 def test_build_no_run_and_unreachable_host(monkeypatch, tmp_path):
     build_env(monkeypatch, tmp_path)
     monkeypatch.setattr(smoke, "fetch", FakeIdx(set()))

@@ -1489,7 +1489,7 @@
     if (!smokeHrs.length) return;
     smokeI = (n + smokeHrs.length) % smokeHrs.length;
     const h = smokeHrs[smokeI];
-    smokeOv.setUrl(BASE + h.file);
+    smokeOv.setUrl(BASE + h.file); smokeOv.setOpacity(+$('smokeOpacity').value);
     $('smokeSlider').value = smokeI;
     $('smokeLabel').textContent = smokeTimeLabel(h.t) + ' · ' + smokeWhen(h.t, Date.now() / 1000) + (h.max >= 9.1 ? ' · up to ' + h.max + ' µg/m³ in the window' : '');
     const b = $('smokeBadge'); if (b) b.textContent = 'Smoke forecast · ' + smokeTimeLabel(h.t);
@@ -1504,6 +1504,7 @@
     smokeEdge.clearLayers();
     if (!smokeHrs.length) {
       smokePause(); $('smokeLabel').textContent = ''; $('smokeSlider').max = 0;
+      smokeOv.setOpacity(0); const bb = $('smokeBadge'); if (bb) bb.textContent = '';   // nothing to show: hide the last frame
       $('smokeInfo').innerHTML = '<div class="muted">' + (smokeData ? 'the last smoke forecast has run out; a new run is on its way' : 'smoke forecast not available yet') + '</div>';
       return;
     }

@@ -301,10 +301,14 @@ def build(log=print, now=None):
         log("smoke: no complete HRRR run in the last %d h; the map keeps what it has" % LOOKBACK_H)
         return "no run"
     rid, name = run.strftime("%Y%m%d%H"), run.strftime("%HZ %b %d")
-    if store.get("run") == rid and not remote_stale(store):
+    stale = remote_stale(store)
+    if store.get("run") == rid and not stale:
         log("smoke: HRRR %s already on the map; next run %02dZ" % (name, (run.hour + RUN_EVERY_H) % 24))
         return run.strftime("%HZ unchanged")
-    slot, run_t = next_slot(store, rid), int(run.timestamp())
+    # a stored build that never reached R2 (upload failed) left the live page on the other slot: keep writing to the
+    # stored slot, whichever run is newest now, so the live slot's frames are never overwritten under the page
+    slot = store["slot"] if stale and store.get("slot") in ("a", "b") else next_slot(store, rid)
+    run_t = int(run.timestamp())
     grid, hours, blocks, nbytes, peak, coverage = None, [], [], 0, (-1.0, 0), None
     for fh in HOURS:
         url = url_for(run, fh)
