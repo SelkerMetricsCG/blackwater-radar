@@ -3,7 +3,7 @@
 Read `CLAUDE.md` in this folder for how the site works. Two pieces of work are open (2 and 3).
 Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE.md`); read his Terminal panel afterwards.
 
-## 11. Hillshade basemap chip: LIVE 2026-09-28 19:36 (`2c854e1`, deploy d34e91d3); push pending the smoke session's merge
+## 11. Hillshade basemap chip: LIVE 2026-09-28 19:36 (`2c854e1`, deploy d34e91d3); merged with origin/main 19:44, push is a fast-forward
 - Fifth chip in the Basemap row (`map.html`): Esri `Elevation/World_Hillshade` (native to z16, upsampled to 17) under the
   same Esri boundaries/places and transportation reference tiles Satellite uses. Saved defaults pick it up (`bases[d.base]`).
 - Checked locally 19:40 (`build_web.py`, served `web/`): chip switches, 18 hillshade + 36 reference tiles load, no console
