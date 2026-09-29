@@ -167,6 +167,7 @@ def _utc(epoch):
 
 
 def snotel_day(daily_next, day, tz_offset_h, zone, band, meta, log):
+    """zone and band are the FULL lattice rasters (sites are located on the lattice), whatever subset the model runs on"""
     """{'hn24': {(zone, band): in}, 'tmax': {...F}, 'tmin': {...F}} for `day` from the next day's SNOTEL series"""
     import newsnow
     sn = (daily_next or {}).get("snotel")
@@ -203,8 +204,10 @@ def fill_by_band(values, zone, band, fallback):
     return out
 
 
-def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print):
-    """per-cell forcing arrays for `day` from the archive (day's hourlies and daily, next day's daily)"""
+def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=None):
+    """per-cell forcing arrays for `day` from the archive (day's hourlies and daily, next day's daily). `lat` may be a
+    subset of the lattice (1-D arrays, snow/replay.py); then `locate` = (zone, band) of the full lattice for site lookup"""
+    zone_full, band_full = locate if locate else (lat["zone"], lat["band"])
     latg, long_ = latlon
     d, dn = day.isoformat(), (day + dt.timedelta(days=1)).isoformat()
     daily = store.read_json("archive/%s/daily.json.gz" % d, log) or {}
@@ -251,7 +254,7 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print):
                 wwd += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
     f["wind_h"], f["wind_lee_h"], f["wind_wwd_h"] = wh, lee, wwd
     # temperature by zone x band from SNOTEL, NDFD max/min where no site
-    sn = snotel_day(daily_next, day, tz_offset_h, lat["zone"], lat["band"], meta, log)
+    sn = snotel_day(daily_next, day, tz_offset_h, zone_full, band_full, meta, log)
     fc = (daily.get("forecast") or {}).get("grids") or {}
     fb_max = forcing.sample(fc["maxt"], latg, long_) if fc.get("maxt") else np.full(latg.shape, np.nan, np.float32)
     fb_min = forcing.sample(fc["mint"], latg, long_) if fc.get("mint") else np.full(latg.shape, np.nan, np.float32)

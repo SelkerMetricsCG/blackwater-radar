@@ -36,7 +36,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   repository variable of the same name), `score.py`, `assimilate.py`; writes `<region>/snow/ledger/` and `brief/`),
   parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`,
   `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
-  Trip log: `snow/trips.json`.
+  Trip log: `snow/trips.json`. Offline: `snow/replay.py` (re-run a date range on a subset of cells), `snow/fit.py`
+  (bounded parameter fit on the ledger's residuals; `snow_fit.yml` by hand proposes, `--apply` from a session changes
+  `snow_config.yaml` and writes `param` ledger records).
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
@@ -47,6 +49,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
 | `snow.yml` | 09:20 UTC daily | `python -m snow.state` then `python -m snow.daily`: the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
+| `snow_fit.yml` | by hand | `python -m snow.fit`: replays the model around every scored report, proposes bounded parameter moves to `<r>/snow/fit/` |
 | `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare

@@ -1,0 +1,33 @@
+name: snow fit
+
+# The parameter fit of the snow model, by hand: replays the model around every scored field report and proposes
+# bounded parameter moves that reduce the mismatch. Writes <r>/snow/fit/<date>.json and prints the proposal; it
+# never changes snow_config.yaml (apply a proposal from a session: `python -m snow.fit --apply`, then commit).
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "region key (one with snow: True in region.py)"
+        default: pnw
+
+jobs:
+  fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TZ: America/Los_Angeles
+      REGION: ${{ inputs.region || 'pnw' }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: radar
+      R2_PUBLIC_URL: https://radar-files.blackwaterlabs.org
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install numpy pyyaml boto3 pyproj
+      - run: python -m snow.fit
