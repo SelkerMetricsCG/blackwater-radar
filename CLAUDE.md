@@ -64,6 +64,9 @@ python build_web.py      # bakes the R2 URL and region table into web/index.html
 npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be on PATH
 ```
 - Ask Chris before deploying; he does `wrangler` and `gh` logins himself.
+- Chris runs `git push` and the deploy himself from Run-button blocks (format in `../CLAUDE.md`). Run
+  `build_web.py` yourself first, then hand him `npx --yes wrangler deploy` from `C:/Users/16035/Desktop/BlackwaterLabs/radar`.
+  Afterwards, curl https://radar.blackwaterlabs.org/ (not `/index.html`, which answers empty) and diff it against `web/index.html`.
 - `web/` is gitignored but holds the **only copies** of the icons, `manifest.webmanifest` and
   `vendor/leaflet*`. Never delete or regenerate it wholesale.
 - The custom domain is attached in the Cloudflare dashboard, not in `wrangler.toml`.
