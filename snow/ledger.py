@@ -9,6 +9,7 @@ The ledger: dated, structured facts with sources, the snow model's memory across
   note      an LLM model note with the evidence it cites
   param     a parameter change with the residuals that drove it (the fit, later)
   trip      Chris's own trip record (snow/trips.json, same fields as obs)
+  assim     what a report nudged in the state (snow/assimilate.py): cells, weight
 
 Never a brief: the brief is regenerated each day from the last weeks of this file.
 """
@@ -19,7 +20,7 @@ import os
 from snow import store
 
 REL = "ledger/ledger.json"
-KINDS = ("obs", "residual", "layer", "note", "param", "trip")
+KINDS = ("obs", "residual", "layer", "note", "param", "trip", "assim")
 
 
 def load(log=print):

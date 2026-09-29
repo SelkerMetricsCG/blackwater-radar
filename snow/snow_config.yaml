@@ -24,6 +24,14 @@ lattice:
   bands_ft: [4000, 6000]
   canopy_dataset: "ESA WorldCover 2021 v200, 10 m, class 10 (tree cover) averaged onto the cell"
   delete_downloads: true
+  # judgment call (2026-09-29): the Cascade crest as a polyline (lat, lon), north to south, read off the map:
+  # Slate Peak / Harts Pass, Washington Pass, Cascade Pass, Glacier Peak, Stevens, Snoqualmie, Chinook, White Pass,
+  # Goat Rocks, Mt Adams, the Columbia, Mt Hood. crest_km per cell is the signed east-west distance from it
+  # (negative west), used by the assimilation's similarity (a west-side and an east-side slope at the same
+  # elevation and aspect are different snow; within crest_same_km of the crest they are treated as the same side).
+  crest_latlon: [[48.99, -120.85], [48.72, -120.67], [48.52, -120.65], [48.47, -121.07], [48.11, -121.11],
+                 [47.75, -121.09], [47.42, -121.42], [46.87, -121.52], [46.64, -121.39], [46.50, -121.45],
+                 [46.20, -121.49], [45.70, -121.75], [45.37, -121.70]]
   treeline:
     # judgment call (2026-09-29): the treeline of a zone is the elevation above which its median canopy (smoothed
     # over 1.1 km) stays under 15%; the near-treeline band is the 600 m below it (NWAC's near band is about
@@ -74,5 +82,12 @@ state:
   tree_release_tmax_c: {value: 3, bounds: [1, 8], max_step: 1, source: judgment call, note: "band max above this dumps a loaded canopy"}
   tree_debris_canopy: {value: 0.5, bounds: [0.3, 0.8], max_step: 0.1, source: judgment call, note: "canopy fraction at or above which a release ruins the surface (tree_debris) for the day"}
   min_depth_in: {value: 4, bounds: [2, 12], max_step: 2, source: judgment call, note: "SNODAS depth below this is 'no snow'"}
+  # assimilation (snow/assimilate.py): a report nudges the cells similar to its own within assim_radius_km
+  assim_radius_km: {value: 12, bounds: [3, 30], max_step: 3, source: judgment call, note: "how far a report reaches"}
+  assim_elev_m: {value: 150, bounds: [50, 400], max_step: 50, source: judgment call, note: "cells within this much elevation of the report's cell count as similar"}
+  assim_aspect_deg: {value: 45, bounds: [22, 90], max_step: 10, source: judgment call, note: "cells within this many degrees of the report's aspect count as similar (flat only matches flat)"}
+  crest_same_km: {value: 5, bounds: [2, 15], max_step: 2, source: judgment call, note: "within this distance of the crest both sides count as the same side"}
+  assim_canopy: {value: 0.3, bounds: [0.1, 0.6], max_step: 0.1, source: judgment call, note: "canopy fraction difference within which cells count as similar"}
+  assim_weight: {value: 0.8, bounds: [0.2, 1.0], max_step: 0.1, source: judgment call, note: "nudge weight at the report itself (times its confidence); decays with distance"}
   cloud_day_hours: {value: [8, 17], source: convention, note: "local hours whose NDFD sky cover feeds the solar term"}
   cloud_night_hours: {value: [21, 6], source: convention, note: "local hours whose sky, dewpoint and wind feed the refreeze term"}
