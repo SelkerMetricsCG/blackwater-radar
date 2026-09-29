@@ -27,7 +27,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   `<region>/snow/archive/<local date>/HH.json.gz` (stations, HRRR freezing level f0, MRMS 1 h, zone danger), `daily.json.gz`
   (74 h SNOTEL series, NDFD grids, freezing f0..f18, MRMS 24 h, SNODAS, full station records), `products/`, `obs/`; every
   file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
-  (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1.
+  (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1. Static: the 100 m terrain lattice
+  (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
+  parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`).
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
@@ -37,6 +39,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
+| `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
 Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers. Its secret

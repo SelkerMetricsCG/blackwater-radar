@@ -6,8 +6,9 @@ already has in hand, written into
     HH.json.gz          every run: station readings, HRRR freezing level (analysis hour), MRMS 1 h QPE,
                         zone danger ratings
     daily.json.gz       first run of the day that finds none in R2: the 74 h SNOTEL series (so each day's
-                        file overlaps the last), NDFD forecast grids, HRRR freezing level f0..f18,
-                        MRMS 24 h, SNODAS, full station records
+                        file overlaps the last), NDFD forecast grids, NDFD sky cover, dewpoint and wind by
+                        step to 48 h (forecast.snow_fields), HRRR freezing level f0..f18, MRMS 24 h, SNODAS,
+                        full station records
     products/*.json     every avalanche.org forecast product touching the window, saved when it changes
                         (snow/avyproducts.py)
     obs/*.json          NAC observations (snow/observations.py); only with an allow-listed Origin from NWAC/NAC
@@ -65,9 +66,9 @@ def block_mean(q, n_out):
     return m.astype(np.int64)
 
 
-def grid(name, n_out):
+def grid(name, n_out, out_dir=None):
     """a value grid packed for the archive: {n, scale, unit, data:[...]} or None when the grid is missing"""
-    g = values.read_grid(name)
+    g = values.read_grid(name, out_dir)
     if g is None:
         return None
     payload, q = g
@@ -182,6 +183,21 @@ def daily_snapshot(now_utc, log):
             g = grid("fc_" + k, SMOOTH_N)
             if g:
                 snap["forecast"]["grids"][k] = g
+    sv = os.path.join(DATA, "snowvals")
+    try:
+        with open(os.path.join(sv, "meta.json"), encoding="utf-8") as f:
+            m = json.load(f)
+    except (OSError, ValueError):
+        m = None
+    if m:
+        snap["ndfd"] = {"issued_utc": m.get("issued_utc"), "fields": {}}
+        for key, info in (m.get("fields") or {}).items():
+            fld = dict(info, grids={})
+            for s in info.get("steps", []):
+                g = grid("%s_%03d" % (key, s), SMOOTH_N, sv)
+                if g:
+                    fld["grids"][str(s)] = g
+            snap["ndfd"]["fields"][key] = fld
     fz = read_js(os.path.join(DATA, "freezing.js"))
     if fz:
         snap["freezing"] = {"run_utc": fz.get("run_utc"), "hours": fz.get("hours"), "grids": {}}

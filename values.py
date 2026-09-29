@@ -18,7 +18,8 @@ OUT_DIR = os.path.join(region.data_dir(), "values")
 N = 256
 
 
-def write_grid(name, arr, unit="in", scale=0.01, nodata=None):
+def write_grid(name, arr, unit="in", scale=0.01, nodata=None, out_dir=None):
+    out_dir = out_dir or OUT_DIR
     a = np.asarray(arr, dtype=np.float32)
     h, w = a.shape
     fy, fx = h // N, w // N
@@ -28,8 +29,8 @@ def write_grid(name, arr, unit="in", scale=0.01, nodata=None):
     with np.errstate(invalid="ignore"):
         m = np.nanmean(a, axis=(1, 3))
     q = np.where(np.isnan(m), -1, np.round(m / scale)).astype(np.int64)
-    os.makedirs(OUT_DIR, exist_ok=True)
-    path = os.path.join(OUT_DIR, name + ".js")
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, name + ".js")
     body = ",".join(str(int(v)) for v in q.ravel())
     payload = {"w": N, "h": N, "scale": scale, "unit": unit, "nodata": -1}
     with open(path + ".tmp", "w", encoding="utf-8") as f:
@@ -39,10 +40,10 @@ def write_grid(name, arr, unit="in", scale=0.01, nodata=None):
     return path
 
 
-def read_grid(name):
+def read_grid(name, out_dir=None):
     """the grid write_grid wrote: (payload dict, (N, N) int64 array with -1 nodata), or None when missing"""
     import re
-    path = os.path.join(OUT_DIR, name + ".js")
+    path = os.path.join(out_dir or OUT_DIR, name + ".js")
     try:
         with open(path, encoding="utf-8") as f:
             s = f.read()
