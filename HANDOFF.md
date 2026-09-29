@@ -237,12 +237,17 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Canopy on the lattice from ESA WorldCover 2021 (10 m class 10 averaged to the cell; four tiles, reachable from the
   cloud session; checked Hoh 100%, Enchantments 0%, Leavenworth 3%, Stevens base 21%). Treeline per zone from the
   canopy (`snow_config.yaml` `lattice.treeline`), near band 600 m below it; fixed 4000/6000 ft where no cut.
-  `snow static` must be rerun for the new lattice (it also writes `static/zones.js`, the zone polygons for the page).
+  `snow static` rerun 2026-09-29 21:22 UTC (run 36632763515, 88 s): treeline for 8 zones, ids 3020-3022 and 3032 at
+  1900 m, 3023 at 2000 m, 3024 and 3030 at 2200 m, 3029 at 2300 m (west side low, east side high; NWAC's "above
+  treeline" edge is 6000 ft = 1830 m at Stevens). Zone names for those ids: `pnw/snow/static/zones.json` on R2.
+  Zones without a cut use the fixed 4000/6000 ft bands. `static/zones.js` (the page's polygons) is up.
 - Ledger (`snow/ledger.py`, `<r>/snow/ledger/ledger.json`), LLM passes (`snow/llm.py`: extraction of observations,
   weak-layer snapshots and notes from the day's products and NAC observations; the brief from the ledger and the
   state summary; Claude API, JSON-schema output, model `SNOW_MODEL` default `claude-opus-5`), scoring
-  (`snow/score.py`, residual records), the orchestrator `snow/daily.py` as `snow.yml` step 2. **Chris: add the
-  Actions secret `ANTHROPIC_API_KEY`**; without it the step logs "skipped" and still writes ledger and brief files.
+  (`snow/score.py`, residual records), the orchestrator `snow/daily.py` as `snow.yml` step 2. Key: Actions secret
+  `BW_SNOW_MODEL` (console key "Blackwater SnowModel", **expires 2027-07-31**: make a new key in the console and update
+  the secret); model: repository variable `BW_SNOW_MODEL` = `claude-fable-5-1` (2026-09-29). Without a key the step
+  logs "skipped" and still writes ledger and brief files.
 - Trip log: `snow/trips.json` in the repo (a list of obs-shaped records; the page's form writes one to paste);
   records for a day become `trip` records and are scored like observations.
 - Site outputs: every state and brief file also as `.js` (`window.SNOW_STATE`, `SNOW_CLS`, `SNOW_BRIEF`, `SNOW_INDEX`,

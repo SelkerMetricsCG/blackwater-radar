@@ -83,24 +83,42 @@ def _lattice():
             "zone": np.where(elev == -32768, -1, 1130).astype(np.int32)}
 
 
-def test_score_by_cell_and_by_group():
+def test_score_neighbourhood_place_and_group(monkeypatch):
     pytest.importorskip("pyproj")
     from snow import forcing
-    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0], "zones": {"1130": {"name": "Stevens Pass"}}}
+    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0], "cell_m": 1000,
+            "zones": {"1130": {"name": "Stevens Pass"}}}
     lat = _lattice()
     latg, long_ = forcing.lattice_latlon(meta)
     cls = np.full((4, 4), state.CID["settled"], np.uint8)
-    cls[:, 1] = state.CID["sun_crust"]
+    cls[:, 1] = state.CID["sun_crust"]          # the south-facing column
     cls[:, 3] = 255
     st = {"days": np.full((4, 4), 5.0), "hn24_cm": np.zeros((4, 4))}
-    obs = [{"id": "obs_1", "surface": "sun_crust", "lat": float(latg[2, 1]), "lon": float(long_[2, 1]), "confidence": 0.8},
-           {"id": "obs_2", "surface": "fresh", "lat": None, "lon": None, "zone": "Stevens Pass", "band": "above", "aspects": ["N"]},
-           {"id": "obs_3", "surface": "unknown", "zone": "Stevens Pass", "band": "above", "aspects": ["N"]},
-           {"id": "obs_4", "surface": "wind", "zone": "Nowhere", "band": "above", "aspects": []}]
-    res = score.score(obs, cls, st, lat, meta, lambda *a: None)
-    assert [r["obs_id"] for r in res] == ["obs_1", "obs_2"]
-    assert res[0]["match"] and res[0]["how"] == "cell" and res[0]["state"]["days"] == 5.0
-    assert not res[1]["match"] and res[1]["predicted"] == "settled" and res[1]["how"] == "group"
+    monkey_places = {"Skyline Ridge": [float(latg[2, 0]), float(long_[2, 0])]}
+    import snow.score as sc
+    monkeypatch.setattr(sc, "places", lambda: monkey_places)
+    obs = [{"id": "o1", "surface": "sun_crust", "lat": float(latg[2, 1]), "lon": float(long_[2, 1]), "aspects": ["S"], "band": "above", "confidence": 0.8},
+           {"id": "o2", "surface": "settled", "lat": None, "lon": None, "location": "north side of Skyline Ridge", "aspects": ["N"], "band": "above"},
+           {"id": "o3", "surface": "fresh", "zone": "Stevens Pass", "band": "above", "aspects": ["N"]},
+           {"id": "o4", "surface": "unknown", "zone": "Stevens Pass", "band": "above", "aspects": ["N"]},
+           {"id": "o5", "surface": "wind", "zone": "Nowhere", "band": "above", "aspects": []},
+           {"id": "o6", "surface": "settled", "lat": float(latg[2, 1]), "lon": float(long_[2, 1]), "aspects": ["all"], "band": None}]
+    res = sc.score(obs, cls, st, lat, meta, lambda *a: None, radius_point_m=300.0, radius_place_m=1500.0)
+    by = {r["obs_id"]: r for r in res}
+    assert set(by) == {"o1", "o2", "o3", "o6"}
+    assert by["o1"]["how"] == "near" and by["o1"]["match"] and by["o1"]["frac"] == 1.0 and by["o1"]["state"]["days"] == 5.0
+    assert by["o2"]["how"] == "place" and by["o2"]["place"] == "Skyline Ridge" and by["o2"]["filtered"] and by["o2"]["match"]
+    assert by["o3"]["how"] == "group" and not by["o3"]["match"] and by["o3"]["predicted"] == "settled" and by["o3"]["frac"] == 0.0
+    # o6 sits on the crusted south column but names no aspect: its 300 m neighbourhood is that one cell, so frac 0
+    assert by["o6"]["how"] == "near" and by["o6"]["frac"] == 0.0 and not by["o6"]["filtered"]
+
+
+def test_resolve_place_prefers_the_longest_name():
+    from snow import score as sc
+    table = {"Baker": [48.8, -121.7], "Mount Baker": [48.857, -121.679]}
+    assert sc.resolve_place("skinned up toward mount baker today", table)[2] == "Mount Baker"
+    assert sc.resolve_place("nothing here", table) is None and sc.resolve_place(None, table) is None
+    assert len(sc.places()) > 30 and all(len(v) == 2 for v in sc.places().values())
 
 
 def test_daily_end_to_end_with_fake_llm(tmp_path, monkeypatch):
@@ -143,7 +161,7 @@ def test_daily_end_to_end_with_fake_llm(tmp_path, monkeypatch):
     kinds = [r["kind"] for r in recs]
     assert kinds.count("obs") == 1 and kinds.count("layer") == 1 and kinds.count("residual") == 1 and kinds.count("note") == 1
     res = next(r for r in recs if r["kind"] == "residual")
-    assert res["match"] and res["predicted"] == "settled" and res["obs_id"] == "obs_%s_0" % d
+    assert res["match"] and res["predicted"] == "settled" and res["obs_id"] == "obs_%s_0" % d and res["how"] == "near"
     assert json.load(open(tmp_path / "brief" / "latest.json"))["date"] == d
 
 

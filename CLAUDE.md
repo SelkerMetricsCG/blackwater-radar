@@ -32,7 +32,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
   the surface-state model (`snow/state.py`, `snow.yml` step 1 daily at 09:20 UTC, writes `<region>/snow/state/`; forcing from
   the archive in `snow/forcing.py`, R2 access in `snow/store.py`), the ledger and LLM passes (`snow/daily.py`, step 2: `ledger.py`,
-  `llm.py` through the Claude API with the `ANTHROPIC_API_KEY` secret, `score.py`; writes `<region>/snow/ledger/` and `brief/`),
+  `llm.py` through the Claude API with the Actions secret `BW_SNOW_MODEL` (the key, expires 2027-07-31; model from the
+  repository variable of the same name), `score.py`, `assimilate.py`; writes `<region>/snow/ledger/` and `brief/`),
   parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`,
   `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
   Trip log: `snow/trips.json`.

@@ -5,7 +5,8 @@ Terrain lattice for the snow-conditions model: one static grid of 100 m cells in
 Per cell: elevation (m), slope (deg, Horn on the 100 m grid), aspect (deg from N, -1 where flat), canopy
 (tree-cover percent from ESA WorldCover 2021, 10 m classes averaged onto the cell), the avalanche zone id where
 the zone polygons are available (avalanche.org map layer; -1 outside any zone), and the elevation band
-(0 below / 1 near / 2 above treeline). The treeline is found per zone from the canopy itself: the elevation above
+(0 below / 1 near / 2 above treeline), and crest_km (signed east-west distance from the Cascade crest polyline in
+tenths of a km, negative west). The treeline is found per zone from the canopy itself: the elevation above
 which the zone's 1 km-smoothed median canopy stays under `treeline.treeline_canopy`; "near" is the
 `near_width_m` below it. Zones without a clear cut (and cells outside any zone) use the fixed `bands_ft`.
 
@@ -203,6 +204,22 @@ def canopy(cfg, transform, out_shape, log):
     return dest, used
 
 
+def crest_km(cfg, transform, out_shape):
+    """signed east-west distance (km) of every cell from the crest polyline in cfg["crest_latlon"], negative west"""
+    from pyproj import Transformer
+    tr = Transformer.from_crs("EPSG:4326", cfg["crs"], always_xy=True)
+    pts = [tr.transform(lon, lat) for lat, lon in cfg["crest_latlon"]]
+    xs, ys = np.array([p[0] for p in pts]), np.array([p[1] for p in pts])
+    order = np.argsort(ys)
+    xs, ys = xs[order], ys[order]
+    a, b, c, d, e, f = list(transform)[:6]
+    h, w = out_shape
+    cy = f + e * (np.arange(h) + 0.5)
+    cx = c + a * (np.arange(w) + 0.5)
+    crest_x = np.interp(cy, ys, xs)                     # crest easting at each row (clamped beyond the ends)
+    return ((cx[None, :] - crest_x[:, None]) / 1000.0).astype(np.float32)
+
+
 def treeline_by_zone(canopy_frac, elev_m, zone, cfg, log):
     """{zone id: treeline elevation m} where the zone's median canopy (1 km smoothed) stays under
     `treeline_canopy` above it; zones without a clear cut are left out (fixed bands apply)"""
@@ -340,6 +357,12 @@ def build(tiles_limit=None, log=print, cfg=None, zones=True, with_canopy=True):
                 meta["treeline_m"] = {str(k): v for k, v in treeline.items()}
         except Exception as e:  # noqa: BLE001
             log("lattice: canopy FAILED (%r); no canopy, fixed bands" % e)
+    try:
+        ck = crest_km(cfg, transform, z.shape)
+        out["crest_km"] = np.round(ck * 10).astype(np.int16)      # tenths of a km
+        meta["nodata"]["crest_km"] = None
+    except Exception as e:  # noqa: BLE001
+        log("lattice: crest distance FAILED (%r)" % e)
     out["band"] = bands_from_treeline(z, zr if zr is not None else np.full(z.shape, -1, np.int32), treeline, dict(cfg["treeline"], bands_ft=cfg["bands_ft"]))
     os.makedirs(OUT_DIR, exist_ok=True)
     npz = os.path.join(OUT_DIR, "lattice.npz")

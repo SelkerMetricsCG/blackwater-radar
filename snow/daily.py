@@ -19,7 +19,9 @@ LEDGER_DAYS = 21
 
 
 def day_products(date, log=print):
-    names = [n for n in store.listing("archive/%s/products/" % date) if n.endswith(".json")]
+    import region
+    center = region.cfg().get("avy")
+    names = [n for n in store.listing("archive/%s/products/" % date) if n.endswith(".json") and (not center or n.startswith(center + "_"))]
     out = []
     for n in names:
         p = store.read_json("archive/%s/products/%s" % (date, n), log)
@@ -73,7 +75,14 @@ def run(day, log=print, upload=True):
             cls = np.load(cls_path)["cls"]
             lat = dict(np.load(lat_path))
             state = dict(np.load(st_path)) if st_path else {}
-            ledger.append(recs, score.score(new_obs, cls, state, lat, meta, log), d, "residual")
+            residuals = ledger.append(recs, score.score(new_obs, cls, state, lat, meta, log), d, "residual")
+            if residuals and state and str(state.get("day", "")) == d:
+                from snow import assimilate, state as st_mod
+                p, _ = st_mod.load_params()
+                nudged = assimilate.apply(state, residuals, {o["id"]: o for o in new_obs}, lat, meta, p, log)
+                if nudged:
+                    ledger.append(recs, nudged, d, "assim")
+                    st_mod.rewrite_outputs(state, lat, meta, day, log, upload)
     # pass 2: the brief
     out = {"date": d, "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M"), "model": llm.MODEL}
     if summ:
