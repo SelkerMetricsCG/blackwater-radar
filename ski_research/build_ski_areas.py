@@ -29,6 +29,7 @@ import region  # noqa: E402
 WORK = os.path.join(HERE, "work")
 SRC = os.path.join(WORK, "ski_areas_world.geojson")
 OVERRIDES = os.path.join(HERE, "overrides.json")
+REPORTS = os.path.join(HERE, "reports.json")
 OUT = os.path.join(ROOT, "ski_areas.json")
 URL = "https://tiles.openskimap.org/geojson/ski_areas.geojson"
 UA = "BlackwaterRadar-ski-list/1.0 (+https://radar.blackwaterlabs.org)"
@@ -86,6 +87,10 @@ def main():
         feats = json.load(f)["features"]
     with open(OVERRIDES, encoding="utf-8") as f:
         ov = json.load(f)
+    reports = {}
+    if os.path.exists(REPORTS):                 # snow-report pages found by find_reports.py; an override wins
+        with open(REPORTS, encoding="utf-8") as f:
+            reports = json.load(f)
     review, out, seen = [], [], set()
     per_region = {k: 0 for k in region.REGIONS}
     for f in feats:
@@ -117,6 +122,8 @@ def main():
         for k in ("report", "mp"):
             if o.get(k) is not None:
                 e[k] = o[k]
+        if "report" not in e and reports.get(e["id"]) and reports[e["id"]] != web:
+            e["report"] = reports[e["id"]]
         if e["id"] in seen:
             raise SystemExit("short id clash: " + p["id"])
         seen.add(e["id"])
