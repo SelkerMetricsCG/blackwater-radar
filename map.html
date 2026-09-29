@@ -81,6 +81,8 @@
   .bslabel::before { display:none; }
   .radios label.off { opacity:.4; pointer-events:none; }
   .opt[hidden], .subwrap[hidden] { display:none !important; }
+  .smokebadge { background:rgba(28,32,39,.9); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:4px 10px; font-size:12px; font-weight:600; margin:0 0 8px 8px; white-space:nowrap; }
+  #smokeLabel { width:100%; font-weight:600; font-variant-numeric:tabular-nums; font-size:12px; }
   .fzlabel { background:#1b2a6b; color:#fff; border-color:#fff; font-size:12px; padding:1px 5px; transform:translate(-50%,-50%); white-space:nowrap; }
 
   #bar { position:absolute; left:0; right:0; bottom:0; height:88px; background:var(--panel); border-top:1px solid var(--line); padding:10px 14px; z-index:1000; }
@@ -306,6 +308,21 @@
       <span class="helptip" role="tooltip">Heat seen from satellites: NOAA GOES every few minutes (a pixel is about 2 km), NASA VIIRS and MODIS a few hours old (375 m to 1 km). A hotspot is heat, not a mapped fire edge. Includes prescribed burns and industrial or farm heat sources. Hollow: a GOES detection not yet tied to a known fire.</span></label>
     <div class="subwrap" data-for="lyHot">
       <div class="sub" id="hotInfo" style="display:block"></div>
+    </div>
+
+    <label class="opt"><input type="checkbox" id="lySmoke"> Smoke forecast (HRRR)
+      <button type="button" class="help" aria-label="About the smoke forecast" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">NOAA's HRRR-Smoke model: smoke near the ground, hour by hour for the next two days, from the fires satellites see. Colours are the PM2.5 AQI category for that much smoke; grey is light smoke (still Good). Smoke only: a monitor in clean air reads a few µg/m³ higher. It is a model, so a plume from a new fire can be missing or misplaced; check the AQI stations for measured air. A new run every 6 hours, on the map about 2 hours later.</span></label>
+    <div class="subwrap" data-for="lySmoke">
+      <div class="sub" id="smokePlayer">
+        <button type="button" class="chip" id="smokePlay">Play</button>
+        <button type="button" class="chip" id="smokePrev" title="Previous hour">&lt;</button>
+        <button type="button" class="chip" id="smokeNext" title="Next hour">&gt;</button>
+        <input type="range" id="smokeSlider" min="0" max="0" value="0">
+        <div id="smokeLabel"></div>
+      </div>
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="smokeOpacity" min="0.2" max="1" step="0.05" value="0.65"></div>
+      <div class="sub" id="smokeInfo" style="display:block"></div>
     </div>
     </div>
   </div>
@@ -1326,6 +1343,113 @@
   }
   $('lyHot').onchange = e => { if (e.target.checked) { hotLayer.addTo(map); if (fireNeedsLoad(fireData, fireLoadedAt, Date.now())) loadFires(); else renderHot(); } else map.removeLayer(hotLayer); };
   setInterval(() => { if (map.hasLayer(fireLayer) || map.hasLayer(hotLayer)) loadFires(); }, 15 * 60 * 1000);
+  // ---------- Smoke & fires: smoke forecast (HRRR near-surface smoke, 48 h loop) ----------
+  // BEGIN smokeHelpers (tests/test_map_smoke.py runs this block under node)
+  // floor, light band and category edges are judgment calls (spec ledger, 2026-09-28); colours are AirNow's
+  const SMOKE_EDGES = [2, 9.1, 35.5, 55.5, 125.5, 225.5], SMOKE_COLS = ['#968c80', '#ffff00', '#ff7e00', '#ff0000', '#8f3f97', '#7e0023'];
+  const SMOKE_NAMES = ['light smoke', 'Moderate', 'Unhealthy for sensitive groups', 'Unhealthy', 'Very unhealthy', 'Hazardous'];
+  const SMOKE_SHORT = ['light', 'Moderate', 'USG', 'Unhealthy', 'V. unhealthy', 'Hazardous'];
+  function smokeCat(ug) {   // -1 below the floor or no value; 0 light smoke; 1..5 the AQI category (EPA truncates to 0.1 first)
+    if (ug == null || isNaN(ug)) return -1;
+    const v = Math.floor(ug * 10 + 1e-6) / 10; let k = -1;
+    for (const e of SMOKE_EDGES) { if (v >= e) k++; else break; }
+    return k;
+  }
+  function smokeHours(d, nowS) { return ((d && d.hours) || []).filter(h => h.t > nowS - 1800); }   // the hour nearest now, then ahead
+  function smokeIndex(hours, keepT) {   // the hour nearest a valid time (after a reload), else the first
+    if (!hours.length || keepT == null) return 0;
+    let best = 0, bd = Infinity;
+    hours.forEach((h, i) => { const dd = Math.abs(h.t - keepT); if (dd < bd) { bd = dd; best = i; } });
+    return best;
+  }
+  function smokeWhen(t, nowS) { const h = Math.round((t - nowS) / 3600); return h <= 0 ? 'now' : 'in ' + h + ' h'; }
+  function smokeCell(g, lat, lon, b) {   // b = {w, n}: the window's west longitude and north latitude; -1 outside the window
+    const n = 128, r = Math.PI / 180;
+    const mx = (lon + 180) / 360 * n, my = (1 - Math.log(Math.tan(lat * r) + 1 / Math.cos(lat * r)) / Math.PI) / 2 * n;
+    const x0 = (b.w + 180) / 360 * n, y0 = (1 - Math.log(Math.tan(b.n * r) + 1 / Math.cos(b.n * r)) / Math.PI) / 2 * n;
+    const px = Math.floor((mx - x0) / 5 * g.w), py = Math.floor((my - y0) / 5 * g.h);   // 5 zoom-7 tiles across the window
+    return px < 0 || py < 0 || px >= g.w || py >= g.h ? -1 : py * g.w + px;
+  }
+  function smokeAt(g, lat, lon, b) {   // the cell's value for every hour of the run (null = outside the model); null outside the window
+    const c = g ? smokeCell(g, lat, lon, b) : -1; if (c < 0) return null;
+    const out = [], per = g.w * g.h;
+    for (let k = 0; k < g.n; k++) { const v = g.arr[k * per + c]; out.push(v == null || v === g.nodata ? null : Math.round(v * g.scale * 10) / 10); }
+    return out;
+  }
+  function smokeNeedsLoad(d, loadedAtMs, nowMs) { return !d || nowMs - loadedAtMs > 30 * 60 * 1000; }
+  // END smokeHelpers
+  const smokeOv = L.imageOverlay('', bounds(), { opacity: +$('smokeOpacity').value, interactive: false, zIndex: 386 });
+  const smokeEdge = L.layerGroup();
+  const smokeBadge = L.control({ position: 'bottomleft' });
+  smokeBadge.onAdd = () => { const d = L.DomUtil.create('div', 'smokebadge'); d.id = 'smokeBadge'; return d; };
+  let smokeData = null, smokeLoadedAt = 0, smokeHrs = [], smokeI = 0, smokeTimer = null;
+  const smokeImgs = {};
+  function smokePreload(h) { if (h && !smokeImgs[h.file]) { const im = new Image(); im.src = BASE + h.file; smokeImgs[h.file] = im; } }
+  function smokeTimeLabel(t) { return new Date(t * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' }); }
+  function smokeShow(n) {
+    if (!smokeHrs.length) return;
+    smokeI = (n + smokeHrs.length) % smokeHrs.length;
+    const h = smokeHrs[smokeI];
+    smokeOv.setUrl(BASE + h.file);
+    $('smokeSlider').value = smokeI;
+    $('smokeLabel').textContent = smokeTimeLabel(h.t) + ' · ' + smokeWhen(h.t, Date.now() / 1000) + (h.max >= 9.1 ? ' · up to ' + h.max + ' µg/m³ in the window' : '');
+    const b = $('smokeBadge'); if (b) b.textContent = 'Smoke forecast · ' + smokeTimeLabel(h.t);
+    smokePreload(smokeHrs[smokeI + 1]); smokePreload(smokeHrs[smokeI + 2]);
+  }
+  function smokeTick() { smokeTimer = setTimeout(() => { smokeShow(smokeI + 1); smokeTick(); }, smokeI === smokeHrs.length - 1 ? 1600 : 400); }
+  function smokePlay() { if (smokeTimer || smokeHrs.length < 2) return; if (smokeI >= smokeHrs.length - 1) smokeShow(0); $('smokePlay').textContent = 'Pause'; smokeTick(); }
+  function smokePause() { clearTimeout(smokeTimer); smokeTimer = null; $('smokePlay').textContent = 'Play'; }
+  function smokeRender(keepT) {
+    const nowS = Date.now() / 1000;
+    smokeHrs = smokeHours(smokeData, nowS);
+    smokeEdge.clearLayers();
+    if (!smokeHrs.length) {
+      smokePause(); $('smokeLabel').textContent = ''; $('smokeSlider').max = 0;
+      $('smokeInfo').innerHTML = '<div class="muted">' + (smokeData ? 'the last smoke forecast has run out; a new run is on its way' : 'smoke forecast not available yet') + '</div>';
+      return;
+    }
+    $('smokeSlider').max = smokeHrs.length - 1;
+    smokeHrs.forEach(smokePreload);
+    (smokeData.edge || []).forEach(seg => {
+      L.polyline(seg, { color: '#fff', weight: 4, opacity: .7, interactive: false }).addTo(smokeEdge);
+      L.polyline(seg, { color: '#333', weight: 1.5, dashArray: '6 5', opacity: .9, interactive: false }).addTo(smokeEdge);
+    });
+    const ahead = Math.round((smokeHrs[smokeHrs.length - 1].t - nowS) / 3600);
+    $('smokeInfo').innerHTML = '<div class="muted">HRRR run ' + smokeTimeLabel(smokeData.run_t) + ' (' + smokeData.run_utc.slice(11, 13) + 'Z) · ' + ahead + ' h ahead · updated ' + smokeData.updated + '</div>' +
+      legendHtml(SMOKE_EDGES.map((e, i) => [e, SMOKE_COLS[i]]), v => String(Math.floor(v))) +
+      '<div class="note" style="margin-top:18px">Smoke near the ground, µg/m³ of PM2.5, hourly. Colours are the AQI category for that much smoke; grey is light smoke (still Good). Smoke only, from a model: plumes from new fires can be missing or misplaced.' +
+      (smokeData.edge && smokeData.edge.length ? ' Dashed line: edge of the model; no smoke forecast beyond it.' : '') + '</div>';
+    smokeShow(smokeIndex(smokeHrs, keepT));
+  }
+  function loadSmoke(keepT) {
+    loadScript('data/smoke.js', () => { smokeData = window.SMOKE || smokeData; smokeLoadedAt = Date.now(); if (map.hasLayer(smokeOv)) smokeRender(keepT); },
+      () => { $('smokeInfo').innerHTML = '<div class="muted">smoke forecast not available yet</div>'; });
+  }
+  function smokeChart(s, g, nowS) {   // bars per hour ahead in the category colours (the AQI card's chart look); pale below the floor
+    const idx = []; s.forEach((x, i) => { if (g.t0 + i * g.dt > nowS - 1800) idx.push(i); });
+    const n = idx.length; if (n < 2) return '';
+    const w = 260, h = 64, bw = (w - 4) / n, base = h - 12, top = Math.max(20, ...idx.map(i => s[i] || 0));
+    let bars = '', ticks = '';
+    idx.forEach((i, j) => {
+      const x = 2 + j * bw, d = new Date((g.t0 + i * g.dt) * 1000), v = s[i];
+      if (d.getHours() === 0) ticks += '<line x1="' + x.toFixed(1) + '" y1="4" x2="' + x.toFixed(1) + '" y2="' + base + '" stroke="#ccc"/><text x="' + (x + 2).toFixed(1) + '" y="' + (h - 2) + '" font-size="9" fill="#666">' + d.toLocaleDateString([], { weekday: 'short' }) + '</text>';
+      if (v == null) return;
+      const y = base - (Math.min(v, top) / top) * (base - 8), c = smokeCat(v);
+      bars += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(1, bw - 0.6).toFixed(1) + '" height="' + Math.max(0.5, base - y).toFixed(1) + '" fill="' + (c < 0 ? '#e5e7eb' : SMOKE_COLS[c]) + '" stroke="#333" stroke-width=".3"><title>' + Math.round(v) + ' µg/m³ · ' + d.toLocaleString([], { weekday: 'short', hour: 'numeric' }) + '</title></rect>';
+    });
+    return '<svg width="' + w + '" height="' + h + '" style="display:block;margin:6px 0;overflow:visible">' + ticks + bars + '</svg><div style="font-size:11px;color:#666">next ' + n + ' h · hover a bar for its value</div>';
+  }
+  $('smokePlay').onclick = () => { if (smokeTimer) smokePause(); else smokePlay(); };
+  $('smokePrev').onclick = () => { smokePause(); smokeShow(smokeI - 1); };
+  $('smokeNext').onclick = () => { smokePause(); smokeShow(smokeI + 1); };
+  $('smokeSlider').oninput = () => { smokePause(); smokeShow(+$('smokeSlider').value); };
+  $('smokeOpacity').oninput = e => smokeOv.setOpacity(+e.target.value);
+  $('lySmoke').onchange = e => {
+    const keep = smokeHrs[smokeI] && smokeHrs[smokeI].t;
+    if (e.target.checked) { smokeOv.addTo(map); smokeEdge.addTo(map); smokeBadge.addTo(map); if (smokeNeedsLoad(smokeData, smokeLoadedAt, Date.now())) loadSmoke(keep); else smokeRender(keep); }
+    else { smokePause(); map.removeLayer(smokeOv); map.removeLayer(smokeEdge); map.removeControl(smokeBadge); }
+  };
+  setInterval(() => { if (map.hasLayer(smokeOv)) loadSmoke(smokeHrs[smokeI] && smokeHrs[smokeI].t); }, 30 * 60 * 1000);
   // ---------- Air quality: AQI stations (AirNow monitors, AirFire temporary smoke monitors) ----------
   const aqLayer = L.layerGroup(), aqLabelLayer = L.layerGroup();
   let aqData = null, aqLoadedAt = 0, aqLabels = [];      // aqLabels: [latlng, label, label marker while shown], as for Weather stations
@@ -1580,6 +1704,24 @@
       if (nh) rows.push('<div><b>' + nh + '</b> satellite hotspot' + (nh > 1 ? 's' : '') + ' within 10 km in the last 24 h</div>');
       if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Fires</div>' + rows.join(''));
     }
+    // smoke forecast (while the layer is on): the value at the shown hour and the run's curve at this point (10 km cell)
+    if ($('lySmoke').checked && smokeData && smokeHrs.length) {
+      const g = await getGrid(smokeData.series), b = bounds();
+      const s = smokeAt(g, ll.lat, ll.lng, { w: b.getWest(), n: b.getNorth() });
+      if (s) {
+        const rows = [], h = smokeHrs[smokeI], k = Math.round((h.t - g.t0) / g.dt), v = s[k];
+        if (s.every(x => x == null)) rows.push('<div>no smoke forecast here (outside the HRRR model)</div>');
+        else {
+          const cv = smokeCat(v), nowS = Date.now() / 1000;
+          rows.push('<div>' + smokeTimeLabel(h.t) + ': <b>' + (v == null ? '–' : 'about ' + Math.round(v) + ' µg/m³') + '</b>' + (cv >= 0 ? ', ' + SMOKE_NAMES[cv] : v != null ? ', clear' : '') + '</div>');
+          let pk = -1, pkT = null;
+          s.forEach((x, i) => { const t = g.t0 + i * g.dt; if (x != null && t > nowS - 1800 && x > pk) { pk = x; pkT = t; } });
+          if (pk >= 2) rows.push('<div>highest ahead: <b>' + Math.round(pk) + ' µg/m³</b> ' + smokeTimeLabel(pkT) + ' (' + SMOKE_NAMES[smokeCat(pk)] + ')</div>');
+          rows.push(smokeChart(s, g, nowS));
+        }
+        sec.push('<div style="margin-top:6px;color:#666">Smoke forecast (HRRR)</div>' + rows.join('') + '<div style="font-size:11px;color:#666">10 km average; smoke only, not total PM2.5</div>');
+      }
+    }
     render('<div style="color:#666">loading hourly forecast…</div>');
     // NWS hourly point forecast (US only)
     try {
@@ -1600,7 +1742,7 @@
   });
 
   // ---------- refresh ----------
-  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv, aqOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
+  function applyData() { [radar, satOv, accum, fcst, fzBands, snodasOv, aqOv, smokeOv].forEach(l => l.setBounds(bounds())); if ($('lyAccum').checked) { renderAccumUI(); showAccum(); } loadFrames(true); }
   function refresh() {
     loadScript('frames.js', () => { const wasPlaying = !!timer; pause(); data = window.RADAR_DATA || data; applyData(); if (wasPlaying) play(); });
   }
@@ -1650,9 +1792,9 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lyAlerts', 'lySlope'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
-  const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity'];
+  const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
   function defaultInfo() {
     const d = readDefault();
