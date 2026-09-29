@@ -63,4 +63,17 @@ work:
   download_workers: 4
   keep_downloads: false    # delete each 1 m file once its cell is built
 
-approved: {}               # parameter -> date Chris signed it off
+# parameter -> date Chris signed it off ("approved ... ok on all", 2026-09-28 17:37)
+approved:
+  area.bbox_lonlat: 2026-09-28
+  source.flight_priority: 2026-09-28
+  source.fallback_resampling: 2026-09-28
+  dem.lidar_resampling: 2026-09-28
+  slope.algorithm: 2026-09-28            # library default (Horn)
+  slope.compute_edges: 2026-09-28
+  slope.bands_deg: 2026-09-28            # incl. "at least the lower bound" rule
+  slope.colors: 2026-09-28
+  tiles.zoom_min_max: 2026-09-28
+  tiles.resampling: 2026-09-28
+  upload.zoom_min_max: 2026-09-28
+  check.offset: 2026-09-28               # tiles match the raster best at ~1 tile px (~1 m) south: accepted

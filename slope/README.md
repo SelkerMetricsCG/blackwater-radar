@@ -14,7 +14,8 @@ Static tiles for the map's Terrain → Slope angle layer: CalTopo's bands (27–
 Tiles are cached as immutable: a rebuild must upload to a new prefix (`v2`) and the map's tile URL must change with it.
 
 The first build (2026-09-27/28) downloaded about 200 GB over ~22 h on Chris's ~40 Mbps line. `work/` keeps the 3 m DEMs
-(`dem3/`, 13 GB) and the 10 m fallback (4 GB), so re-colouring or re-tiling needs no downloads; to add area, extend
+(`dem3/`, 13 GB), the classed slope (`slope3/`) and the 10 m fallback (4 GB), so re-colouring or re-tiling needs no
+downloads (the local tiles were deleted 2026-09-28 once on R2; `tiles` rebuilds them in about an hour); to add area, extend
 `area.bbox_lonlat` and re-run from `inventory` (existing cells are skipped).
 
 Gotchas found on the way:
