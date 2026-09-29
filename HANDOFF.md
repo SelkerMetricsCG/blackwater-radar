@@ -130,9 +130,10 @@ its files, workflow and the solsat part of `tests/conftest.py` are gone from rad
   `link_hotspots` spatial prefilter and a hotspot cap; keep the last good incident list per source 1 h when WFIGS/CWFIF
   fail; write `perimeters.js` only when polygons change; hotspot canvas sits under perimeter fills (hotspot tooltip
   unreachable inside a perimeter; fix: own pane); a fire under 0.5 acre shows "0 acres"; two NGFS paging cases log nothing.
-  **Phase 3 smoke forecast: on `main` as `f9f3ad3` (2026-09-28 19:42), built and released in one session without review
-  stops (Chris's brief, `smoke_research/NEXT_SESSION_hrrr_smoke.md`). Push and deploy handed to Chris; see the session
-  report for the release state and every decision taken on his behalf.**
+  **Phase 3 smoke forecast: LIVE 2026-09-29 14:17 (`f9f3ad3`, on GitHub since 13:54 via the ski session's push; deploy
+  version 733253b1; live page == `web/index.html`, checked by curl + diff and in the in-app browser with real R2 data).**
+  Built and released in one session without review stops (Chris's brief, `smoke_research/NEXT_SESSION_hrrr_smoke.md`);
+  the session report lists every decision taken on his behalf with what it costs if wrong.
   - What: `smoke.py` (hourly job, after freezing level) turns HRRR `MASSDEN` 8 m for f01-f48 of the newest complete
     00/06/12/18Z run into 48 lossless WebP frames in alternating slots `a`/`b`, one value series (128 x 128 x 48, tenths of
     ug/m3) and `data/smoke.js`; builds only when a new run's f48 index exists (51 R2 writes per run per region, <= 32k a
@@ -150,9 +151,12 @@ its files, workflow and the solsat part of `tests/conftest.py` are gone from rad
   - **Open for Chris (none blocking):** the judgment calls in the spec ledger (floor 2, light band, opacity .65, hours
     shown from now - 30 min, 10 km cells); HMS column smoke later (decision 5); RRFS switch plan (decision 6); re-run
     `python smoke_research/smoke_check.py pnw` on a smoky day for a real skill number.
-  - **Next check after the deploy:** the first hourly runs' `smoke:` lines for all five regions (expected `smoke: HRRR
-    00Z Sep 29 -> slot a, 48 h, peak N ug/m3 ...` on the first run, then `already on the map` until the 06Z run is
-    complete ~08:05 UTC); R2 `<region>/data/smoke.js` present; the layer on the live page.
+  - **First hourly run on the new code (2026-09-29 21:04 UTC, run 36630757627), all five regions built HRRR 18Z into
+    slot `a`, 39.2 MB each:** pnw peak 933 ug/m3 (f07), 82 % of the window in the model, 8 s (runner cache warm);
+    sierra 966 (f31), 47 s; utco 47 (f05), 38 s; imw 296 (f31), 48 s; ne 12 (f42), 20 s. R2 lines: 102-116 files
+    updated per region (the 48 frames + values + smoke.js among them; the hourly job's usual files are the rest), 11-17
+    unchanged. Expected from here: `already on the map` each hour until a run's f48 is posted (~1 h 50 min after 00/06/12/18Z),
+    then one build per run into the other slot.
 
 ## 8. Point-panel sunrise/sunset 12 h swap: fixed 2026-09-28 (`4a4fdcb`, pushed; live since the air-quality deploy)
 - Nothing open. `tests/test_map_suntimes.py` runs the `// BEGIN sunTimes` block under node against NOAA's calculator.
