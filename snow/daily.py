@@ -19,7 +19,9 @@ LEDGER_DAYS = 21
 
 
 def day_products(date, log=print):
-    names = [n for n in store.listing("archive/%s/products/" % date) if n.endswith(".json")]
+    import region
+    center = region.cfg().get("avy")
+    names = [n for n in store.listing("archive/%s/products/" % date) if n.endswith(".json") and (not center or n.startswith(center + "_"))]
     out = []
     for n in names:
         p = store.read_json("archive/%s/products/%s" % (date, n), log)

@@ -127,7 +127,9 @@ def call(system, user, schema, log=print, max_tokens=16000):
 
 
 def extract(date, products, obs, layers, log=print):
-    user = ("Date: %s\n\nKnown weak layers (latest snapshot each):\n%s\n\nToday's forecast products (raw JSON from avalanche.org):\n%s\n\n"
+    from snow.score import places
+    names = ", ".join(sorted(places()))
+    user = ("Known place names (use one of these in `location` when the report is at or near it, else the report's own words): %s\n\n" % names) + ("Date: %s\n\nKnown weak layers (latest snapshot each):\n%s\n\nToday's forecast products (raw JSON from avalanche.org):\n%s\n\n"
             "Today's public observations (raw JSON, may be empty):\n%s\n\nProduce the records." % (date, _trim(layers, 40_000), _trim(products), _trim(obs)))
     return call(EXTRACT_SYSTEM, user, EXTRACT_SCHEMA, log)
 
