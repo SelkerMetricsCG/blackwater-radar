@@ -90,3 +90,27 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
   24 h hotspot count misses them.
 - **Status:** fixed 2026-09-28 (a2c6248, 0e8413e): child polygons and GOES links are relabelled to the parent via
   `CpxID`; the store keeps raw ids; Hay Creek itself has since left the WFIGS current layers (checked 14:29 PDT).
+
+## 2026-09-28: smoke check (B): HRRR smoke against monitors ranks the wrong way round in the PNW
+- **Seen:** `smoke_research/smoke_check.py pnw` (run 2026-09-29 00Z, analysis hour 00 UTC, 244 monitors in the window
+  and the model): Spearman correlation of measured PM2.5 against HRRR near-surface smoke −0.30 over all monitors,
+  +0.36 over the 5 smoke-affected sites (measured ≥ 20 or model ≥ 10 µg/m³); median measured − model 2.8 µg/m³.
+  Sierra the same evening: +0.13 over 179 monitors (4 smoke-affected). Geometry check (A) was clean in both windows:
+  every drawn pixel within the range of its four nearest model points, saved frame colours equal to the field's
+  categories at 100 % of pixels, so the field is in the right place.
+- **Hypotheses:** (1) artefact of a clean evening: the model is below 1 µg/m³ at 235 of 244 monitors, so its ranking
+  there is numerical noise (tiny values ordered by distance from distant plumes) against a measured ranking set by
+  urban and valley background PM2.5 that HRRR-Smoke does not carry; predicts near-zero or negative correlation on any
+  clean day and positive correlation only among sites the model puts smoke on. (2) a real place or time error (the
+  field shifted or the wrong hour); predicts a shifted copy of the field correlating clearly better than the unshifted
+  one, and check A failing. (3) a unit error (kg/m³ × 1e9 wrong); predicts the model's values at the smoky sites
+  off by orders of magnitude from measured.
+- **Test:** shift test: unshifted −0.30, median over 16 shifts (25 and 50 km, eight directions) −0.31, best −0.19: no
+  shift wins clearly, and check A passed, so (2) is rejected. At the one temporary monitor on a plume (measured 35,
+  model 17 µg/m³) and the NWS hourly forecast reading "Smoke" at the Yosemite click point where HRRR gave 138 µg/m³,
+  values are the same order of magnitude, so (3) is rejected. (1) stands: the five smoke-affected sites rank +0.36.
+- **Why it matters:** the check cannot judge the model's skill on a clean day; it only rules out place, time and unit
+  errors, which it did. The layer's note says "smoke only, not total PM2.5" for the same reason (spec decision 4).
+- **Decision:** released. Re-run `smoke_check.py` on a smoky day (several sites ≥ 35.5 µg/m³) to get a real skill
+  number; if the smoke-affected correlation is then negative or the shift test picks a direction, treat it as a defect.
+- **Status:** explained (hypothesis 1), open until a smoky-day check.

@@ -13,7 +13,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
   freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, air quality (AirNow monitors, AirFire temporary smoke monitors, AirNow's
   interpolated AQI), fires (WFIGS, CWFIF and BC Wildfire Service incidents and perimeters) and
-  satellite hotspots (NASA FIRMS, NOAA NGFS), NWS alerts, click-anywhere point values.
+  satellite hotspots (NASA FIRMS, NOAA NGFS), the HRRR smoke forecast loop, NWS alerts, click-anywhere point values.
 - **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -26,7 +26,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | Workflow | When | Does |
 |---|---|---|
 | `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, alerts, air quality (`airquality.py`), fires (`fires.py`), `<r>/frames.js` |
-| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
+| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
 
@@ -58,7 +58,7 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 ## map.html conventions
 - Data comes in by `<script>` tags with a `?t=` cache-buster (the bucket has no CORS header). Globals:
   `RADAR_DATA`, `STATIONS`, `SNOTEL`, `BASINS`, `RIVERS`, `MRMS`, `SNODAS`, `FORECAST`, `FREEZING`, `ALERTS`,
-  `AVALANCHE`, `WEBCAMS`, `AIRQ`, `FIRES`, `PERIMS`, `VALUES`.
+  `AVALANCHE`, `WEBCAMS`, `AIRQ`, `FIRES`, `PERIMS`, `SMOKE`, `VALUES`.
 - Panel: groups are `.sec.grp`; a layer is a `label.opt` checkbox followed by a `.subwrap data-for=<id>`
   that opens only while it is on. The group badge counts `.body > .opt > input:checked`, so sub-controls
   must not sit directly in an `.opt` under `.body`.
@@ -127,6 +127,19 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   (port 8796; it reads `web/index.html` once at start, so restart it after `build_web.py`). Spec
   and ledger: `docs/superpowers/specs/2026-09-28-fires-layer-design.md`; anomalies in
   `ANOMALY_LOG.md`.
+- Smoke forecast (`smoke.py`, hourly job, after freezing level): HRRR near-surface smoke (`MASSDEN` 8 m) for f01-f48 of
+  the newest complete 00/06/12/18Z run, one byte-range request per hour from AWS `noaa-hrrr-bdp-pds` (the record is
+  found by its `.idx` text). It builds only when a newer run's f48 index exists (a run reaches the map ~2 h 05-25 min
+  after its start), into the frame slot (`a`/`b`) the live `smoke.js` is not using, so an upload never pairs one run's
+  image with another's time; a failed hour aborts and keeps the previous run. Colours: transparent < 2 ug/m3, light
+  smoke 2-9.0 grey, then the PM2.5 AQI categories (9.1, 35.5, 55.5, 125.5, 225.5; judgment calls in the spec ledger).
+  PNW north of the model's edge (~50-52 N, 18 % of the window) is masked and the edge drawn dashed. Click-anywhere reads
+  `data/values/smoke_<slot>.js` (128 x 128 cells x 48 h, tenths of ug/m3). State `smoke_cache.json`. About 51 R2
+  writes per new run per region (<= 32k a month). Check a region with `python smoke_research/smoke_check.py <region>`
+  (no upload; geometry check against ecCodes' own coordinates, monitors check with a shift test, figure); preview with
+  `smoke_research/smoke_serve.py` (port 8797; restart after `build_web.py`). RRFS (operational 2026-10-14) stays off
+  until it is on AWS and checked side by side (spec, "RRFS: when and how to switch"). Spec and ledger:
+  `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`; anomalies in `ANOMALY_LOG.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -153,3 +166,5 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`.
 - 2026-09-28: Smoke & fires section, phase 2 (fires, perimeters, satellite hotspots); spec
   `docs/superpowers/specs/2026-09-28-fires-layer-design.md`.
+- 2026-09-28/29: Smoke & fires section, phase 3 (HRRR near-surface smoke loop, `smoke.py`); spec
+  `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`. Built and released in one session without review stops.
