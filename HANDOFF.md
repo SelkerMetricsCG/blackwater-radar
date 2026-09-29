@@ -247,8 +247,10 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Ledger (`snow/ledger.py`, `<r>/snow/ledger/ledger.json`), LLM passes (`snow/llm.py`: extraction of observations,
   weak-layer snapshots and notes from the day's products and NAC observations; the brief from the ledger and the
   state summary; Claude API, JSON-schema output, model `SNOW_MODEL` default `claude-opus-5`), scoring
-  (`snow/score.py`, residual records), the orchestrator `snow/daily.py` as `snow.yml` step 2. **Chris: add the
-  Actions secret `ANTHROPIC_API_KEY`**; without it the step logs "skipped" and still writes ledger and brief files.
+  (`snow/score.py`, residual records), the orchestrator `snow/daily.py` as `snow.yml` step 2. Key: Actions secret
+  `BW_SNOW_MODEL` (console key "Blackwater SnowModel", **expires 2027-07-31**: make a new key in the console and update
+  the secret); model: repository variable `BW_SNOW_MODEL` = `claude-fable-5-1` (2026-09-29). Without a key the step
+  logs "skipped" and still writes ledger and brief files.
 - Trip log: `snow/trips.json` in the repo (a list of obs-shaped records; the page's form writes one to paste);
   records for a day become `trip` records and are scored like observations.
 - Site outputs: every state and brief file also as `.js` (`window.SNOW_STATE`, `SNOW_CLS`, `SNOW_BRIEF`, `SNOW_INDEX`,
