@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "4 * * * *"
   workflow_dispatch:
+    inputs:
+      force:                        # radar-cron sends no inputs, so its runs keep the once-per-hour rule
+        description: "Run even if this hour's layers already went up (otherwise a second run in the same UTC hour does nothing)"
+        type: boolean
+        default: false
 
 jobs:
   hourly:
@@ -27,6 +32,7 @@ jobs:
     env:
       TZ: ${{ matrix.tz || 'America/Los_Angeles' }}
       REGION: ${{ matrix.region }}
+      HOURLY_FORCE: ${{ inputs.force }}           # empty on scheduled runs
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
