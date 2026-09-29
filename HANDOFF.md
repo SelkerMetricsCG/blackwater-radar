@@ -258,6 +258,18 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   29cd6c2c, `f23edea`). Until a run writes `state/index.js` the page says "has not published a day yet": the 09-28 run
   predates the `.js` outputs, so the first day it shows should come from the 09-30 09:20 UTC run (for 09-29).
 
+### Done (2026-09-29 evening, cloud session): replay and fit
+- `snow/replay.py`: re-runs the model offline over a date range on a subset of the lattice (`Subset`: windows around
+  chosen cells, 1-D arrays the model steps directly; `day_forcing` takes a subset and locates SNOTEL sites on the full
+  lattice). Forcing cached per (day, subset, wind_mph) under `snow/work/replay/`. `python -m snow.replay --start
+  --end --lat --lon` prints the class at a point and in its window, day by day.
+- `snow/fit.py` + `snow_fit.yml` (by hand): coordinate descent over every `state` parameter with bounds and max_step,
+  loss = confidence x (1 - share of the residual's neighbourhood cells in the observed class) over every residual that
+  names a cell (coordinates or gazetteer place; zone-group residuals do not take part), replayed from SPINUP (10) days
+  before the first residual. Needs MIN_RESIDUALS (30). Writes `fit/<date>.json` to R2; `--apply` rewrites the values
+  in `snow_config.yaml` (comments and bounds kept) and appends `param` ledger records. Apply from a session, commit,
+  and merge; the workflow only proposes. Tests `test_snow_fit.py` (4): a fit recovers a lower sun-crust threshold.
+
 ### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into
