@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       region:
-        description: region key (must have "snow": True in region.py)
+        description: "region key (one with snow: True in region.py)"
         default: pnw
 
 jobs:
