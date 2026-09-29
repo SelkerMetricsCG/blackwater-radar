@@ -175,7 +175,7 @@ def test_tree_bombs_under_dense_canopy():
     s = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
     # a warm storm (mean -1 C) loads the canopy; a cold one (mean -8 C) does not
     s = state.step(s, _forcing((4, 4), precip_in=1.5, tmax_c=1.0, tmin_c=-3.0), lat, p, scfg)
-    assert s["canopy_load"][2, 0] == 1.0 and s["canopy_load"][3, 0] == 1.0 and s["cls"][2, 0] == state.CID["fresh"]
+    assert s["canopy_load"][2, 0] == 1.0 and s["canopy_load"][3, 0] == 0.0 and s["cls"][2, 0] == state.CID["fresh"]   # bare row: nothing to load
     # next day: wind dumps it; under dense canopy the surface is tree debris, in the open it is not
     s = state.step(s, _forcing((4, 4), wind_h=6.0), lat, p, scfg)
     assert s["cls"][2, 0] == state.CID["tree_debris"] and s["canopy_load"][2, 0] == 0.0
