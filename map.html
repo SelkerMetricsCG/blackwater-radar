@@ -1384,7 +1384,13 @@
   smokeBadge.onAdd = () => { const d = L.DomUtil.create('div', 'smokebadge'); d.id = 'smokeBadge'; return d; };
   let smokeData = null, smokeLoadedAt = 0, smokeHrs = [], smokeI = 0, smokeTimer = null;
   const smokeImgs = {};
-  function smokePreload(h) { if (h && !smokeImgs[h.file]) { const im = new Image(); im.src = BASE + h.file; smokeImgs[h.file] = im; } }
+  function smokePreload(h, then) {   // one frame; a failed load is forgotten so it is asked for again
+    if (!h || smokeImgs[h.file]) { if (then) then(); return; }
+    const im = new Image(); smokeImgs[h.file] = im;
+    im.onload = () => { if (then) then(); }; im.onerror = () => { delete smokeImgs[h.file]; if (then) then(); };
+    im.src = BASE + h.file;
+  }
+  function smokePreloadAll(list, i) { if (i < list.length) smokePreload(list[i], () => smokePreloadAll(list, i + 1)); }   // one after another, not 48 at once
   function smokeTimeLabel(t) { return new Date(t * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' }); }
   function smokeShow(n) {
     if (!smokeHrs.length) return;
@@ -1409,7 +1415,7 @@
       return;
     }
     $('smokeSlider').max = smokeHrs.length - 1;
-    smokeHrs.forEach(smokePreload);
+    smokePreloadAll(smokeHrs, 0);
     (smokeData.edge || []).forEach(seg => {
       L.polyline(seg, { color: '#fff', weight: 4, opacity: .7, interactive: false }).addTo(smokeEdge);
       L.polyline(seg, { color: '#333', weight: 1.5, dashArray: '6 5', opacity: .9, interactive: false }).addTo(smokeEdge);
