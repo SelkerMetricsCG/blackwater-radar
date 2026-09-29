@@ -138,7 +138,7 @@ def existing(day, log):
     try:
         s3 = r2sync.client(env)
         pre = region.prefix() + "snow/archive/%s/" % day
-        return {k[len(pre):] for k in r2sync.list_keys(s3, env["R2_BUCKET"], pre)}
+        return {k[len(pre):] for k in r2sync.list_objects(s3, env["R2_BUCKET"], pre)}
     except Exception as e:  # noqa: BLE001
         log("archive: R2 listing failed (%r); hourly file only" % e)
         return None

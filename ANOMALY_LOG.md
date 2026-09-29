@@ -74,3 +74,19 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
 - **Decision:** none; the layer uses AirFire only for temporary monitors (spec decision 9). Chris to decide whether that
   one-hour risk matters.
 - **Status:** explained (hypothesis 1), open for Chris.
+
+## 2026-09-28: fires check (b): Hay Creek Complex perimeter 29 ac against 200,292 ac reported
+- **Seen:** `smoke_research/fires_check.py pnw` joined one perimeter to the Hay Creek Complex (OR, 200,292 ac, 100 %
+  contained): a 29 ac polygon named Esau Canyon carrying the complex's IRWIN id. 12 of 135 perimeters in the window had
+  no fire in `fires.js`; four of them (0476 Hoag 50,224 ac, 0449 Porcupine Ridge 79,225, 0584 Cottonwood 15,659,
+  0460 Hopkin 11,366) lie 13-31 km from the complex's point, all mapped 1,444 h ago; Crosswhite (355,065 ac) sits 69 km away.
+- **Hypotheses:** (1) complex children's polygons carry the child's IRWIN id; `fires.py` drops children from the incident
+  list, so their polygons become orphans and the complex keeps only a stray piece; predicts the orphans' ids are children
+  whose `CpxID` is the complex. (2) a WFIGS data-entry error on one polygon; predicts no pattern across the orphans.
+- **Test:** WFIGS `IsCpxChild=1` query, 2026-09-28 15:40 UTC: 18 children nationally, all 18 with `CpxID` equal to a
+  current complex's IRWIN id; Porcupine Ridge and Hoag point to Hay Creek, Crosswhite to Rowe Creek. (1) supported.
+- **Effect on the map as built:** the polygons still draw under their own names; the complex's card and `perim` flag
+  refer to the 29 ac piece; hotspots inside a child's polygon link to an id that is not a fire, so the complex's
+  24 h hotspot count misses them.
+- **Status:** fixed 2026-09-28 (a2c6248, 0e8413e): child polygons and GOES links are relabelled to the parent via
+  `CpxID`; the store keeps raw ids; Hay Creek itself has since left the WFIGS current layers (checked 14:29 PDT).

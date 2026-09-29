@@ -4,14 +4,17 @@ Upload radar frames to Cloudflare R2 so the public viewer can play them.
 Reads credentials from r2.env (next to this file):
   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL
 
-What gets uploaded, mirroring the local layout:
-  frames/rainviewer/*.jpg, frames/nws_pnw/*.gif, frames/nws_conus/*.gif   (once each)
-  frames/accum/*.jpg                                                     (every cycle)
-  frames.js                                                              (every cycle)
-The dBZ scans and basemap stay local; the site does not need them.
+What gets uploaded, mirroring the local layout (all under the region's prefix):
+  frames/{radar,sat,dbz,...}/*                                           (once each, immutable)
+  frames/{accum,interp,forecast,mrms,freezing,snodas,aq}/*.webp,
+  data/values/*.js, data/*.js, frames.js                                 (whenever the job rewrote them)
+A rewritten file goes up only if its bytes differ from R2's copy: cloud.py lists the region's frames/ and data/
+into REMOTE, and R2's ETag is the MD5 of a single-part upload. Each PUT is an R2 Class A operation (free tier:
+1 million a month); measured 2026-09-28, about 16% of the rewritten files were byte-identical.
 
 Run standalone to push everything not yet uploaded:  python r2sync.py
 """
+import hashlib
 import json
 import os
 import sys
@@ -23,6 +26,7 @@ ENV_FILE = os.path.join(ROOT, "r2.env")
 STATE_FILE = os.path.join(region.region_dir(), "r2_uploaded.json")
 PREFIX = region.prefix()
 SKIP_FRAMES = False       # hourly cloud job: never upload frames or the manifest (the radar job owns them)
+REMOTE = {}               # key -> (etag, last modified) from cloud.py's listing; empty = upload every rewritten file
 FRAME_DIRS = ("radar", "sat", "dbz", "rainviewer", "nws_pnw", "nws_conus")
 CONTENT_TYPES = {".jpg": "image/jpeg", ".gif": "image/gif", ".png": "image/png", ".webp": "image/webp", ".npy": "application/octet-stream",
                  ".js": "application/javascript", ".json": "application/json", ".geojson": "application/geo+json", ".gz": "application/gzip"}
@@ -59,17 +63,28 @@ def client(env):
     )
 
 
-def list_keys(s3, bucket, prefix):
-    keys, token = [], None
+def list_objects(s3, bucket, prefix):
+    """{key: (etag, last modified)} under prefix; one Class A operation per 1000 keys, so keep prefixes narrow
+    (pnw/ also holds the 109k slope tiles under pnw/slope/)."""
+    out, token = {}, None
     while True:
         kw = {"Bucket": bucket, "Prefix": prefix}
         if token:
             kw["ContinuationToken"] = token
         r = s3.list_objects_v2(**kw)
-        keys += [o["Key"] for o in r.get("Contents", [])]
+        for o in r.get("Contents", []):
+            out[o["Key"]] = (o["ETag"].strip('"'), o["LastModified"])
         if not r.get("IsTruncated"):
-            return keys
+            return out
         token = r.get("NextContinuationToken")
+
+
+def file_md5(path):
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
 
 
 def delete_keys(s3, bucket, keys):
@@ -105,13 +120,22 @@ def put(s3, bucket, key, path, cache):
                       CacheControl=cache)
 
 
+def publish(s3, bucket, key, path, cache):
+    """put() a rewritten file unless R2 already holds these exact bytes. True if it was uploaded."""
+    if key in REMOTE and REMOTE[key][0] == file_md5(path):
+        return False
+    put(s3, bucket, key, path, cache)
+    return True
+
+
 def sync(log=print):
-    """Upload anything new. Returns a short status string, or None if R2 is not configured."""
+    """Upload anything new or changed. Returns a short status string, or None if R2 is not configured."""
     env = load_env()
     if env is None:
         return None
     s3, bucket = client(env), env["R2_BUCKET"]
     done, n_new = _load_state(), 0
+    sent = []                 # True/False per rewritten file: uploaded / skipped as unchanged
 
     # immutable frames: upload once
     for d in ([] if SKIP_FRAMES else FRAME_DIRS):
@@ -134,14 +158,14 @@ def sync(log=print):
         if os.path.isdir(acc):
             for fn in os.listdir(acc):
                 if fn.endswith((".jpg", ".webp")) and ".tmp" not in fn:
-                    put(s3, bucket, PREFIX + "frames/%s/%s" % (sub, fn), os.path.join(acc, fn), "public, max-age=60")
+                    sent.append(publish(s3, bucket, PREFIX + "frames/%s/%s" % (sub, fn), os.path.join(acc, fn), "public, max-age=60"))
 
     # click-anywhere value grids: rewritten hourly
     vdir = os.path.join(region.data_dir(), "values")
     if os.path.isdir(vdir):
         for fn in os.listdir(vdir):
             if fn.endswith(".js"):
-                put(s3, bucket, PREFIX + "data/values/" + fn, os.path.join(vdir, fn), "public, max-age=300")
+                sent.append(publish(s3, bucket, PREFIX + "data/values/" + fn, os.path.join(vdir, fn), "public, max-age=300"))
 
     # data files for the map layers
     data_dir = region.data_dir()
@@ -149,8 +173,8 @@ def sync(log=print):
         for fn in os.listdir(data_dir):
             if fn.endswith((".tmp", "_cache.json", ".npy", ".geojson")) or os.path.isdir(os.path.join(data_dir, fn)):
                 continue      # caches, terrain and basin outlines are private state, not site data
-            if fn.endswith(".js"):     # data files are rewritten often: always push, never cache
-                put(s3, bucket, PREFIX + "data/" + fn, os.path.join(data_dir, fn), "no-cache")
+            if fn.endswith(".js"):     # data files are rewritten often: push when changed, never cache
+                sent.append(publish(s3, bucket, PREFIX + "data/" + fn, os.path.join(data_dir, fn), "no-cache"))
                 continue
             key = PREFIX + "data/%s@%d" % (fn, int(os.path.getmtime(os.path.join(data_dir, fn))))
             if key not in done:
@@ -175,10 +199,10 @@ def sync(log=print):
     # manifest last, so the site never lists a frame that is not there yet
     manifest = os.path.join(region.region_dir(), "frames.js")
     if os.path.exists(manifest) and not SKIP_FRAMES:
-        put(s3, bucket, PREFIX + "frames.js", manifest, "no-cache")
+        sent.append(publish(s3, bucket, PREFIX + "frames.js", manifest, "no-cache"))
 
     _save_state(done)
-    return "r2 +%d new, %d total" % (n_new, len(done))
+    return "r2 +%d new, %d updated, %d unchanged, %d total" % (n_new, sum(sent), len(sent) - sum(sent), len(done))
 
 
 if __name__ == "__main__":

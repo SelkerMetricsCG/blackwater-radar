@@ -38,9 +38,19 @@ def test_new_snow_water_mode_falls_back_to_new_snow():
 
 
 def test_new_saves_are_left_alone():
-    d = {"checks": {"lySnotel": True, "lyStations": False}, "selects": {}, "snMode": "both", "snEl": "new",
-         "snWin": "48", "stMode": "wind"}
+    d = {"checks": {"lySnotel": True, "lyStations": False, "fireQuiet": True}, "selects": {}, "snMode": "both",
+         "snEl": "new", "snWin": "48", "stMode": "wind"}
     assert migrate(dict(d, checks=dict(d["checks"]), selects={})) == d
+
+
+def test_old_save_without_fire_quiet_defaults_to_hiding_quiet_fires():
+    d = migrate({"checks": {"lyFires": True}, "selects": {}})
+    assert d["checks"]["fireQuiet"] is True
+
+
+def test_save_with_fire_quiet_explicitly_off_stays_off():
+    d = migrate({"checks": {"lyFires": True, "fireQuiet": False}, "selects": {}})
+    assert d["checks"]["fireQuiet"] is False
 
 
 def test_air_quality_switches_are_saved_with_the_default():

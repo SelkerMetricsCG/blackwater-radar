@@ -50,7 +50,7 @@ def listing(rel_prefix):
     s3, bucket = _client()
     if s3 is not None:
         pre = region.prefix() + "snow/" + rel_prefix
-        return [k[len(pre):] for k in r2sync.list_keys(s3, bucket, pre)]
+        return [k[len(pre):] for k in r2sync.list_objects(s3, bucket, pre)]
     base = local(rel_prefix)
     if not os.path.isdir(base):
         return []

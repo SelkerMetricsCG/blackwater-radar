@@ -227,6 +227,11 @@ def capture_all():
             ok.append("airquality %d" % airquality.build(log))
         except Exception as e:  # noqa: BLE001
             log("airquality FAILED: %r" % e)
+        try:
+            import fires
+            ok.append("fires %d" % fires.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("fires FAILED: %r" % e)
     # river gauges and webcams: every half hour, or if missing
     rv_file = os.path.join(region.data_dir(), "rivers.js")
     half_due = FORCE_HALF if FORCE_HALF is not None else (dt.datetime.now().minute % 30 < 15 or not os.path.exists(rv_file))

@@ -12,7 +12,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   workflows (Chris, 2026-09-27): `pnw`, `sierra` Pacific; `utco`, `imw` Mountain (`America/Denver`); `ne` Eastern.
   Radar and satellite loops, rain/snow totals, weather stations, webcams, NOAA (NDFD) forecast, NWAC,
   freezing level, SNODAS, SNOTEL (stations, basins or both, like NRCS iMap), rivers, USBR snow-to-flow, air quality (AirNow monitors, AirFire temporary smoke monitors, AirNow's
-  interpolated AQI), NWS alerts, click-anywhere point values.
+  interpolated AQI), fires (WFIGS, CWFIF and BC Wildfire Service incidents and perimeters) and
+  satellite hotspots (NASA FIRMS, NOAA NGFS), NWS alerts, click-anywhere point values.
 - **One passenger that uses the same Actions and R2 setup:**
   - `rivers/`: daily analysis behind rivers.blackwaterlabs.org (site itself is `BlackwaterLabs/rivers`).
     `rivers/wenatchee/` is a copy; develop in `BlackwaterLabs/Wenatchee_River_Analysis` and mirror with
@@ -37,7 +38,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
 |---|---|---|
-| `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, alerts, air quality (`airquality.py`), `<r>/frames.js` |
+| `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, alerts, air quality (`airquality.py`), fires (`fires.py`), `<r>/frames.js` |
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
@@ -72,7 +73,7 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 ## map.html conventions
 - Data comes in by `<script>` tags with a `?t=` cache-buster (the bucket has no CORS header). Globals:
   `RADAR_DATA`, `STATIONS`, `SNOTEL`, `BASINS`, `RIVERS`, `MRMS`, `SNODAS`, `FORECAST`, `FREEZING`, `ALERTS`,
-  `AVALANCHE`, `WEBCAMS`, `AIRQ`, `VALUES`.
+  `AVALANCHE`, `WEBCAMS`, `AIRQ`, `FIRES`, `PERIMS`, `VALUES`.
 - Panel: groups are `.sec.grp`; a layer is a `label.opt` checkbox followed by a `.subwrap data-for=<id>`
   that opens only while it is on. The group badge counts `.body > .opt > input:checked`, so sub-controls
   must not sit directly in an `.opt` under `.body`.
@@ -127,6 +128,20 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `aq_cache.json`. Check a region with `python smoke_research/aq_check.py <region>` (no upload); preview the page with
   `smoke_research/aq_serve.py`. Spec and parameter ledger: `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`;
   sources and endpoints: `smoke_research/sources_notes.md`.
+- Fires (`fires.py`, 15-minute job, after air quality): every fire the agencies list as
+  current (WFIGS for the US, CWFIF joined with BC Wildfire Service by fire number for
+  Canada), styled by activity: active = edited within 72 h, or a hotspot linked in the last
+  24 h, or Canada out of control / being held; 100 % contained is quiet unless it has hotspots
+  (Chris kept this rule 2026-09-28; measured alternatives are in the spec, "Activity rule:
+  alternatives"). Complex children are not incidents, but their perimeters and GOES links are
+  relabelled to the parent through WFIGS `CpxID`. Perimeters are refetched only when a layer's
+  edit stamp changes; hotspots come from FIRMS 48 h + NGFS 24 h (newest detection per tracked
+  feature; unconfirmed shown hollow); the page ages hotspots by the time since `FIRES.updated_t`.
+  State `fires_cache.json` (keeps raw ids). Check a region with `python
+  smoke_research/fires_check.py <region>` (no upload); preview with `smoke_research/fires_serve.py`
+  (port 8796; it reads `web/index.html` once at start, so restart it after `build_web.py`). Spec
+  and ledger: `docs/superpowers/specs/2026-09-28-fires-layer-design.md`; anomalies in
+  `ANOMALY_LOG.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -151,4 +166,6 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-27: YouTube-live webcams through the YouTube Data API (`youtube.py`, `webcams_youtube.json`, `terms.html`).
 - 2026-09-28: Air quality section (AQI stations, AirNow interpolated AQI); spec
   `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`.
+- 2026-09-28: Smoke & fires section, phase 2 (fires, perimeters, satellite hotspots); spec
+  `docs/superpowers/specs/2026-09-28-fires-layer-design.md`.
 - 2026-09-28: snow-conditions tracker started: design spec, season archive (`snow/`), NWAC access request drafted.
