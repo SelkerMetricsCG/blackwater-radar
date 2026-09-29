@@ -1,6 +1,7 @@
 """smoke.py: HRRR near-surface smoke (spec docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md)."""
 import datetime as dt
 import json
+import math
 
 import numpy as np
 import pytest
@@ -103,25 +104,53 @@ def test_frame_rgba_alpha_and_colours():
 
 
 # ---------- value series ----------
-def test_series_blocks_means_rounding_and_nan():
+def test_series_blocks_tenths_truncated_and_nan():
     a = np.zeros((640, 640), np.float32)
     a[0:5, 0:5] = np.nan                               # block (0, 0): outside the model
     a[0:5, 5:10] = 10.0
     a[0:5, 7] = np.nan                                 # a partly outside block keeps the mean of the rest
-    a[5:10, 0:5] = 2.5                                 # rounds half up
+    a[5:10, 0:5] = 9.09                                # truncates to 9.0 (Good), like EPA's rule and the frame
+    a[5:10, 5:10] = 9.1                                # 9.1 (Moderate) in float32 too
+    a[10:15, 0:5] = 1.99                               # below the floor in both
+    a[10:15, 5:10] = -0.6                              # never collides with nodata
     b = smoke.series_blocks(a, 128)
     assert b.shape == (128, 128) and b.dtype.kind == "i"
-    assert b[0, 0] == -1 and b[0, 1] == 10 and b[1, 0] == 3 and b[5, 5] == 0
+    assert b[0, 0] == -1 and b[0, 1] == 100 and b[1, 0] == 90 and b[1, 1] == 91 and b[2, 0] == 19 and b[2, 1] == 0 and b[5, 5] == 0
+    for v in (1.99, 2.0, 9.09, 9.1, 35.45, 35.5, 125.5, 225.5):     # a uniform cell's category equals the frame's
+        cell = smoke.series_blocks(np.full((640, 640), v, np.float32), 128)[0, 0] / 10
+        assert smoke.category(np.array([cell]))[0] == smoke.category(np.array([np.float32(v)]))[0], v
+
+
+def test_series_blocks_rejects_a_small_or_odd_field():
+    for shape in ((64, 64), (640, 320)):
+        with pytest.raises(ValueError):
+            smoke.series_blocks(np.zeros(shape), 128)
 
 
 def test_series_js_layout():
     blocks = [np.full((4, 4), k, np.int64) for k in range(3)]
     blocks[1][0, 0] = -1
     js = smoke.series_js("smoke_a", blocks, t0=1000, unit="µg/m³")
-    assert js.startswith('window.VALUES=window.VALUES||{};window.VALUES["smoke_a"]=')
+    assert js.startswith('window.VALUES=window.VALUES||{};window.VALUES["smoke_a"]=') and js.isascii()
     data = js.split('.data="')[1].split('"')[0].split(",")
     assert len(data) == 48 and data[:16] == ["0"] * 16 and data[16] == "-1" and data[17:32] == ["1"] * 15
-    assert '"n":3' in js and '"t0":1000' in js and '"dt":3600' in js and '"w":4' in js and '"nodata":-1' in js
+    for part in ('"n":3', '"t0":1000', '"dt":3600', '"w":4', '"nodata":-1', '"scale":0.1', '"unit":"\\u00b5g/m\\u00b3"'):
+        assert part in js, part
+
+
+def test_window_pixels_match_the_page(at_region):
+    """pixel k's centre is region's Mercator tile coordinate; the page's sample() maps it back to cell k * n // size"""
+    for key in ("pnw", "ne"):
+        at_region(key)
+        z, x0, x1, y0, y1 = region.window()
+        lat, lon = smoke.window_latlon(640)
+        for k in (0, 1, 317, 639):
+            assert lat[k] == pytest.approx(region.tile_lat(y0 + (k + 0.5) * 5 / 640), abs=1e-9)
+            assert lon[k] == pytest.approx(region.tile_lon(x0 + (k + 0.5) * 5 / 640), abs=1e-9)
+            # map.html sample(): px = floor((mx - x0) / 5 * w), mx in zoom-7 tile units
+            mx = (lon[k] + 180) / 360 * 2 ** z
+            my = (1 - math.log(math.tan(math.radians(lat[k])) + 1 / math.cos(math.radians(lat[k]))) / math.pi) / 2 * 2 ** z
+            assert math.floor((mx - x0) / 5 * 128) == k * 128 // 640 and math.floor((my - y0) / 5 * 128) == k * 128 // 640
 
 
 # ---------- the model's edge ----------
@@ -288,7 +317,7 @@ def test_build_writes_frames_series_js_and_state(monkeypatch, tmp_path):
     assert d["floor"] == 2.0 and d["coverage"] == 1.0 and isinstance(d["edge"], list)
     js = (tmp_path / "values" / "smoke_a.js").read_text(encoding="utf-8")
     body = js.split('.data="')[1].split('"')[0].split(",")
-    assert len(body) == 48 * 16 * 16 and body[0] == "1" and body[-1] == "48"
+    assert len(body) == 48 * 16 * 16 and body[0] == "10" and body[-1] == "480"
     assert '"t0":%d' % (RUN_T + 3600) in js
     s = json.loads((tmp_path / "smoke_cache.json").read_text(encoding="utf-8"))
     assert s["v"] == 1 and s["run"] == "2026092818" and s["slot"] == "a" and s["built_t"] > 0

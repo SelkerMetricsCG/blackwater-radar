@@ -3,7 +3,7 @@ Smoke forecast: NOAA HRRR near-surface smoke (MASSDEN, 8 m above ground), the ma
 
 In the hourly job, for the region in REGION, whenever a newer complete 48 h run (00/06/12/18Z) is posted:
   frames/smoke/<slot><hh>.webp   smoke categories for forecast hours 1..48 (lossless, 640 px)
-  data/values/smoke_<slot>.js    window.VALUES["smoke_<slot>"]: 128 x 128 cells x 48 hours, ug/m3, for click-anywhere
+  data/values/smoke_<slot>.js    window.VALUES["smoke_<slot>"]: 128 x 128 cells x 48 hours, tenths of ug/m3, click-anywhere
   data/smoke.js                  window.SMOKE = {run_utc, run_t, updated, updated_t, slot, floor, coverage, hours, series, edge}
   data/smoke_cache.json          private (cloud.py STATE_FILES): the run on the map, its slot, when it was built
 A new run goes into the slot ("a" or "b") the page is not using, and smoke.js switches last, so the page never pairs one
@@ -135,23 +135,27 @@ def frame_rgba(ug):
 
 # ---------- click-anywhere values ----------
 def series_blocks(ug, n=CELLS):
-    """window field [size, size] -> [n, n] block means as integers (ug/m3, half up); -1 where the block is all NaN"""
+    """window field [size, size] -> [n, n] block means in tenths of ug/m3, truncated like EPA's AQI rule (so a cell's
+    category on the page matches the frame's for the same value); -1 where the block is all NaN (outside the model)"""
     a = np.asarray(ug, dtype=np.float64)
     f = a.shape[0] // n
+    if a.ndim != 2 or a.shape[0] != a.shape[1] or f < 1:
+        raise ValueError("need a square field of at least %d px, got %s" % (n, a.shape))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)       # all-NaN blocks (outside the model)
         m = np.nanmean(a[:f * n, :f * n].reshape(n, f, n, f), axis=(1, 3))
-    return np.where(np.isnan(m), -1, np.floor(np.nan_to_num(m) + 0.5)).astype(np.int64)
+    tenths = np.floor(np.maximum(np.nan_to_num(m), 0.0) * 10 + 1e-6)
+    return np.where(np.isnan(m), -1, tenths).astype(np.int64)
 
 
 def series_js(name, blocks, t0, unit="µg/m³"):
     """hour-major value series -> the window.VALUES script the page loads for click-anywhere"""
     h, w = blocks[0].shape
-    head = {"w": int(w), "h": int(h), "n": len(blocks), "t0": int(t0), "dt": 3600, "scale": 1, "unit": unit, "nodata": -1}
+    head = {"w": int(w), "h": int(h), "n": len(blocks), "t0": int(t0), "dt": 3600, "scale": 0.1, "unit": unit, "nodata": -1}
     body = ",".join(str(int(v)) for b in blocks for v in np.asarray(b).ravel())
     key = json.dumps(name)
     return ('window.VALUES=window.VALUES||{};window.VALUES[%s]=%s;window.VALUES[%s].data="%s";\n'
-            % (key, json.dumps(head, ensure_ascii=False, separators=(",", ":")), key, body))
+            % (key, json.dumps(head, separators=(",", ":")), key, body))
 
 
 # ---------- the model's edge inside the window ----------
