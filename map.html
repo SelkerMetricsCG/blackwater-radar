@@ -141,6 +141,7 @@
       <label class="chip"><input type="radio" name="base" value="sat" hidden>Satellite</label>
       <label class="chip"><input type="radio" name="base" value="terrain" hidden>Terrain</label>
       <label class="chip"><input type="radio" name="base" value="streets" hidden>Streets</label>
+      <label class="chip" title="Esri shaded relief with place names and roads"><input type="radio" name="base" value="hillshade" hidden>Hillshade</label>
     </div>
   </div>
 
@@ -238,6 +239,11 @@
   <div class="sec grp" data-grp="snow">
     <h2 class="grph"><span class="chev"></span>Snow <span class="n"></span></h2>
     <div class="body">
+    <label class="opt"><input type="checkbox" id="lySki"> Ski reports</label>
+    <div class="subwrap" data-for="lySki">
+      <div class="sub" id="skiWins"></div>
+      <div class="sub" id="skiInfo" style="display:block"></div>
+    </div>
     <label class="opt"><input type="checkbox" id="lySnodas"> Modeled snow (SNODAS)
       <select id="snodasSel" hidden><option value="depth">Snow depth</option><option value="swe">Snow water equivalent</option></select></label>
     <div class="subwrap" data-for="lySnodas">
@@ -401,6 +407,12 @@
     topo:    L.tileLayer(esri('World_Topo_Map'), { maxZoom: 17, attribution: esriAttr }),
     streets: L.tileLayer(esri('World_Street_Map'), { maxZoom: 17, attribution: esriAttr }),
     terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 16, subdomains: 'abc', attribution: '&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap' }),
+    // shaded relief with the same reference overlays as Satellite; Esri serves hillshade to z16 natively
+    hillshade: L.layerGroup([
+               L.tileLayer(esri('Elevation/World_Hillshade'), { maxNativeZoom: 16, maxZoom: 17, attribution: esriAttr }),
+               L.tileLayer(esri('Reference/World_Boundaries_and_Places'), { maxZoom: 17 }),
+               L.tileLayer(esri('Reference/World_Transportation'), { maxZoom: 17 }),
+             ]),
     sat:     L.layerGroup([
                L.tileLayer(esri('World_Imagery'), { maxZoom: 17, attribution: esriAttr }),
                L.tileLayer(esri('Reference/World_Boundaries_and_Places'), { maxZoom: 17 }),
@@ -1050,6 +1062,87 @@
   function loadCams() { loadScript('data/webcams.js', () => { camData = window.WEBCAMS || camData; renderCams(); }, () => { $('camInfo').innerHTML = '<div class="muted">camera list not available yet</div>'; }); }
   $('lyCams').onchange = e => { if (e.target.checked) { camLayer.addTo(map); wedgeLayer.addTo(map); if (!camData) loadCams(); else renderCams(); } else { map.removeLayer(camLayer); map.removeLayer(wedgeLayer); } };
   setInterval(() => { if (map.hasLayer(camLayer)) loadCams(); }, 15 * 60 * 1000);
+
+  // ---------- ski reports: every lift-served area (OpenSkiMap); snow as the resort reports it where a feed exists (ski.py) ----------
+  const skiLayer = L.layerGroup(), skiLabelLayer = L.layerGroup();
+  let skiData = null, skiWin = 'h24', skiLabels = [];
+  const SKI_WINS = [['h24', '24 h'], ['h48', '48 h'], ['h72', '72 h'], ['d7', '7 d'], ['base', 'Base'], ['season', 'Season']];
+  const SKI_STALE_H = 36;     // a report older than this draws faded: the resort has not posted since yesterday morning
+  const skiTotals = () => skiWin === 'base' || skiWin === 'season';
+  const skiAge = t => { const h = (Date.now() / 1000 - t) / 3600; return h < 1.5 ? Math.max(0, Math.round(h * 60)) + ' min ago' : h < 48 ? Math.round(h) + ' h ago' : Math.round(h / 24) + ' days ago'; };
+  const skiFmt = v => Array.isArray(v) ? v[0] + '–' + v[1] : (v == null ? '–' : String(v));
+  // the headline number is the resort's mid-mountain figure, else summit, else base: what the resort sites lead with
+  function skiPoint(r, key) { for (const k of ['mid', 'summit', 'base']) { const p = (r.pts || []).find(p => p.kind === k); if (p && p[key] != null) return p[key]; } return null; }
+  function skiValue(a) {
+    const r = a.rep; if (!r) return null;
+    if (skiWin === 'season') return r.season == null ? null : r.season;
+    if (skiWin === 'base') return r.base ? (r.base[0] === r.base[1] ? r.base[0] : r.base) : skiPoint(r, 'base');
+    return skiPoint(r, skiWin);
+  }
+  function skiCard(a) {
+    const r = a.rep, meta = [];
+    if (a.elev_ft) meta.push(a.elev_ft[0].toLocaleString() + '–' + a.elev_ft[1].toLocaleString() + ' ft');
+    if (a.lifts) meta.push(a.lifts + ' lift' + (a.lifts === 1 ? '' : 's'));
+    let html = '<div style="font:13px system-ui;min-width:230px"><b>' + esc(a.name) + '</b> <span style="color:#666">' + meta.join(' · ') + '</span>';
+    if (r) {
+      const cols = [['h24', '24 h'], ['h48', '48 h'], ['h72', '72 h'], ['d7', '7 d'], ['base', 'Base']];
+      const pts = (r.pts || []).filter(p => cols.some(([k]) => p[k] != null));
+      if (pts.length) html += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:6px 0 2px"><tr><th></th>' + cols.map(([, l]) => '<th style="padding:1px 6px;font-weight:600">' + l + '</th>').join('') + '</tr>' + pts.map(p => '<tr><td style="padding:1px 6px;color:#666">' + esc(p.name) + '</td>' + cols.map(([k]) => '<td style="padding:1px 6px;text-align:right">' + skiFmt(p[k]) + '</td>').join('') + '</tr>').join('') + '</table><div style="font-size:11px;color:#666">inches of new snow, and base depth, as the resort reports them</div>';
+      const tot = []; if (r.storm != null) tot.push('storm total <b>' + r.storm + '</b>'); if (r.season != null) tot.push('season <b>' + r.season + '</b>'); if (r.base && !pts.length) tot.push('base <b>' + skiFmt(r.base) + '</b>');
+      if (tot.length) html += '<div style="margin-top:4px">' + tot.join(' · ') + ' in</div>';
+      html += '<div style="color:#666;margin-top:4px">' + (r.status ? esc(r.status) + ' · ' : '') + (r.t ? 'resort report ' + skiAge(r.t) + (Date.now() / 1000 - r.t > SKI_STALE_H * 3600 ? ' (not updated lately)' : '') : 'report time unknown') + '</div>';
+    } else if (a.mp != null) html += '<div style="color:#666;margin:6px 0 2px">The resort’s report was not available at the last check.</div>';
+    else html += '<div style="color:#666;margin:6px 0 2px">This area publishes no machine-readable report; its numbers are on its own page.</div>';
+    const links = [];
+    if (a.report || a.web) links.push('<a href="' + esc(a.report || a.web) + '" target="_blank" rel="noopener">snow report</a>');
+    if (a.web && a.report) links.push('<a href="' + esc(a.web) + '" target="_blank" rel="noopener">website</a>');
+    if (links.length) html += '<div style="margin-top:4px">' + links.join(' · ') + '</div>';
+    return html + '</div>';
+  }
+  // labels like the station layer's: only in view, from zoom 7; zeros only from zoom 9 so the off-season map isn't a field of 0s
+  function labelSki() {
+    const z = map.getZoom(), show = map.hasLayer(skiLayer) && z >= 7, b = map.getBounds().pad(.1);
+    for (const l of skiLabels) {
+      const on = show && b.contains(l[0]) && (!l[3] || z >= 9);
+      if (on && !l[2]) skiLabelLayer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { skiLabelLayer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  map.on('moveend', labelSki);
+  function renderSki() {
+    skiLayer.clearLayers(); skiLabelLayer.clearLayers(); skiLayer.addLayer(skiLabelLayer); skiLabels = [];
+    if (!skiData) return;
+    let nFeed = 0, nVal = 0;
+    for (const a of skiData.areas) {
+      const v = skiValue(a), stale = !!(a.rep && a.rep.t && Date.now() / 1000 - a.rep.t > SKI_STALE_H * 3600);
+      if (a.mp != null) nFeed++;
+      let m;
+      if (v == null) {
+        // no resort number: a quiet hollow dot that still opens the card and its links
+        m = L.circleMarker([a.lat, a.lon], { radius: a.mp != null ? 5 : 3.5, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+        m.bindTooltip(a.name, { direction: 'top', offset: [0, -6], opacity: .95 });
+      } else {
+        nVal++;
+        const mag = Array.isArray(v) ? v[1] : v;
+        const fill = skiTotals() ? '#3f96d6' : (mag <= 0 ? '#8891a0' : binColor(mag, SNOW_BINS));
+        m = L.circleMarker([a.lat, a.lon], { radius: 6, color: '#111', weight: 1, fillColor: fill, fillOpacity: stale ? .35 : .9, dashArray: stale ? '2 2' : null });
+        const lbl = skiFmt(v);
+        m.bindTooltip(lbl, { direction: 'top', offset: [0, -10], className: 'stlabel', opacity: .95 });
+        skiLabels.push([m.getLatLng(), lbl, null, mag <= 0]);
+      }
+      m.bindPopup(() => skiCard(a), { maxWidth: 340 });
+      m.on('mouseover', () => { if (!m.isPopupOpen()) m.openPopup(); });
+      skiLayer.addLayer(m);
+    }
+    labelSki();
+    const winsEl = $('skiWins'); winsEl.innerHTML = '';
+    SKI_WINS.forEach(([k, l]) => { const b = document.createElement('button'); b.className = 'chip' + (k === skiWin ? ' on' : ''); b.textContent = l; b.onclick = () => { skiWin = k; renderSki(); }; winsEl.appendChild(b); });
+    const what = skiWin === 'season' ? 'a season total' : skiWin === 'base' ? 'a base depth' : 'new snow for the last ' + SKI_WINS.find(([k]) => k === skiWin)[1];
+    $('skiInfo').innerHTML = '<div class="muted">' + skiData.areas.length + ' ski areas · ' + nVal + ' of the ' + nFeed + ' on the resort feed give ' + what + ' · hollow dots link to the area’s own report · updated ' + (skiData.updated || '') + '</div>' + (skiTotals() ? '' : legendHtml(SNOW_BINS)) + '<div class="note" style="margin-top:' + (skiTotals() ? 6 : 18) + 'px">inches, as each resort reports them at its own measuring site and time (usually the morning report), not sensor data; the label is the mid-mountain figure, else summit, else base. Ski areas: Data from OpenSkiData / OpenSkiMap.org, © OpenStreetMap contributors (ODbL), Skimap.org.</div>';
+  }
+  function loadSki() { loadScript('data/ski.js', () => { skiData = window.SKI || skiData; renderSki(); }, () => { $('skiInfo').innerHTML = '<div class="muted">ski data not available yet</div>'; }); }
+  $('lySki').onchange = e => { if (e.target.checked) { skiLayer.addTo(map); if (!skiData) loadSki(); else renderSki(); } else map.removeLayer(skiLayer); };
+  setInterval(() => { if (map.hasLayer(skiLayer)) loadSki(); }, 15 * 60 * 1000);
 
   // ---------- avalanche forecast (every center in the window, via avalanche.org) ----------
   if (REG.avy) $('avyTitle').textContent = REG.avy + ' avalanche forecast';
@@ -1798,7 +1891,7 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
@@ -1814,7 +1907,7 @@
     d.checks = {}; DEF_CHECKS.forEach(id => { if ($(id)) d.checks[id] = $(id).checked; });
     d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
     d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
-    d.stWin = stWin; d.stMode = stMode;
+    d.stWin = stWin; d.stMode = stMode; d.skiWin = skiWin;
     d.snMode = snMode; d.snEl = snEl; d.snWin = snWin; d.snDepth = snDepth;
     d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
@@ -1827,6 +1920,7 @@
     for (const id in d.ranges || {}) { const el = $(id); if (el) { el.value = d.ranges[id]; el.dispatchEvent(new Event('input')); } }
     for (const id in d.selects || {}) { const el = $(id); if (el && el.value !== d.selects[id]) { el.value = d.selects[id]; if (id === 'rvModeSel') el.dispatchEvent(new Event('change')); } }
     if (d.stWin) stWin = String(d.stWin);
+    if (d.skiWin && SKI_WINS.some(([k]) => k === d.skiWin)) skiWin = String(d.skiWin);
     const sm = d.stMode || (d.selects || {}).stModeSel;     // older saves kept the mode in a dropdown
     if (sm && sm !== stMode) setStMode(sm);
     if (d.snMode) snMode = d.snMode;
