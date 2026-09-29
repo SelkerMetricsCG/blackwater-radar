@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="snow-base" content="">
+<meta name="theme-color" content="#1c2027">
+<meta name="apple-mobile-web-app-title" content="Snow">
+<link rel="icon" href="favicon.ico" sizes="any">
+<title>Blackwater Snow</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  :root { --panel:#1c2027; --panel2:#242a33; --line:#323a46; --text:#e6e8ec; --muted:#8b93a1; --accent:#2d6cdf; }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:#0f1216; color:var(--text); font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; overflow-x:hidden; }
+  a { color:#8fb8ff; }
+  main { max-width:980px; margin:0 auto; padding:0 16px 40px; }
+  header { position:sticky; top:0; z-index:20; background:rgba(28,32,39,.96); border-bottom:1px solid var(--line); backdrop-filter:blur(6px); }
+  header .in { max-width:980px; margin:0 auto; padding:10px 16px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; }
+  header #hdate { font-weight:600; font-variant-numeric:tabular-nums; }
+  header #hprev { color:var(--muted); font-size:12px; }
+  header #status { margin-left:auto; color:#e0b04b; font-size:12px; }
+  .dates { display:flex; gap:6px; overflow-x:auto; padding:12px 0 6px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  .dates::-webkit-scrollbar { height:6px; }
+  .chip { display:inline-block; flex:none; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; white-space:nowrap; }
+  .chip.on { background:var(--accent); border-color:var(--accent); }
+  .chip:hover { border-color:#5b7fd0; }
+  .chip:disabled { opacity:.5; cursor:default; }
+  .sec { margin-top:18px; }
+  .sec h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .card.hi { border-color:var(--accent); box-shadow:0 0 0 2px rgba(45,108,223,.35); }
+  .muted { color:var(--muted); }
+  .note { font-size:11px; color:var(--muted); line-height:1.35; }
+  #overview p { margin:0 0 8px; white-space:pre-line; }
+  #overview p:last-child { margin-bottom:0; }
+  .zones { display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width: 760px) { .zones { grid-template-columns:1fr 1fr; } }
+  .zone h3 { font-size:16px; margin:0 0 4px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .zone h3 small { color:var(--muted); font-weight:400; font-size:11px; }
+  .zone .head { font-weight:600; margin:0 0 4px; }
+  .zone .txt { margin:0 0 8px; color:#d3d7de; white-space:pre-line; }
+  .nums { display:flex; gap:14px; flex-wrap:wrap; font-variant-numeric:tabular-nums; margin:0 0 10px; }
+  .nums b { font-size:18px; font-weight:600; }
+  .nums span { display:flex; flex-direction:column; line-height:1.15; }
+  .nums small { color:var(--muted); font-size:11px; }
+  .roses { display:flex; gap:8px; justify-content:space-between; }
+  .rose { flex:1 1 0; min-width:0; text-align:center; }
+  .rose svg { width:100%; max-width:120px; height:auto; display:block; margin:0 auto; overflow:visible; }
+  .rose .lab { font-size:11px; color:var(--muted); margin-top:2px; }
+  .rose path, .rose circle.flat { cursor:pointer; stroke:#0f1216; stroke-width:1; }
+  .rose path:hover, .rose circle.flat:hover { stroke:#fff; stroke-width:1.5; }
+  .rose .empty { fill:var(--panel2); stroke-dasharray:2 2; }
+  .rose text { fill:var(--muted); font-size:9px; pointer-events:none; }
+  .leg { display:flex; flex-wrap:wrap; gap:3px 10px; font-size:11px; color:var(--muted); margin-top:8px; }
+  .leg i { display:inline-block; width:12px; height:10px; margin-right:4px; vertical-align:-1px; border-radius:2px; border:1px solid var(--line); }
+  #tip { display:none; position:fixed; z-index:50; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:12px; line-height:1.35; box-shadow:0 4px 14px rgba(0,0,0,.45); pointer-events:none; max-width:220px; }
+  #tip b { display:block; margin-bottom:2px; }
+  #tip table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  #tip td { padding:0 8px 0 0; }
+  #tip td:last-child { text-align:right; padding:0; }
+  .tw { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+  table.lyr { border-collapse:collapse; width:100%; min-width:640px; font-size:13px; }
+  table.lyr th { text-align:left; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.lyr td { padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.lyr tr:last-child td { border-bottom:0; }
+  table.lyr td.sum { min-width:220px; color:#d3d7de; }
+  .st { display:inline-block; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; border:1px solid var(--line); }
+  .st.active { background:#5a2a1a; border-color:#a0522d; color:#ffd9c2; }
+  .st.dormant { background:var(--panel2); color:var(--muted); }
+  .st.healed { background:#1c3a26; border-color:#2e7d4a; color:#c8f0d3; }
+  #map { height:62vh; min-height:320px; max-height:640px; border:1px solid var(--line); border-radius:12px; background:#0f1216; }
+  .leaflet-container { font:inherit; }
+  .leaflet-control-attribution { background:rgba(20,23,28,.75)!important; color:#aab; font-size:10px; }
+  .leaflet-control-attribution a { color:#9cf; }
+  .leaflet-tooltip.zlab { background:rgba(255,255,255,.92); border:1px solid #999; color:#111; font-weight:600; font-size:11px; padding:1px 5px; border-radius:3px; box-shadow:none; }
+  .leaflet-tooltip.zlab::before { display:none; }
+  .mapbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:0 0 8px; }
+  .opt { display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap; }
+  .opt input { accent-color:var(--accent); margin:0; flex:none; }
+  form.trip { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
+  form.trip label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--muted); min-width:0; }
+  form.trip label.wide { grid-column:1 / -1; }
+  form.trip input, form.trip select, form.trip textarea { width:100%; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; font-size:14px; min-width:0; }
+  form.trip textarea { min-height:64px; resize:vertical; }
+  form.trip input:focus, form.trip select:focus, form.trip textarea:focus { outline:2px solid #5b7fd0; outline-offset:0; border-color:#5b7fd0; }
+  .asp { display:flex; flex-wrap:wrap; gap:6px; }
+  .asp label { flex-direction:row; align-items:center; gap:4px; color:var(--text); font-size:13px; background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:3px 9px; cursor:pointer; }
+  .asp input { width:auto; accent-color:var(--accent); margin:0; }
+  #tripOut { grid-column:1 / -1; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; min-height:300px; white-space:pre; }
+  .btns { grid-column:1 / -1; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button.btn { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  button.btn.primary { background:var(--accent); border-color:var(--accent); }
+  button.btn.on { border-color:#e0b04b; color:#e0b04b; }
+  footer { margin-top:28px; padding-top:12px; border-top:1px solid var(--line); font-size:11px; color:var(--muted); line-height:1.5; }
+  @media (max-width: 480px) { form.trip { grid-template-columns:1fr; } form.trip label.half { grid-column:auto; } }
+</style>
+</head>
+<body>
+<header><div class="in"><h1>Blackwater Snow</h1><span id="hdate">…</span><span id="hprev"></span><span id="status"></span></div></header>
+<main>
+  <div class="dates" id="dates"></div>
+
+  <section class="sec" id="overviewSec">
+    <h2>Brief</h2>
+    <div class="card" id="overview"><span class="muted">loading…</span></div>
+  </section>
+
+  <section class="sec">
+    <h2>Zones</h2>
+    <div class="zones" id="zones"></div>
+    <div class="note" style="margin-top:8px">Each rose is one elevation band; a wedge is the surface class the model gives most of that band's cells on that aspect (N at top, clockwise), the centre is flat ground. Hover or tap a wedge for the top three classes.</div>
+  </section>
+
+  <section class="sec">
+    <h2>Weak layers</h2>
+    <div id="layers"></div>
+  </section>
+
+  <section class="sec">
+    <h2>Map</h2>
+    <div class="mapbar">
+      <label class="opt"><input type="checkbox" id="lyCls" checked>Surface class overlay</label>
+      <label class="opt"><input type="checkbox" id="lyZones" checked>Zone outlines</label>
+      <span class="note" id="mapNote"></span>
+    </div>
+    <div id="map"></div>
+    <div class="leg" id="mapLeg"></div>
+  </section>
+
+  <section class="sec">
+    <h2>Trip log</h2>
+    <div class="card">
+      <div class="note" style="margin-bottom:10px">Fill this in after a day out; the record below goes into <code>snow/trips.json</code> in the repo (a list of these), where the daily job scores it against the model.</div>
+      <form class="trip" id="trip" autocomplete="off">
+        <label class="half">Date<input type="date" name="obs_date" id="tDate"></label>
+        <label class="half">Location<input type="text" name="location" id="tLoc" placeholder="Skyline Ridge"></label>
+        <label class="half">Latitude<input type="number" step="any" name="lat" id="tLat" placeholder="47.74"></label>
+        <label class="half">Longitude<input type="number" step="any" name="lon" id="tLon" placeholder="-121.09"></label>
+        <label class="half">Zone<select name="zone" id="tZone"><option value="">(zone)</option></select></label>
+        <label class="half">Elevation (ft)<input type="number" step="1" name="elevation_ft" id="tElev" placeholder="5200"></label>
+        <label class="half">Band<select name="band" id="tBand"><option value="">(band)</option><option value="below">below treeline</option><option value="near">near treeline</option><option value="above">above treeline</option></select></label>
+        <label class="half">Surface<select name="surface" id="tSurf"><option value="">(surface class)</option></select></label>
+        <label class="wide">Aspects<div class="asp" id="tAsp"></div></label>
+        <label class="half">Confidence (0–1)<input type="number" min="0" max="1" step="0.1" name="confidence" id="tConf" value="0.8"></label>
+        <label class="wide">Notes<textarea name="quote" id="tNotes" placeholder="what the surface was like, where, when"></textarea></label>
+        <div class="btns"><button type="button" class="btn" id="tPick" title="then click the map">Pick point on map</button><button type="button" class="btn primary" id="tCopy">Copy record</button><span class="note" id="tMsg"></span></div>
+        <textarea id="tripOut" readonly spellcheck="false" aria-label="trip record JSON"></textarea>
+      </form>
+    </div>
+  </section>
+
+  <footer>Forecasts and zones: avalanche.org public API and NWAC; weather: NOAA; terrain: USGS 3DEP, ESA WorldCover.
+    The surface classes are a model, not observations. <a href="terms.html">Terms and privacy</a>.</footer>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const meta = (document.querySelector('meta[name="snow-base"]') || {}).content || '';
+  const BASE = meta ? meta.replace(/\/?$/, '/') + 'pnw/snow/' : 'regions/pnw/snow/';
+
+  // mirrors snow/state.py CLASSES and PALETTE; the day's files carry their own (SNOW_STATE.classes, SNOW_CLS.palette) and win
+  const CLASSES = ['no_snow', 'fresh', 'settled', 'wind', 'sun_crust', 'rain_crust', 'melt_freeze', 'isothermal', 'dust_on_crust', 'old', 'wind_loaded', 'wind_scoured', 'tree_debris'];
+  const FALLBACK = { no_snow: 'transparent', fresh: '#e0f3ff', settled: '#6baed6', wind: '#969696', sun_crust: '#fdae6b', rain_crust: '#e6550d',
+                     melt_freeze: '#fee08b', isothermal: '#a63603', dust_on_crust: '#dadaeb', old: '#2171b5', wind_loaded: '#636363', wind_scoured: '#bdbdbd', tree_debris: '#74c476' };
+  const LABEL = { no_snow: 'no snow', fresh: 'fresh snow', settled: 'settled powder', wind: 'wind affected', sun_crust: 'sun crust', rain_crust: 'rain crust',
+                  melt_freeze: 'melt-freeze (corn)', isothermal: 'isothermal', dust_on_crust: 'dust on crust', old: 'old powder', wind_loaded: 'wind loaded', wind_scoured: 'wind scoured', tree_debris: 'tree debris' };
+  const OCTANTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'flat'];
+  const BANDS = ['below', 'near', 'above'];
+  const BAND_LABEL = { below: 'below treeline', near: 'near treeline', above: 'above treeline' };
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const label = c => LABEL[c] || String(c).replace(/_/g, ' ');
+  function fmtDate(d, long) {                      // 'YYYY-MM-DD' -> 'Jan 15' / 'Thu 15 Jan 2026'; parsed by hand so no time zone shifts it
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+    if (!m) return d || '';
+    const dt = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getUTCDay()];
+    return long ? wd + ' ' + (+m[3]) + ' ' + MONTHS[+m[2] - 1] + ' ' + m[1] : MONTHS[+m[2] - 1] + ' ' + (+m[3]);
+  }
+  const pct = v => v >= 0.995 ? '100%' : v < 0.005 ? '0%' : (v * 100).toFixed(0) + '%';
+  function paletteFor(cls) {
+    const p = Object.assign({}, FALLBACK, (cls && cls.palette) || {});
+    return c => { const v = p[c]; return v && v !== 'transparent' ? v : null; };   // null = draw as "no snow"
+  }
+
+  // data files are plain scripts setting window globals (the bucket sends no CORS header); ?t= defeats caches
+  function loadScript(path, bust) {
+    return new Promise(resolve => {
+      const s = document.createElement('script');
+      s.src = BASE + path + (bust === false ? '' : '?t=' + Date.now());
+      s.onload = () => resolve(true); s.onerror = () => resolve(false);
+      document.body.appendChild(s);
+    });
+  }
+  function setStatus(t) { $('status').textContent = t || ''; }
+
+  // ---- state ----
+  let INDEX = null, ZONES = null, STATE = null, CLS = null, BRIEF = null, CUR = null, seq = 0;
+  let map, clsLayer = null, zoneLayer = null, pickMarker = null, picking = false;
+
+  async function boot() {
+    setStatus('loading…');
+    const [okIdx] = await Promise.all([loadScript('state/index.js'), loadScript('static/zones.js')]);
+    INDEX = window.SNOW_INDEX || null; ZONES = window.SNOW_ZONES || null;
+    initMap(); initTrip();
+    if (!okIdx || !INDEX || !INDEX.dates || !INDEX.dates.length) {
+      setStatus('no model output yet'); $('hdate').textContent = '';
+      $('overview').innerHTML = '<span class="muted">The snow model has not published a day yet.</span>';
+      renderLayers(null); renderZones(); return;
+    }
+    renderDates();
+    await select(INDEX.latest || INDEX.dates[INDEX.dates.length - 1]);
+  }
+
+  function renderDates() {
+    const dates = INDEX.dates.slice(-30).reverse();     // newest first, so the phone shows it without scrolling
+    const box = $('dates'); box.innerHTML = '';
+    dates.forEach(d => {
+      const b = document.createElement('button'); b.className = 'chip'; b.type = 'button'; b.dataset.d = d;
+      b.textContent = fmtDate(d); b.title = fmtDate(d, true);
+      b.onclick = () => select(d);
+      box.appendChild(b);
+    });
+  }
+
+  async function select(d) {
+    const my = ++seq; CUR = d;
+    [...$('dates').children].forEach(b => b.classList.toggle('on', b.dataset.d === d));
+    setStatus('loading ' + d + '…');
+    const latest = d === INDEX.latest;
+    window.SNOW_STATE = window.SNOW_CLS = window.SNOW_BRIEF = undefined;
+    // latest.* are no-cache copies of the newest day; dated files are immutable
+    const [okS, okC, okB] = await Promise.all([
+      loadScript(latest ? 'state/latest.js' : 'state/' + d + '.js'),
+      loadScript(latest ? 'state/latest_cls.js' : 'state/' + d + '_cls.js'),
+      loadScript(latest ? 'brief/latest.js' : 'brief/' + d + '.js')]);
+    if (my !== seq) return;                               // a newer click won
+    STATE = okS && window.SNOW_STATE && window.SNOW_STATE.date === d ? window.SNOW_STATE : (okS ? window.SNOW_STATE : null);
+    CLS = okC ? window.SNOW_CLS : null;
+    BRIEF = okB ? window.SNOW_BRIEF : null;
+    const miss = [];
+    if (!STATE) miss.push('state'); if (!CLS) miss.push('class map'); if (!BRIEF) miss.push('brief');
+    setStatus(miss.length ? 'no ' + miss.join(', ') + ' for ' + d : '');
+    render();
+  }
+
+  function render() {
+    $('hdate').textContent = fmtDate(CUR, true);
+    $('hprev').textContent = STATE && STATE.prev_day ? 'stepped from ' + fmtDate(STATE.prev_day) : '';
+    renderOverview(); renderZones(); renderLayers(BRIEF); renderMapData();
+    if (!$('tDate').value) $('tDate').value = CUR || '';
+  }
+
+  // ---- brief ----
+  function renderOverview() {
+    const box = $('overview');
+    if (!BRIEF || (!BRIEF.overview && !BRIEF.zones)) {
+      box.innerHTML = '<span class="muted">No brief for this day' + (BRIEF && BRIEF.layers ? ' (only the weak-layer table was updated).' : '.') + '</span>';
+      return;
+    }
+    let h = BRIEF.overview ? '<p>' + esc(BRIEF.overview) + '</p>' : '<p class="muted">No overview for this day.</p>';
+    const meta = [];
+    if (BRIEF.model) meta.push('written by ' + esc(BRIEF.model));
+    if (BRIEF.generated_utc) meta.push('generated ' + esc(BRIEF.generated_utc.replace('T', ' ').replace(/\.\d+/, '').replace(/(Z|\+00:00)$/, '')) + ' UTC');
+    if (meta.length) h += '<div class="note" style="margin-top:8px">' + meta.join(' · ') + '</div>';
+    if (BRIEF.notes && BRIEF.notes.length) {
+      h += '<div class="note" style="margin-top:8px">' + BRIEF.notes.map(n => '• ' + esc(n.text) + (n.evidence && n.evidence.length ? ' <span title="' + esc(n.evidence.join(', ')) + '">[' + n.evidence.length + ']</span>' : '')).join('<br>') + '</div>';
+    }
+    box.innerHTML = h;
+  }
+
+  function briefFor(name) {
+    if (!BRIEF || !BRIEF.zones) return null;
+    const k = String(name || '').trim().toLowerCase();
+    return BRIEF.zones.find(z => String(z.zone || '').trim().toLowerCase() === k) || null;
+  }
+
+  // ---- zone cards and roses ----
+  function zoneList() {
+    const out = [];
+    const zs = (STATE && STATE.zones) || {};
+    Object.keys(zs).forEach(id => out.push(Object.assign({ id }, zs[id])));
+    if (!out.length && ZONES && ZONES.features) ZONES.features.forEach(f => out.push({ id: String(f.id), name: (f.properties || {}).name }));
+    out.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+    return out;
+  }
+
+  function wedgeStats(z, bi, oi) {                      // [[class, frac] ...] sorted, or [] when the band x octant has no cells
+    const cls = (STATE && STATE.classes) || CLASSES;
+    const row = z.frac && z.frac[bi] && z.frac[bi][oi];
+    if (!row) return [];
+    return cls.map((c, i) => [c, +row[i] || 0]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  }
+
+  function roseSvg(z, bi, color) {
+    const R = 37, r0 = 12, C = 50;          // compass letters sit inside the 100 x 100 box
+    const pt = (rad, deg) => { const a = deg * Math.PI / 180; return [(C + rad * Math.sin(a)).toFixed(2), (C - rad * Math.cos(a)).toFixed(2)]; };
+    let h = '<svg viewBox="0 0 100 100" role="img" aria-label="' + esc(BAND_LABEL[BANDS[bi]]) + '">';
+    for (let i = 0; i < 8; i++) {
+      const a0 = i * 45 - 22.5, a1 = i * 45 + 22.5;
+      const [x0, y0] = pt(R, a0), [x1, y1] = pt(R, a1), [u0, v0] = pt(r0 + 1, a0), [u1, v1] = pt(r0 + 1, a1);
+      const st = wedgeStats(z, bi, i);
+      const fill = st.length ? color(st[0][0]) : null;
+      h += '<path d="M' + u0 + ',' + v0 + ' L' + x0 + ',' + y0 + ' A' + R + ',' + R + ' 0 0 1 ' + x1 + ',' + y1 + ' L' + u1 + ',' + v1 + ' A' + (r0 + 1) + ',' + (r0 + 1) + ' 0 0 0 ' + u0 + ',' + v0 + ' Z"' +
+           (fill ? ' fill="' + fill + '"' : ' class="empty"') + ' data-b="' + bi + '" data-o="' + i + '"/>';
+    }
+    const fs = wedgeStats(z, bi, 8);
+    const ff = fs.length ? color(fs[0][0]) : null;
+    h += '<circle class="flat' + (ff ? '' : ' empty') + '" cx="50" cy="50" r="' + r0 + '"' + (ff ? ' fill="' + ff + '"' : '') + ' data-b="' + bi + '" data-o="8"/>';
+    h += '<text x="50" y="9" text-anchor="middle">N</text><text x="50" y="98" text-anchor="middle">S</text><text x="10" y="53" text-anchor="end">W</text><text x="90" y="53">E</text></svg>';
+    return h;
+  }
+
+  function renderZones() {
+    const box = $('zones'); box.innerHTML = '';
+    const color = paletteFor(CLS);
+    const list = zoneList();
+    if (!list.length) { box.innerHTML = '<div class="card muted">No zones in this day\'s state.</div>'; return; }
+    list.forEach(z => {
+      const b = briefFor(z.name);
+      const card = document.createElement('article'); card.className = 'card zone'; card.id = 'zone-' + z.id; card.dataset.name = z.name || '';
+      let h = '<h3>' + esc(z.name || z.id) + (z.cells ? '<small>' + Number(z.cells).toLocaleString() + ' cells</small>' : '') + '</h3>';
+      if (b) {
+        if (b.headline) h += '<p class="head">' + esc(b.headline) + '</p>';
+        if (b.text) h += '<p class="txt">' + esc(b.text) + '</p>';
+      } else if (BRIEF && BRIEF.zones) h += '<p class="note" style="margin:0 0 8px">No brief for this zone.</p>';
+      const has = z.frac && z.frac.length;
+      if (z.hn24_cm != null || z.days != null) {
+        const n1 = v => isFinite(+v) && v != null ? (+v).toFixed(1) : '–';
+        h += '<div class="nums">' +
+          '<span><b>' + n1(z.hn24_cm) + ' cm</b><small>new snow, 24 h (mean)</small></span>' +
+          '<span><b>' + n1(z.days) + ' d</b><small>since snowfall (mean)</small></span></div>';
+      }
+      if (has) {
+        h += '<div class="roses">' + BANDS.map((bn, bi) => '<div class="rose">' + roseSvg(z, bi, color) + '<div class="lab">' + esc(BAND_LABEL[bn]) + '</div></div>').join('') + '</div>';
+        const present = new Set();
+        for (let bi = 0; bi < 3; bi++) for (let oi = 0; oi < 9; oi++) { const s = wedgeStats(z, bi, oi); if (s.length) present.add(s[0][0]); }
+        const cls = (STATE && STATE.classes) || CLASSES;
+        h += '<div class="leg">' + cls.filter(c => present.has(c)).map(c => '<span><i style="background:' + (color(c) || 'var(--panel2)') + '"></i>' + esc(label(c)) + '</span>').join('') + '</div>';
+      } else h += '<div class="note">No model output for this zone.</div>';
+      card.innerHTML = h;
+      card.querySelectorAll('[data-o]').forEach(el => bindTip(el, z));
+      box.appendChild(card);
+    });
+  }
+
+  // one tooltip for every wedge: hover on a pointer, tap on a touch screen
+  const tip = $('tip');
+  let tipEl = null;
+  function showTip(el, z, x, y) {
+    const bi = +el.dataset.b, oi = +el.dataset.o;
+    const st = wedgeStats(z, bi, oi).slice(0, 3);
+    tip.innerHTML = '<b>' + esc(z.name || z.id) + ' · ' + esc(BAND_LABEL[BANDS[bi]]) + ' · ' + (oi === 8 ? 'flat' : OCTANTS[oi]) + '</b>' +
+      (st.length ? '<table>' + st.map(([c, f]) => '<tr><td>' + esc(label(c)) + '</td><td>' + pct(f) + '</td></tr>').join('') + '</table>' : '<span class="muted">no cells</span>');
+    tip.style.display = 'block'; tipEl = el;
+    const w = tip.offsetWidth, hh = tip.offsetHeight;
+    tip.style.left = Math.max(4, Math.min(x + 12, window.innerWidth - w - 4)) + 'px';
+    tip.style.top = (y - hh - 10 < 4 ? y + 14 : y - hh - 10) + 'px';
+  }
+  function hideTip() { tip.style.display = 'none'; tipEl = null; }
+  function bindTip(el, z) {
+    el.addEventListener('mouseenter', e => showTip(el, z, e.clientX, e.clientY));
+    el.addEventListener('mousemove', e => showTip(el, z, e.clientX, e.clientY));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('touchstart', e => { const t = e.touches[0]; if (tipEl === el) hideTip(); else showTip(el, z, t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+  }
+  document.addEventListener('touchstart', e => { if (tipEl && !e.target.closest('[data-o]')) hideTip(); }, { passive: true });
+  window.addEventListener('scroll', hideTip, { passive: true });
+
+  // ---- weak layers ----
+  function renderLayers(brief) {
+    const box = $('layers');
+    const rows = brief && brief.layers;
+    if (!rows || !rows.length) { box.innerHTML = '<div class="card muted">' + (brief ? 'No weak layers tracked.' : 'No layer table for this day.') + '</div>'; return; }
+    const order = { active: 0, dormant: 1, healed: 2 };
+    const list = rows.slice().sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || String(b.buried || '').localeCompare(String(a.buried || '')));
+    box.innerHTML = '<div class="tw"><table class="lyr"><thead><tr><th>Layer</th><th>Status</th><th>Zones</th><th>Bands</th><th>Buried</th><th>Last seen</th><th>Summary</th></tr></thead><tbody>' +
+      list.map(l => '<tr><td><b>' + esc(l.name) + '</b></td><td><span class="st ' + esc(l.status || '') + '">' + esc(l.status || '?') + '</span></td>' +
+        '<td>' + esc((l.zones || []).join(', ') || '–') + '</td><td>' + esc((l.bands || []).map(b => BAND_LABEL[b] ? b : b).join(', ') || '–') + '</td>' +
+        '<td title="' + esc(l.buried || '') + '">' + esc(l.buried ? fmtDate(l.buried) : '–') + '</td><td title="' + esc(l.last || '') + '">' + esc(l.last ? fmtDate(l.last) : '–') + '</td>' +
+        '<td class="sum">' + esc(l.summary || '') + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+
+  // ---- map ----
+  function initMap() {
+    if (typeof L === 'undefined') { $('map').innerHTML = '<div class="muted" style="padding:14px">Leaflet did not load.</div>'; return; }
+    map = L.map('map', { zoomControl: true, scrollWheelZoom: false, tap: false }).setView([47.6, -120.7], 7);
+    const esriAttr = 'Tiles &copy; Esri';
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 17, attribution: esriAttr }).addTo(map);
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+    if (ZONES && ZONES.features && ZONES.features.length) {
+      zoneLayer = L.geoJSON(ZONES, {
+        style: () => ({ color: '#fff', weight: 1.5, opacity: .9, fillColor: '#fff', fillOpacity: .03 }),
+        onEachFeature: (f, lyr) => {
+          const p = f.properties || {}, id = String(f.id != null ? f.id : p.id);
+          lyr.bindTooltip(esc(p.name || id), { className: 'zlab', sticky: true, direction: 'top' });
+          lyr.on('mouseover', () => lyr.setStyle({ weight: 2.5, fillOpacity: .1 }));
+          lyr.on('mouseout', () => zoneLayer.resetStyle(lyr));
+          lyr.on('click', e => {
+            if (picking) return;
+            const card = $('zone-' + id) || [...document.querySelectorAll('.zone')].find(c => c.dataset.name.toLowerCase() === String(p.name || '').toLowerCase());
+            if (!card) return;
+            document.querySelectorAll('.zone.hi').forEach(c => c.classList.remove('hi'));
+            card.classList.add('hi'); card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => card.classList.remove('hi'), 2500);
+          });
+        }
+      }).addTo(map);
+      try { map.fitBounds(zoneLayer.getBounds().pad(0.05)); } catch (e) {}
+    }
+    map.on('click', e => {
+      if (!picking) return;
+      picking = false; $('tPick').classList.remove('on');
+      $('tLat').value = e.latlng.lat.toFixed(5); $('tLon').value = e.latlng.lng.toFixed(5);
+      if (pickMarker) pickMarker.setLatLng(e.latlng); else pickMarker = L.circleMarker(e.latlng, { radius: 6, color: '#e0b04b', weight: 2, fillColor: '#e0b04b', fillOpacity: .6 }).addTo(map);
+      if (zoneLayer && !$('tZone').value) {         // guess the zone from a point-in-polygon on the outlines
+        zoneLayer.eachLayer(lyr => { if (inside(lyr.feature, e.latlng)) $('tZone').value = (lyr.feature.properties || {}).name || ''; });
+      }
+      tripJson(); $('tMsg').textContent = 'point set from the map'; $('trip').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $('lyCls').onchange = () => { if (clsLayer) { if ($('lyCls').checked) clsLayer.addTo(map); else map.removeLayer(clsLayer); } };
+    $('lyZones').onchange = () => { if (zoneLayer) { if ($('lyZones').checked) zoneLayer.addTo(map); else map.removeLayer(zoneLayer); } };
+  }
+
+  function inside(feature, ll) {                          // ray cast over (Multi)Polygon outer rings
+    const g = feature && feature.geometry; if (!g) return false;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    return polys.some(rings => {
+      const ring = rings[0]; let c = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if ((yi > ll.lat) !== (yj > ll.lat) && ll.lng < (xj - xi) * (ll.lat - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    });
+  }
+
+  function renderMapData() {
+    if (!map) return;
+    if (clsLayer) { map.removeLayer(clsLayer); clsLayer = null; }
+    const color = paletteFor(CLS);
+    if (CLS && CLS.file && CLS.bounds) {
+      clsLayer = L.imageOverlay(BASE + CLS.file + (/latest/.test(CLS.file) ? '?t=' + Date.now() : ''), CLS.bounds, { opacity: .75, interactive: false, alt: 'surface class' });
+      if ($('lyCls').checked) clsLayer.addTo(map);
+      if (!zoneLayer) { try { map.fitBounds(CLS.bounds); } catch (e) {} }
+      $('mapNote').textContent = 'class map for ' + fmtDate(CLS.date || CUR);
+    } else $('mapNote').textContent = 'no class map for this day';
+    const cls = (STATE && STATE.classes) || CLASSES;
+    $('mapLeg').innerHTML = cls.map(c => '<span><i style="background:' + (color(c) || 'transparent') + (color(c) ? '' : ';border-style:dashed') + '"></i>' + esc(label(c)) + (color(c) ? '' : ' (clear)') + '</span>').join('');
+  }
+
+  // ---- trip log ----
+  function initTrip() {
+    const zsel = $('tZone');
+    const names = ZONES && ZONES.features ? ZONES.features.map(f => (f.properties || {}).name).filter(Boolean).sort() : [];
+    names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; zsel.appendChild(o); });
+    const ssel = $('tSurf');
+    CLASSES.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = label(c); ssel.appendChild(o); });
+    const asp = $('tAsp');
+    OCTANTS.slice(0, 8).forEach(a => { const l = document.createElement('label'); l.innerHTML = '<input type="checkbox" value="' + a + '">' + a; asp.appendChild(l); });
+    $('trip').addEventListener('input', tripJson);
+    $('trip').addEventListener('change', tripJson);
+    $('tPick').onclick = () => { picking = !picking; $('tPick').classList.toggle('on', picking); $('tMsg').textContent = picking ? 'click the map' : ''; if (picking) $('map').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    $('tCopy').onclick = async () => {
+      tripJson();
+      try { await navigator.clipboard.writeText($('tripOut').value); $('tMsg').textContent = 'copied'; }
+      catch (e) { $('tripOut').select(); $('tMsg').textContent = 'select and copy the text'; }
+    };
+    tripJson();
+  }
+  const num = v => (v === '' || v == null || isNaN(+v)) ? null : +v;
+  function tripJson() {
+    const loc = $('tLoc').value.trim(), d = $('tDate').value;
+    const slug = loc.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const conf = num($('tConf').value);
+    const rec = {
+      source: 'trip',
+      source_id: (slug || 'trip') + '-' + (d || ''),
+      obs_date: d || '',
+      location: loc,
+      lat: num($('tLat').value),
+      lon: num($('tLon').value),
+      zone: $('tZone').value || null,
+      elevation_ft: num($('tElev').value) == null ? null : Math.round(num($('tElev').value)),
+      band: $('tBand').value || null,
+      aspects: [...$('tAsp').querySelectorAll('input:checked')].map(i => i.value),
+      surface: $('tSurf').value || null,
+      confidence: conf == null ? null : Math.max(0, Math.min(1, conf)),
+      quote: $('tNotes').value.trim()
+    };
+    $('tripOut').value = JSON.stringify(rec, null, 2);
+    return rec;
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

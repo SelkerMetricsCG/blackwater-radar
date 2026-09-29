@@ -20,8 +20,19 @@ lattice:
   flat_below_deg: 2        # judgment call: aspect is undefined (-1) where slope is under this
   aspect_octants: [N, NE, E, SE, S, SW, W, NW]     # 45 deg bins centred on the cardinal directions
   # judgment call: NWAC's below / near / above treeline bands differ by zone and are not published as numbers.
-  # These are the Stevens Pass zone's from its forecast page, used everywhere until per-zone values are entered.
+  # These are the Stevens Pass zone's from its forecast page; they apply only where no treeline could be found.
   bands_ft: [4000, 6000]
+  canopy_dataset: "ESA WorldCover 2021 v200, 10 m, class 10 (tree cover) averaged onto the cell"
+  delete_downloads: true
+  treeline:
+    # judgment call (2026-09-29): the treeline of a zone is the elevation above which its median canopy (smoothed
+    # over 1.1 km) stays under 15%; the near-treeline band is the 600 m below it (NWAC's near band is about
+    # 2000 ft wide). Alternative not chosen: NWAC's per-zone numbers (not published as data).
+    treeline_canopy: 0.15
+    near_width_m: 600
+    smooth_cells: 11
+    min_cells: 5000
+    min_cells_per_bin: 200
 
 solar:
   solar_constant_w_m2: 1361        # literature (Kopp & Lean 2011)
@@ -43,6 +54,7 @@ state:
   settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
   solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
   wind_mph: {value: 25, bounds: [15, 40], max_step: 3, source: judgment call, note: "NDFD 10 m wind speed treated as transporting snow (ridgetop winds run higher; revisit with NWAC telemetry)"}
+  wind_sector_deg: {value: 60, bounds: [30, 90], max_step: 10, source: judgment call, note: "a cell counts as lee (loading) or windward (scouring) when its aspect is within this many degrees of the downwind or upwind direction"}
   wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above wind_mph since the last fresh snow that make the surface wind-affected"}
   rain_line_margin_ft: {value: 1000, bounds: [500, 2000], max_step: 250, source: literature, note: "snow level sits about this far below the HRRR freezing level"}
   rain_mix_ft: {value: 500, bounds: [200, 1000], max_step: 100, source: judgment call, note: "half-width of the mixed band around the snow level"}
@@ -53,6 +65,14 @@ state:
   refreeze_good: {value: 0.6, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "refreeze_index at or above this counts as a solid overnight refreeze"}
   melt_tmax_c: {value: 2, bounds: [0, 6], max_step: 1, source: judgment call, note: "band daily max above this with solar melts the surface (corn cycle when it also refroze)"}
   isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
+  tree_load_tmin_c: {value: -3, bounds: [-6, -1], max_step: 1, source: judgment call, note: "snow sticks to the canopy when the band mean temperature is between this"}
+  tree_load_tmax_c: {value: 1.5, bounds: [0, 3], max_step: 0.5, source: judgment call, note: "and this (wet snow near 0 C loads trees; cold dry snow blows through)"}
+  tree_load_full_cm: {value: 25, bounds: [10, 50], max_step: 5, source: judgment call, note: "sticky new snow that fills the canopy load (load = 1)"}
+  tree_load_decay: {value: 0.15, bounds: [0.05, 0.4], max_step: 0.05, source: judgment call, note: "fraction of the canopy load shed quietly per day"}
+  tree_release_load: {value: 0.5, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "load at or above this can come down all at once"}
+  tree_release_wind_h: {value: 3, bounds: [1, 12], max_step: 1, source: judgment call, note: "hours above wind_mph in a day that dump a loaded canopy"}
+  tree_release_tmax_c: {value: 3, bounds: [1, 8], max_step: 1, source: judgment call, note: "band max above this dumps a loaded canopy"}
+  tree_debris_canopy: {value: 0.5, bounds: [0.3, 0.8], max_step: 0.1, source: judgment call, note: "canopy fraction at or above which a release ruins the surface (tree_debris) for the day"}
   min_depth_in: {value: 4, bounds: [2, 12], max_step: 2, source: judgment call, note: "SNODAS depth below this is 'no snow'"}
   cloud_day_hours: {value: [8, 17], source: convention, note: "local hours whose NDFD sky cover feeds the solar term"}
   cloud_night_hours: {value: [21, 6], source: convention, note: "local hours whose sky, dewpoint and wind feed the refreeze term"}

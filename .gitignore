@@ -36,3 +36,6 @@ ski_research/work/
 # snow-conditions season archive: written by the hourly job, lives in R2
 regions/*/snow/
 snow/work/
+
+# snow-conditions site build (build_snow.py output; deployed with wrangler_snow.toml)
+web_snow/
