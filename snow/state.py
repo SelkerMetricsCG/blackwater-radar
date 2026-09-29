@@ -350,6 +350,53 @@ def update_index(day):
     return obj
 
 
+def reclassify(s, lat, p):
+    """the class from the continuous fields alone (no new forcing): used after an assimilation nudge"""
+    prev = s["cls"]
+    valid = lat["elev"] != -32768
+    cls = np.full(prev.shape, CID["old"], np.uint8)
+    days = s["days"].astype(np.int32)
+    cls[days <= OLD_DAYS] = CID["settled"]
+    cls[days < p["settle_days"]] = CID["fresh"]
+    cls[s["wind_h"] >= p["wind_hours"]] = CID["wind"]
+    cls[s["wind_lee_h"] >= p["wind_hours"]] = CID["wind_loaded"]
+    cls[s["wind_wwd_h"] >= p["wind_hours"]] = CID["wind_scoured"]
+    cls[s["solar_mj"] >= p["solar_crust_mj"]] = CID["sun_crust"]
+    cls[s["rain"] >= 0.5] = CID["rain_crust"]
+    cls[(s["refreeze"] >= p["refreeze_good"]) & np.isin(prev, [CID["melt_freeze"]])] = CID["melt_freeze"]
+    cls[s["melt_days"] >= p["isothermal_days"]] = CID["isothermal"]
+    keep = np.isin(prev, [CID["dust_on_crust"], CID["tree_debris"], CID["melt_freeze"]])   # the day's transient calls stand
+    cls[keep] = prev[keep]
+    cls[days == 0] = CID["fresh"]
+    cls[s["depth_in"] < p["min_depth_in"]] = CID["no_snow"]
+    cls[~valid] = 255
+    return cls
+
+
+def rewrite_outputs(s, lat, meta, day, log=print, upload=True):
+    """after assimilation: reclassify, save latest.npz and the day's class snapshot, regenerate summary, PNG, js"""
+    p, _ = load_params()
+    s["cls"] = reclassify(s, lat, p)
+    d = day.isoformat()
+    np.savez_compressed(store.local("state/latest.npz"), day=d, **{k: v for k, v in s.items() if k in FIELDS})
+    np.savez_compressed(store.local("state/%s_cls.npz" % d), cls=s["cls"], hn24_cm=s["hn24_cm"].astype(np.float16))
+    summ = summary(s, lat, meta, day)
+    summ["assimilated"] = True
+    write_js("state/%s" % d, "SNOW_STATE", summ)
+    write_js("state/latest", "SNOW_STATE", summ)
+    img, bounds = class_png(s["cls"], meta, cfg_lattice())
+    img.save(store.local("state/%s_cls.png" % d), "PNG", optimize=True)
+    img.save(store.local("state/latest_cls.png"), "PNG", optimize=True)
+    if upload:
+        imm, nc = "public, max-age=31536000, immutable", "no-cache"
+        for rel, cache in (("state/latest.npz", "private, max-age=0"), ("state/%s_cls.npz" % d, imm), ("state/%s.json" % d, imm),
+                           ("state/%s.js" % d, imm), ("state/%s_cls.png" % d, imm), ("state/latest.json", nc), ("state/latest.js", nc),
+                           ("state/latest_cls.png", nc)):
+            store.put(rel, cache, log)
+    log("state: outputs rewritten after assimilation for %s" % d)
+    return summ
+
+
 def run(day, log=print, upload=True, force=False):
     t0 = time.time()
     p, scfg = load_params()
