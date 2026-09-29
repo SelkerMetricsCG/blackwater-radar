@@ -6,6 +6,7 @@
 <meta name="snow-base" content="">
 <meta name="theme-color" content="#1c2027">
 <meta name="apple-mobile-web-app-title" content="Snow">
+<link rel="icon" href="favicon.ico" sizes="any">
 <title>Blackwater Snow</title>
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
@@ -88,7 +89,7 @@
   .asp { display:flex; flex-wrap:wrap; gap:6px; }
   .asp label { flex-direction:row; align-items:center; gap:4px; color:var(--text); font-size:13px; background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:3px 9px; cursor:pointer; }
   .asp input { width:auto; accent-color:var(--accent); margin:0; }
-  #tripOut { grid-column:1 / -1; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; min-height:150px; white-space:pre; }
+  #tripOut { grid-column:1 / -1; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; min-height:300px; white-space:pre; }
   .btns { grid-column:1 / -1; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   button.btn { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
   button.btn.primary { background:var(--accent); border-color:var(--accent); }
@@ -163,11 +164,12 @@
   const meta = (document.querySelector('meta[name="snow-base"]') || {}).content || '';
   const BASE = meta ? meta.replace(/\/?$/, '/') + 'pnw/snow/' : 'regions/pnw/snow/';
 
-  const CLASSES = ['no_snow', 'fresh', 'settled', 'wind', 'sun_crust', 'rain_crust', 'melt_freeze', 'isothermal', 'dust_on_crust', 'old', 'wind_loaded', 'wind_scoured'];
+  // mirrors snow/state.py CLASSES and PALETTE; the day's files carry their own (SNOW_STATE.classes, SNOW_CLS.palette) and win
+  const CLASSES = ['no_snow', 'fresh', 'settled', 'wind', 'sun_crust', 'rain_crust', 'melt_freeze', 'isothermal', 'dust_on_crust', 'old', 'wind_loaded', 'wind_scoured', 'tree_debris'];
   const FALLBACK = { no_snow: 'transparent', fresh: '#e0f3ff', settled: '#6baed6', wind: '#969696', sun_crust: '#fdae6b', rain_crust: '#e6550d',
-                     melt_freeze: '#fee08b', isothermal: '#a63603', dust_on_crust: '#dadaeb', old: '#2171b5', wind_loaded: '#636363', wind_scoured: '#bdbdbd' };
+                     melt_freeze: '#fee08b', isothermal: '#a63603', dust_on_crust: '#dadaeb', old: '#2171b5', wind_loaded: '#636363', wind_scoured: '#bdbdbd', tree_debris: '#74c476' };
   const LABEL = { no_snow: 'no snow', fresh: 'fresh snow', settled: 'settled powder', wind: 'wind affected', sun_crust: 'sun crust', rain_crust: 'rain crust',
-                  melt_freeze: 'melt-freeze (corn)', isothermal: 'isothermal', dust_on_crust: 'dust on crust', old: 'old powder', wind_loaded: 'wind loaded', wind_scoured: 'wind scoured' };
+                  melt_freeze: 'melt-freeze (corn)', isothermal: 'isothermal', dust_on_crust: 'dust on crust', old: 'old powder', wind_loaded: 'wind loaded', wind_scoured: 'wind scoured', tree_debris: 'tree debris' };
   const OCTANTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'flat'];
   const BANDS = ['below', 'near', 'above'];
   const BAND_LABEL = { below: 'below treeline', near: 'near treeline', above: 'above treeline' };
@@ -266,7 +268,7 @@
     let h = BRIEF.overview ? '<p>' + esc(BRIEF.overview) + '</p>' : '<p class="muted">No overview for this day.</p>';
     const meta = [];
     if (BRIEF.model) meta.push('written by ' + esc(BRIEF.model));
-    if (BRIEF.generated_utc) meta.push('generated ' + esc(BRIEF.generated_utc.replace('T', ' ').replace(/\.\d+/, '').replace(/(Z|\+00:00)$/, ' UTC')));
+    if (BRIEF.generated_utc) meta.push('generated ' + esc(BRIEF.generated_utc.replace('T', ' ').replace(/\.\d+/, '').replace(/(Z|\+00:00)$/, '')) + ' UTC');
     if (meta.length) h += '<div class="note" style="margin-top:8px">' + meta.join(' · ') + '</div>';
     if (BRIEF.notes && BRIEF.notes.length) {
       h += '<div class="note" style="margin-top:8px">' + BRIEF.notes.map(n => '• ' + esc(n.text) + (n.evidence && n.evidence.length ? ' <span title="' + esc(n.evidence.join(', ')) + '">[' + n.evidence.length + ']</span>' : '')).join('<br>') + '</div>';
@@ -298,7 +300,7 @@
   }
 
   function roseSvg(z, bi, color) {
-    const R = 44, r0 = 13, C = 50;
+    const R = 37, r0 = 12, C = 50;          // compass letters sit inside the 100 x 100 box
     const pt = (rad, deg) => { const a = deg * Math.PI / 180; return [(C + rad * Math.sin(a)).toFixed(2), (C - rad * Math.cos(a)).toFixed(2)]; };
     let h = '<svg viewBox="0 0 100 100" role="img" aria-label="' + esc(BAND_LABEL[BANDS[bi]]) + '">';
     for (let i = 0; i < 8; i++) {
@@ -312,7 +314,7 @@
     const fs = wedgeStats(z, bi, 8);
     const ff = fs.length ? color(fs[0][0]) : null;
     h += '<circle class="flat' + (ff ? '' : ' empty') + '" cx="50" cy="50" r="' + r0 + '"' + (ff ? ' fill="' + ff + '"' : '') + ' data-b="' + bi + '" data-o="8"/>';
-    h += '<text x="50" y="-1" text-anchor="middle">N</text><text x="50" y="106" text-anchor="middle">S</text><text x="-2" y="53" text-anchor="end">W</text><text x="102" y="53">E</text></svg>';
+    h += '<text x="50" y="9" text-anchor="middle">N</text><text x="50" y="98" text-anchor="middle">S</text><text x="10" y="53" text-anchor="end">W</text><text x="90" y="53">E</text></svg>';
     return h;
   }
 
@@ -331,9 +333,10 @@
       } else if (BRIEF && BRIEF.zones) h += '<p class="note" style="margin:0 0 8px">No brief for this zone.</p>';
       const has = z.frac && z.frac.length;
       if (z.hn24_cm != null || z.days != null) {
+        const n1 = v => isFinite(+v) && v != null ? (+v).toFixed(1) : '–';
         h += '<div class="nums">' +
-          '<span><b>' + (z.hn24_cm == null ? '–' : (+z.hn24_cm).toFixed(1)) + ' cm</b><small>new snow, 24 h (mean)</small></span>' +
-          '<span><b>' + (z.days == null ? '–' : (+z.days).toFixed(1)) + ' d</b><small>since snowfall (mean)</small></span></div>';
+          '<span><b>' + n1(z.hn24_cm) + ' cm</b><small>new snow, 24 h (mean)</small></span>' +
+          '<span><b>' + n1(z.days) + ' d</b><small>since snowfall (mean)</small></span></div>';
       }
       if (has) {
         h += '<div class="roses">' + BANDS.map((bn, bi) => '<div class="rose">' + roseSvg(z, bi, color) + '<div class="lab">' + esc(BAND_LABEL[bn]) + '</div></div>').join('') + '</div>';
@@ -444,7 +447,7 @@
     if (clsLayer) { map.removeLayer(clsLayer); clsLayer = null; }
     const color = paletteFor(CLS);
     if (CLS && CLS.file && CLS.bounds) {
-      clsLayer = L.imageOverlay(BASE + CLS.file, CLS.bounds, { opacity: .75, interactive: false, alt: 'surface class' });
+      clsLayer = L.imageOverlay(BASE + CLS.file + (/latest/.test(CLS.file) ? '?t=' + Date.now() : ''), CLS.bounds, { opacity: .75, interactive: false, alt: 'surface class' });
       if ($('lyCls').checked) clsLayer.addTo(map);
       if (!zoneLayer) { try { map.fitBounds(CLS.bounds); } catch (e) {} }
       $('mapNote').textContent = 'class map for ' + fmtDate(CLS.date || CUR);

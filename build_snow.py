@@ -4,6 +4,7 @@ Build the snow-conditions site into web_snow/ for the Cloudflare Worker "snow"
 
   web_snow/index.html   snow.html with the R2 public URL baked into its snow-base meta tag
   web_snow/terms.html   terms and privacy notice (a copy of terms.html)
+  web_snow/favicon.ico  copied from web/ when present (with icon-192.png)
   web_snow/vendor/      Leaflet, copied from web/vendor/ when that folder exists (web/ is gitignored
                         and holds the only copies)
 
@@ -39,6 +40,10 @@ def build(base=None, out=None, log=print):
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
     shutil.copyfile(os.path.join(ROOT, "terms.html"), os.path.join(out, "terms.html"))
+    for fn in ("favicon.ico", "icon-192.png"):          # web/ holds the only copies of the icons
+        src = os.path.join(ROOT, "web", fn)
+        if os.path.exists(src):
+            shutil.copyfile(src, os.path.join(out, fn))
     vendor = os.path.join(ROOT, "web", "vendor")
     if os.path.isdir(vendor):
         shutil.copytree(vendor, os.path.join(out, "vendor"), dirs_exist_ok=True)

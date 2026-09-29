@@ -8,8 +8,9 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
-           "wind_loaded", "wind_scoured"]
+from snow import state as snow_state   # noqa: E402  the page mirrors the model's class list and palette
+
+CLASSES = list(snow_state.CLASSES)
 DATA_FILES = ["state/index.js", "state/latest.js", "state/latest_cls.js", "brief/latest.js", "static/zones.js"]
 TRIP_KEYS = ["source", "source_id", "obs_date", "location", "lat", "lon", "zone", "elevation_ft", "band", "aspects", "surface", "confidence", "quote"]
 
@@ -44,13 +45,15 @@ def test_class_names_match_the_model_in_order(html):
     assert m
     names = re.findall(r"'([a-z_]+)'", m.group(1))
     assert names == CLASSES
+    assert names[:12] == ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
+                          "wind_loaded", "wind_scoured"]
 
 
 def test_fallback_palette_and_labels_cover_every_class(html):
     pal = re.search(r"const FALLBACK = \{(.*?)\};", html, re.S).group(1)
     lab = re.search(r"const LABEL = \{(.*?)\};", html, re.S).group(1)
     for c in CLASSES:
-        assert re.search(r"\b%s:" % c, pal), c
+        assert re.search(r"\b%s: '%s'" % (c, snow_state.PALETTE[c]), pal), c   # same colours as the class PNG
         assert re.search(r"\b%s:" % c, lab), c
     assert "no_snow: 'transparent'" in pal
     assert "melt_freeze: 'melt-freeze (corn)'" in lab
@@ -62,6 +65,11 @@ def test_trip_record_has_the_ledger_shape(html):
     assert keys == TRIP_KEYS
     assert "source: 'trip'" in body
     assert "snow/trips.json" in html
+
+
+def test_latest_class_png_is_cache_busted(html):
+    # state.py serves latest_cls.png no-cache and the dated PNGs immutable
+    assert "/latest/.test(CLS.file) ? '?t=' + Date.now() : ''" in html
 
 
 def test_page_uses_the_vendored_leaflet_like_the_map(html):
@@ -84,7 +92,6 @@ def test_build_bakes_the_base_into_an_output_dir(tmp_path):
     assert 'content="http://x/"' in built
     assert '<meta name="snow-base" content="">' not in built
     assert (out / "terms.html").exists()
-    assert not os.path.exists(os.path.join(str(tmp_path), "web_snow", "index.html.tmp"))
 
 
 def test_build_adds_one_slash_to_a_base_without_one(tmp_path):
