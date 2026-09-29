@@ -139,18 +139,11 @@ def slope_aspect(z, cell, flat_below_deg):
     return np.where(bad, np.nan, slope), np.where(bad, -1.0, aspect)
 
 
-def zones_raster(transform, shape, crs, log):
-    """avalanche zone id per cell from the avalanche.org map layer, -1 outside; None when it cannot be fetched"""
-    try:
-        req = urllib.request.Request(ZONES_URL, headers={"User-Agent": UA, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            g = json.load(r)
-    except Exception as e:  # noqa: BLE001
-        log("lattice: zones not fetched (%r); zone ids left out" % e)
-        return None, None
+def zones_from_geojson(g, transform, out_shape, crs):
+    """(zone id per cell int32, -1 outside; {id: {name, center_id}}) from the avalanche.org map layer GeoJSON"""
     from pyproj import Transformer
     from rasterio.features import rasterize
-    from shapely.geometry import shape
+    from shapely.geometry import shape as shp_shape
     from shapely.ops import transform as shp_transform
     tr = Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform
     shapes, names = [], {}
@@ -160,14 +153,26 @@ def zones_raster(transform, shape, crs, log):
         if zid is None or not f.get("geometry"):
             continue
         try:
-            shapes.append((shp_transform(tr, shape(f["geometry"])), int(zid)))
+            shapes.append((shp_transform(tr, shp_shape(f["geometry"])), int(zid)))
         except Exception:  # noqa: BLE001
             continue
         names[int(zid)] = {"name": p.get("name"), "center_id": p.get("center_id")}
     if not shapes:
         return None, None
-    z = rasterize(shapes, out_shape=shape, transform=transform, fill=-1, dtype="int32")
+    z = rasterize(shapes, out_shape=tuple(out_shape), transform=transform, fill=-1, dtype="int32")
     return z, names
+
+
+def zones_raster(transform, out_shape, crs, log):
+    """avalanche zone id per cell from the avalanche.org map layer, -1 outside; None when it cannot be fetched"""
+    try:
+        req = urllib.request.Request(ZONES_URL, headers={"User-Agent": UA, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            g = json.load(r)
+    except Exception as e:  # noqa: BLE001
+        log("lattice: zones not fetched (%r); zone ids left out" % e)
+        return None, None
+    return zones_from_geojson(g, transform, out_shape, crs)
 
 
 def build(tiles_limit=None, log=print, cfg=None, zones=True):
