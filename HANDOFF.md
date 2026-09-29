@@ -14,7 +14,10 @@ Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE
   origin/main plus these two commits in its worktree and will fast-forward radar/main, then hand Chris one push;
   so no local merge here. If that never lands: `git merge origin/main` on main is conflict-free (merge-tree checked).
 
-## 10. Ski reports layer: page LIVE 2026-09-28 19:36 (`f95e5e8`, shipped by the hillshade deploy d34e91d3); links `8a57b95`; push pending
+## 10. Ski reports layer: LIVE with data 2026-09-29 14:20 (page since 09-28 19:36 via deploy d34e91d3; code pushed 09-29 13:57 as `783e047`)
+- First hourly run with `ski.py` (14:04 PDT) wrote `pnw/data/ski.js`: 94 areas, 14 on the feed, 2 with a report (off season), 55 report
+  links; Stevens opens its snow-and-weather-report page. `tests` green on `main` at `5bf3640` (tests.yml now installs scipy and
+  pillow for the smoke tests; the red runs after that are the cloud snow-tracker branch, not main).
 - What: Snow > "Ski reports". 520 operating lift-served downhill areas in the five windows (`ski_areas.json`, built by
   `ski_research/build_ski_areas.py` from OpenSkiMap's `ski_areas.geojson`, ODbL, credited in the layer note). The 52 on
   the Ikon/Alterra resort feed (`ski.py`, `mtnpowder.com/feed?resortId=N`, the undocumented JSON the resort sites load;
