@@ -135,3 +135,33 @@ def refreeze_index(tmin_c, cloud, dewpoint_c, wind_ms):
     dry = np.clip((0.0 - td) / 8.0, 0, 1)                      # a dewpoint below -8 C is fully dry
     calm = np.clip(1 - w / 8.0, 0, 1)                          # mixing above 8 m/s kills the inversion
     return cold * (0.5 * sky + 0.3 * dry + 0.2 * calm)
+
+
+def daily_mj_binned(lat, lon, date, slope_deg, aspect_deg, alt_m, cloud=0.0, cfg=None,
+                    lat_step=0.5, slope_step=1.0, aspect_step=5.0):
+    """daily_mj over large cell arrays by way of a lookup: the clear-sky daily total is computed once per unique
+    (latitude, slope, aspect) bin at sea level and at 1000 m, and each cell interpolates linearly in its
+    elevation (the Meinel-Laue transmittance is linear in altitude, so this is exact). The per-cell cloud
+    factor is applied after (it multiplies every instant equally when cloud is a daily value). Longitude only
+    shifts the day's timing inside the UTC window, so the mean longitude stands for all cells. Bins: 0.5 deg
+    latitude, 1 deg slope, 5 deg aspect: about 40k combinations over the lattice, a few seconds for 16 M cells
+    against 13 min cell by cell (measured on the 2026-09-28 run)."""
+    cfg = cfg or load_config()
+    lat = np.asarray(lat, np.float32)
+    shape = np.broadcast(lat, np.asarray(slope_deg), np.asarray(aspect_deg)).shape
+    slope = np.broadcast_to(np.asarray(slope_deg, np.float32), shape)
+    aspect = np.broadcast_to(np.asarray(aspect_deg, np.float32), shape)
+    alt_km = np.broadcast_to(np.asarray(alt_m, np.float32), shape) / 1000.0
+    flat = aspect < 0
+    li = np.round(np.broadcast_to(lat, shape) / lat_step).astype(np.int64)
+    si = np.where(flat, 0, np.round(slope / slope_step)).astype(np.int64)
+    ai = np.where(flat, 0, np.round((aspect % 360) / aspect_step)).astype(np.int64)
+    key = (li * 256 + si) * 128 + ai
+    uk, inv = np.unique(key.ravel(), return_inverse=True)
+    u_li, u_si, u_ai = uk // (256 * 128), (uk // 128) % 256, uk % 128
+    u_aspect = np.where(u_si == 0, -1.0, u_ai * aspect_step)
+    lon0 = float(np.nanmean(np.asarray(lon, np.float32)))
+    c0 = daily_mj(u_li * lat_step, lon0, date, u_si * slope_step, u_aspect, 0.0, 0.0, cfg)
+    c1 = daily_mj(u_li * lat_step, lon0, date, u_si * slope_step, u_aspect, 1000.0, 0.0, cfg)
+    clear = c0[inv].reshape(shape) + (c1 - c0)[inv].reshape(shape) * alt_km
+    return (clear * cloud_factor(cloud, cfg)).astype(np.float32)
