@@ -14,7 +14,7 @@ Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE
   origin/main plus these two commits in its worktree and will fast-forward radar/main, then hand Chris one push;
   so no local merge here. If that never lands: `git merge origin/main` on main is conflict-free (merge-tree checked).
 
-## 10. Ski reports layer: on `main` as `f95e5e8` (2026-09-28 19:35), push and deploy handed to Chris
+## 10. Ski reports layer: page LIVE 2026-09-28 19:36 (`f95e5e8`, shipped by the hillshade deploy d34e91d3); links `8a57b95`; push pending
 - What: Snow > "Ski reports". 520 operating lift-served downhill areas in the five windows (`ski_areas.json`, built by
   `ski_research/build_ski_areas.py` from OpenSkiMap's `ski_areas.geojson`, ODbL, credited in the layer note). The 52 on
   the Ikon/Alterra resort feed (`ski.py`, `mtnpowder.com/feed?resortId=N`, the undocumented JSON the resort sites load;
@@ -28,8 +28,12 @@ Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE
   Check a run's log for `ski: N areas, F on the resort feed, R with a report, X failed`. Off season nearly every report
   is months old (drawn faded, "not updated lately"); the real test is opening day (mid-Nov): labels, stale rule (36 h),
   whether resorts fill base/mid/summit as expected (Schweitzer's points were all `--` in May).
-- **Deploy caveat (19:33):** another session has an uncommitted Hillshade basemap in the main checkout's `map.html`
-  (7 lines) and rebuilt `web/index.html` with it; a deploy now ships both. Not mine; whoever owns it commits it.
+- **Report links (`8a57b95`, 19:45, data only, no redeploy):** Chris: Stevens must open its snow report, not the home page.
+  `ski_research/find_reports.py` reads each link-out resort's home page once and keeps the link that says snow report /
+  conditions / mountain report (checked to answer) into `ski_research/reports.json` (258); Vail sites get the fixed
+  `/the-mountain/mountain-conditions/snow-and-weather-report.aspx`; 11 hand-set in `overrides.json` (Hood Meadows,
+  Timberline, Heavenly, Brian Head, ...). 269 of 468 link-outs now carry `report`; the other 199 fall back to the
+  website (`ski_research/work/reports_missing.txt` after a run; fix by hand in `overrides.json` `report`). Full suite 291.
 - **CLAUDE.md lines still to add** (its working copy is dirty from another session, so left alone): hourly table row
   "ski (resort reports)"; a Rules bullet: ski areas from OpenSkiMap via `ski_research/build_ski_areas.py` (rebuild
   from a PC; `ski_research/work/review.txt` lists areas OpenSkiMap has no lifts for; hand fixes in
@@ -38,8 +42,9 @@ Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE
 - Open for Chris (none blocking): (1) Stevens Pass numbers: the research agent found WSDOT's daily pass snowfall JSON
   (`wsdot.com/Travel/Real-time/Service/api/MountainPass/SnowFallData?MountainPassId=10&Year=2025`, undocumented; WSDOT's
   summit measurement, not the resort's; 305 in vs the resort's 342 in 2025-26) and suggests emailing WSDOT before using
-  it; NOHRSC's public-domain snowfall grids as a cross-check; SnoCountry (paid key) covers Vail resorts. (2) Add
-  `report` links for areas whose snow report is not the website (all 468 link-outs point at the website now).
+  it; NOHRSC's public-domain snowfall grids as a cross-check; SnoCountry (paid key) covers Vail resorts. (2) The 199
+  link-outs without a `report` page (mostly small eastern hills; the biggest: Waterville Valley, Bretton Woods, Boreal,
+  Sunrise Park AZ) and a spot check of the 258 found automatically.
   (3) `review.txt` has 86 lines, mostly nordic or tiny hills; Cochran's VT is a real T-bar hill OpenSkiMap has no lifts
   for (`keep`). (4) Bear Mountain CA (feed 57) and Snowshoe WV (feed 2) were not matched; Boyne (MI) and Alyeska are
   outside the windows.
