@@ -20,7 +20,7 @@ Set TZ=America/Los_Angeles so file names and labels stay in Pacific time.
 Usage:  python cloud.py [radar|hourly]
 
 The two modes write disjoint sets of files (radar: frames, accumulation, manifest, alerts, air quality;
-hourly: stations, rivers, forecast, MRMS QPE, freezing level, SNODAS, webcams, avalanche,
+hourly: stations, rivers, forecast, MRMS QPE, freezing level, smoke forecast, SNODAS, webcams, avalanche,
 basins), so they run at the same time without sharing a lock.
 """
 import datetime as dt
@@ -43,7 +43,7 @@ SKIP_WITHIN_MIN = 30               # judgment call (2026-09-28): a queued second
 STATE_PREFIX = region.prefix() + "state/"
 STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "snotel_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
                "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js", "youtube_cache.json", "aq_cache.json",
-               "fires_cache.json"]
+               "fires_cache.json", "smoke_cache.json"]
 STAMP = re.compile(r"[rs](\d{8}_\d{4})\.")
 
 
@@ -162,7 +162,7 @@ def main():
 
     # ---- 3. one cycle: "radar" mode is the quick 15-minute pass (radar, satellite, accumulation,
     #         alerts, air quality); "hourly" mode also runs stations, rivers, forecast, MRMS, freezing level,
-    #         SNODAS, webcams, avalanche and basins ----
+    #         smoke forecast, SNODAS, webcams, avalanche and basins ----
     import capture
     due = hourly
     capture.FORCE_HOURLY = due

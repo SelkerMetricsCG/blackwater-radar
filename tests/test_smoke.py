@@ -1,5 +1,6 @@
 """smoke.py: HRRR near-surface smoke (spec docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md)."""
-import math
+import datetime as dt
+import json
 
 import numpy as np
 import pytest
@@ -138,3 +139,204 @@ def test_edge_segments_cross_pnw_only(at_region):
     for key in ("utco", "imw", "ne"):
         at_region(key)
         assert smoke.edge_segments(G) == [], key
+
+
+# ---------- fetching, decoding, choosing the run ----------
+UTC = dt.timezone.utc
+
+
+def T(h, m=0, day=28):
+    return dt.datetime(2026, 9, day, h, m, tzinfo=UTC)
+
+
+class FakeIdx:
+    """smoke.fetch stand-in: answers .idx URLs of the runs in `posted` ('YYYYMMDDHH'), else NotPosted;
+    hours in `missing` ('YYYYMMDDHHfNN') answer an index without the smoke record"""
+    def __init__(self, posted, missing=()):
+        self.posted, self.missing, self.calls = set(posted), set(missing), []
+
+    def __call__(self, url):
+        self.calls.append(url)
+        run = url.split("hrrr.")[1][:8] + url.split(".t")[1][:2]
+        if run not in self.posted:
+            raise smoke.NotPosted(url)
+        if run + "f" + url.split("wrfsfcf")[1][:2] in self.missing:
+            return IDX.replace("MASSDEN", "XXXX").encode(), ""
+        return IDX.encode(), ""
+
+
+def test_latest_run_skips_young_and_unposted(monkeypatch):
+    net = FakeIdx({"2026092812"})
+    monkeypatch.setattr(smoke, "fetch", net)
+    assert smoke.latest_run(T(20, 30)) == T(12)            # 18Z not posted yet, 12Z is
+    assert any("t18z.wrfsfcf48" in u for u in net.calls)
+    net.calls.clear()
+    assert smoke.latest_run(T(19, 30)) == T(12)            # 18Z is only 90 min old: not even asked for
+    assert not any("t18z" in u for u in net.calls)
+    net = FakeIdx(set())
+    monkeypatch.setattr(smoke, "fetch", net)
+    assert smoke.latest_run(T(20, 30)) is None
+    assert all("wrfsfcf48" in u for u in net.calls)
+    assert not any("hrrr.20260927/conus/hrrr.t12z" in u for u in net.calls)     # 30 h back at most
+
+
+def test_slot_is_the_one_not_in_use():
+    assert smoke.next_slot({}, "2026092818") == "a"
+    assert smoke.next_slot({"run": "2026092806", "slot": "b"}, "2026092818") == "a"     # 12Z never built: still not b
+    assert smoke.next_slot({"run": "2026092812", "slot": "a"}, "2026092818") == "b"
+    assert smoke.next_slot({"run": "2026092818", "slot": "b"}, "2026092818") == "b"     # rebuilding the same run
+
+
+class FakeResp:
+    def __init__(self, body):
+        self.body = body
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_fetch_range_checks_the_message(monkeypatch, tmp_path):
+    monkeypatch.setattr(smoke, "CACHE_DIR", str(tmp_path))
+    sent = []
+
+    def opener(body):
+        def _open(req):
+            sent.append(req)
+            return FakeResp(body)
+        return _open
+    good = b"GRIB" + b"x" * 8 + b"7777"
+    monkeypatch.setattr(smoke, "_open", opener(good))
+    assert smoke.fetch_range("https://h/a.grib2", 100, 115) == good
+    assert sent[0].get_header("Range") == "bytes=100-115" and "Mozilla" in sent[0].get_header("User-agent")
+    for bad in (b"<html>nope</html>", b"GRIB" + b"x" * 8 + b"77", b"GRIB" + b"x" * 20 + b"7777"):
+        monkeypatch.setattr(smoke, "_open", opener(bad))
+        with pytest.raises(RuntimeError):
+            smoke.fetch_range("https://h/b.grib2", 100, 115)
+    monkeypatch.setattr(smoke, "_open", opener(good))
+    assert smoke.fetch_range("https://h/c.grib2", 100, None) == good            # the last message: open-ended range
+    assert sent[-1].get_header("Range") == "bytes=100-"
+
+
+def test_decode_lambert_message():
+    eccodes = pytest.importorskip("eccodes")
+    g = eccodes.codes_grib_new_from_samples("GRIB2")
+    eccodes.codes_set(g, "gridDefinitionTemplateNumber", 30)
+    for k, v in (("shapeOfTheEarth", 6), ("Nx", 4), ("Ny", 3), ("latitudeOfFirstGridPointInDegrees", 21.138123),
+                 ("longitudeOfFirstGridPointInDegrees", 237.280472), ("LaDInDegrees", 38.5), ("LoVInDegrees", 262.5),
+                 ("Latin1InDegrees", 38.5), ("Latin2InDegrees", 38.5), ("DxInMetres", 3000), ("DyInMetres", 3000),
+                 ("iScansNegatively", 0), ("jScansPositively", 1), ("discipline", 0), ("parameterCategory", 20), ("parameterNumber", 0)):
+        eccodes.codes_set(g, k, v)
+    eccodes.codes_set(g, "bitsPerValue", 16)
+    eccodes.codes_set_values(g, (np.arange(12) * 1e-9).astype(float))
+    ug, grid = smoke.decode(eccodes.codes_get_message(g))
+    assert ug.shape == (3, 4) and ug[0, 1] == pytest.approx(1.0, abs=1e-3) and ug[2, 3] == pytest.approx(11.0, abs=1e-3)
+    assert grid == {**G, "ni": 4, "nj": 3}
+    eccodes.codes_set(g, "parameterNumber", 1)                                   # not the mass density field
+    with pytest.raises(ValueError):
+        smoke.decode(eccodes.codes_get_message(g))
+    eccodes.codes_release(g)
+
+
+# ---------- the build ----------
+RUN_T = int(T(18).timestamp())
+
+
+def build_env(monkeypatch, tmp_path, store=None, fail_hour=None, remote=None):
+    for name, rel in (("DATA", ""), ("OUT", "smoke.js"), ("STORE", "smoke_cache.json"), ("FRAME_DIR", "frames"), ("VALUES_DIR", "values")):
+        monkeypatch.setattr(smoke, name, str(tmp_path / rel) if rel else str(tmp_path))
+    monkeypatch.setattr(smoke, "SIZE", 64)
+    monkeypatch.setattr(smoke, "CELLS", 16)
+    monkeypatch.setattr(smoke.region, "KEY", "sierra")
+    if store:
+        (tmp_path / "smoke_cache.json").write_text(json.dumps(store), encoding="utf-8")
+    net = FakeIdx({"2026092818"}, missing={"2026092818f%02d" % fail_hour} if fail_hour else ())
+    monkeypatch.setattr(smoke, "fetch", net)
+    monkeypatch.setattr(smoke, "fetch_range", lambda url, a, b: b"GRIB" + url.split("wrfsfcf")[1][:2].encode() + b"7777")
+
+    def decode(msg):                    # hour h: h ug/m3 everywhere, 300 over part of the window at hour 5
+        h = int(msg[4:6])
+        f = np.full((G["nj"], G["ni"]), float(h), np.float32)
+        if h == 5:
+            f[500:700, 100:300] = 300.0
+        return f, dict(G)
+    monkeypatch.setattr(smoke, "decode", decode)
+    import r2sync
+    monkeypatch.setattr(r2sync, "REMOTE", remote or {})
+    return net
+
+
+def read_js(path, prefix="window.SMOKE = "):
+    return json.loads(path.read_text(encoding="utf-8")[len(prefix):].rstrip().rstrip(";"))
+
+
+def test_build_writes_frames_series_js_and_state(monkeypatch, tmp_path):
+    build_env(monkeypatch, tmp_path)
+    lines = []
+    assert smoke.build(log=lines.append, now=RUN_T + 2 * 3600) == "18Z new"
+    assert sorted(p.name for p in (tmp_path / "frames").iterdir()) == ["a%02d.webp" % h for h in range(1, 49)]
+    d = read_js(tmp_path / "smoke.js")
+    assert d["run_t"] == RUN_T and d["run_utc"] == "2026-09-28T18:00Z" and d["slot"] == "a" and d["series"] == "smoke_a"
+    assert [h["h"] for h in d["hours"]] == list(range(1, 49)) and d["hours"][0]["t"] == RUN_T + 3600
+    assert d["hours"][0]["file"] == "frames/smoke/a01.webp?v=%d" % RUN_T
+    assert d["hours"][47]["max"] == 48 and d["hours"][4]["max"] == 300
+    assert d["floor"] == 2.0 and d["coverage"] == 1.0 and isinstance(d["edge"], list)
+    js = (tmp_path / "values" / "smoke_a.js").read_text(encoding="utf-8")
+    body = js.split('.data="')[1].split('"')[0].split(",")
+    assert len(body) == 48 * 16 * 16 and body[0] == "1" and body[-1] == "48"
+    assert '"t0":%d' % (RUN_T + 3600) in js
+    s = json.loads((tmp_path / "smoke_cache.json").read_text(encoding="utf-8"))
+    assert s["v"] == 1 and s["run"] == "2026092818" and s["slot"] == "a" and s["built_t"] > 0
+    assert lines[-1].startswith("smoke: HRRR 18Z Sep 28 -> slot a, 48 h, peak 300 ug/m3 (f05), 100% of window in the model")
+
+
+def test_build_same_run_writes_nothing(monkeypatch, tmp_path):
+    build_env(monkeypatch, tmp_path, store={"v": 1, "run": "2026092818", "slot": "b", "built_t": RUN_T + 7000})
+    lines = []
+    assert smoke.build(log=lines.append, now=RUN_T + 3 * 3600) == "18Z unchanged"
+    assert not (tmp_path / "smoke.js").exists() and not (tmp_path / "frames").exists()
+    assert "already on the map" in lines[-1]
+
+
+def test_build_failed_hour_keeps_previous(monkeypatch, tmp_path):
+    old = {"v": 1, "run": "2026092812", "slot": "b", "built_t": RUN_T - 4 * 3600}
+    build_env(monkeypatch, tmp_path, store=old, fail_hour=17)
+    (tmp_path / "smoke.js").write_text('window.SMOKE = {"run_utc": "old"};\n', encoding="utf-8")
+    lines = []
+    assert smoke.build(log=lines.append, now=RUN_T + 2 * 3600) == "failed"
+    assert (tmp_path / "smoke.js").read_text(encoding="utf-8") == 'window.SMOKE = {"run_utc": "old"};\n'
+    assert json.loads((tmp_path / "smoke_cache.json").read_text(encoding="utf-8")) == old
+    assert not (tmp_path / "values" / "smoke_a.js").exists()
+    assert any("f17" in ln and "keeping" in ln for ln in lines)
+
+
+def test_build_rebuilds_when_remote_is_stale(monkeypatch, tmp_path):
+    store = {"v": 1, "run": "2026092818", "slot": "b", "built_t": RUN_T + 7000}
+    key = "sierra/data/smoke.js"
+    old = dt.datetime.fromtimestamp(RUN_T + 100, UTC)                  # an earlier run's smoke.js: that upload failed
+    build_env(monkeypatch, tmp_path, store=store, remote={key: ("etag", old), "sierra/data/other.js": ("e", old)})
+    assert smoke.build(log=lambda m: None, now=RUN_T + 3 * 3600) == "18Z new"
+    assert read_js(tmp_path / "smoke.js")["slot"] == "b"                  # the same slot: the live page does not use it
+    fresh = dt.datetime.fromtimestamp(RUN_T + 7200, UTC)
+    build_env(monkeypatch, tmp_path, store=store, remote={key: ("etag", fresh)})
+    assert smoke.build(log=lambda m: None, now=RUN_T + 3 * 3600) == "18Z unchanged"
+    build_env(monkeypatch, tmp_path, store=store, remote={"sierra/data/other.js": ("e", fresh)})   # R2 lacks smoke.js
+    assert smoke.build(log=lambda m: None, now=RUN_T + 3 * 3600) == "18Z new"
+
+
+def test_build_no_run_and_unreachable_host(monkeypatch, tmp_path):
+    build_env(monkeypatch, tmp_path)
+    monkeypatch.setattr(smoke, "fetch", FakeIdx(set()))
+    lines = []
+    assert smoke.build(log=lines.append, now=RUN_T + 2 * 3600) == "no run"
+
+    def down(url):
+        raise smoke.HostDown(url)
+    monkeypatch.setattr(smoke, "fetch", down)
+    assert smoke.build(log=lines.append, now=RUN_T + 2 * 3600) == "failed"
+    assert not (tmp_path / "smoke.js").exists()

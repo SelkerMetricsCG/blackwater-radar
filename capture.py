@@ -275,6 +275,11 @@ def capture_all():
         except Exception as e:  # noqa: BLE001
             log("freezing FAILED: %r" % e)
         try:
+            import smoke
+            ok.append("smoke %s" % smoke.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("smoke FAILED: %r" % e)
+        try:
             import snodas
             ok.append("snodas %s" % snodas.build(log))
         except Exception as e:  # noqa: BLE001

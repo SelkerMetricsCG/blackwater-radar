@@ -6,7 +6,7 @@ Reads credentials from r2.env (next to this file):
 
 What gets uploaded, mirroring the local layout (all under the region's prefix):
   frames/{radar,sat,dbz,...}/*                                           (once each, immutable)
-  frames/{accum,interp,forecast,mrms,freezing,snodas,aq}/*.webp,
+  frames/{accum,interp,forecast,mrms,freezing,snodas,aq,smoke}/*.webp,
   data/values/*.js, data/*.js, frames.js                                 (whenever the job rewrote them)
 A rewritten file goes up only if its bytes differ from R2's copy: cloud.py lists the region's frames/ and data/
 into REMOTE, and R2's ETag is the MD5 of a single-part upload. Each PUT is an R2 Class A operation (free tier:
@@ -153,7 +153,7 @@ def sync(log=print):
                 _save_state(done)
 
     # accumulation maps: overwritten each cycle, short cache
-    for sub in ("accum", "interp", "forecast", "mrms", "freezing", "snodas", "aq"):
+    for sub in ("accum", "interp", "forecast", "mrms", "freezing", "snodas", "aq", "smoke"):
         acc = os.path.join(region.frames_dir(), sub)
         if os.path.isdir(acc):
             for fn in os.listdir(acc):
