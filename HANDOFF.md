@@ -28,18 +28,37 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   (never uploaded), packed into `daily.json.gz` as `ndfd`. Untested against tgftp (blocked here); guarded so the map
   layer cannot be affected. Check the first daily file for an `ndfd` key.
 - Tests: `test_snow_solar.py` (8), `test_snow_lattice.py` (3); 155 total.
+- First hourly run with the archive (branch dispatch, run 36508840159, pnw 18:38 PDT 2026-09-28): `forecast: snow fields
+  sky x16, td x16, wspd x16`; `archive 2026-09-28: 18:44K, daily:537K, obs 0, products +35`; 37 new objects in R2.
+  So the product endpoint answers for all 35 zones (about 1.5 MB/day in all). The next run's log prints the product's
+  top-level keys (`products: NWAC <zone> keys: ...`): copy them into the spec.
+- `snow/forcing.py`: archive window grids -> lattice cells, points -> cells, station records -> zone x band means.
+- `snow/store.py`: R2 (or local) access for the daily run: lattice, archive days, state.
+- `snow/state.py` + `snow.yml` (09:20 UTC daily, `workflow_dispatch` with a date): the surface-state model. Per cell:
+  class, days since fresh snow, hn24 (MRMS liquid x snow fraction from the HRRR freezing level x SLR from band
+  temperature), solar since fresh (cloud from NDFD sky), wind hours above `wind_mph` (NDFD 10 m), rain flag,
+  melt days, refreeze index, SNODAS depth. Classes and priority in the module docstring; parameters and their
+  bounds in `snow_config.yaml` `state` (all judgment-call placeholders). Writes `<r>/snow/state/latest.npz`
+  (carried forward), `<date>_cls.npz`, `<date>.json` and `latest.json` (class fractions by zone x band x aspect octant).
+  Tests `test_snow_state.py` (4): storm -> sun crust south / powder north -> wind -> dust on crust -> no snow; spring
+  corn -> isothermal; forcing from a fake archive day. 163 tests.
 
 ## Waiting on Chris
 - Email to forecasters@nwac.us (draft given in chat 2026-09-28): telemetry API access, observation feed access.
 - Merge `claude/fervent-maxwell-q8kphc` so the hourly job on main keeps the archive going (a run was dispatched from
   the branch on 2026-09-29 to start it: check `pnw/snow/archive/<date>/` on R2 and the `products/*.json` shape).
-- The `snow static` workflow was dispatched from the branch on 2026-09-29; confirm `pnw/snow/static/lattice.json` on R2
-  lists `zones`.
+- After the merge: run the `snow static` workflow once (GitHub refuses to dispatch a workflow that has never been on
+  main), confirm `pnw/snow/static/lattice.json` on R2 lists `zones`, then dispatch `snow` for a date with a complete
+  archive day and read its log (class distribution, forcing line). Off season it should say mostly `no_snow`.
+- Enable R2 billing (Chris, 2026-09-29: "let's just pay for it"); the archive is ~1.5 MB/day, the lattice 40 MB.
 
 ## Next, in order
+0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
+   both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into
+   the archive so wind can be scoured vs loaded by aspect.
 1. Canopy fraction on the lattice (NLCD Tree Canopy Cover; mrlc.gov is blocked from the cloud session, try the
    MRLC geoserver WCS with a bbox from Actions or a PC) and per-zone elevation bands (NWAC's forecast pages).
-2. Surface-state model (`snow/state.py`, parameters in `snow/snow_config.yaml`): winter powder aging first.
+2. Surface-state model: refinement after the first storms (the v1 is in `snow/state.py`) (`snow/state.py`, parameters in `snow/snow_config.yaml`): winter powder aging first.
 3. Ledger and the two LLM passes (`snow/ledger.py`, `snow/brief.py`): extraction with structured output, layer tracking,
    the brief from the ledger. `ANTHROPIC_API_KEY` as an Actions secret; `snow.yml` daily workflow.
 4. `snow.html` and its Worker; then a `SNOW` global and layer group in `map.html`.

@@ -71,6 +71,8 @@ def build(day_dir, have, log=print):
             continue
         if p is None:
             continue
+        if n_new == 0 and isinstance(p, dict) and not have:
+            log("products: %s %s keys: %s" % (center, zone, ", ".join(sorted(p)[:25])))
         fn = prefix + product_key(p) + ".json"
         if fn in have:
             continue

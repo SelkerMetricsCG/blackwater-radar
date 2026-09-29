@@ -29,7 +29,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
   (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1. Static: the 100 m terrain lattice
   (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
-  parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`).
+  the surface-state model (`snow/state.py`, `snow.yml` daily at 09:20 UTC, writes `<region>/snow/state/`; forcing from the
+  archive in `snow/forcing.py`, R2 access in `snow/store.py`), parameters in `snow/snow_config.yaml` (same protocol as
+  `snotel_config.yaml`; nothing approved yet).
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
@@ -39,6 +41,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
+| `snow.yml` | 09:20 UTC daily | `python -m snow.state`: the surface-state model for the previous local day, `<r>/snow/state/` |
 | `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare

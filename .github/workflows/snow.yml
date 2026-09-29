@@ -1,0 +1,43 @@
+name: snow
+
+# The snow-conditions model, once a day for the previous local day, after that day's archive is complete
+# (the last hourly file lands at 23:04 local; 09:20 UTC is 01:20 PST / 02:20 PDT). Reads the lattice, the
+# archive and yesterday's state from R2, writes <r>/snow/state/. Needs nothing but numpy and pyproj.
+on:
+  schedule:
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: local date to run (YYYY-MM-DD); blank = yesterday
+        default: ""
+
+jobs:
+  state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        region: [pnw]
+    concurrency:
+      group: snow-${{ matrix.region }}
+      cancel-in-progress: false
+    env:
+      TZ: America/Los_Angeles
+      REGION: ${{ matrix.region }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: radar
+      R2_PUBLIC_URL: https://radar-files.blackwaterlabs.org
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install numpy pyyaml boto3 pyproj
+      - name: ${{ matrix.region }} surface state
+        run: python -m snow.state ${{ inputs.date && format('--date {0}', inputs.date) || '' }}

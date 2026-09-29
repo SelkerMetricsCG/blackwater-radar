@@ -34,3 +34,25 @@ solar:
   cloud_a: 0.75
   cloud_b: 3.4
   step_min: 10                     # judgment call: integration step for daily totals
+
+# Surface-state model (snow/state.py). Every value is a first-season placeholder (judgment call) until the
+# residual ledger exists; bounds and max_step are what the fit may do to it later.
+state:
+  fresh_cm: {value: 10, bounds: [5, 25], max_step: 2, source: judgment call, note: "hn24 at or above this makes the surface 'fresh'"}
+  dust_cm: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "hn24 between this and fresh_cm on a crust is 'dust on crust'"}
+  settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
+  solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
+  wind_mph: {value: 25, bounds: [15, 40], max_step: 3, source: judgment call, note: "NDFD 10 m wind speed treated as transporting snow (ridgetop winds run higher; revisit with NWAC telemetry)"}
+  wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above wind_mph since the last fresh snow that make the surface wind-affected"}
+  rain_line_margin_ft: {value: 1000, bounds: [500, 2000], max_step: 250, source: literature, note: "snow level sits about this far below the HRRR freezing level"}
+  rain_mix_ft: {value: 500, bounds: [200, 1000], max_step: 100, source: judgment call, note: "half-width of the mixed band around the snow level"}
+  rain_in: {value: 0.1, bounds: [0.05, 0.5], max_step: 0.05, source: judgment call, note: "24 h liquid falling as rain on the cell above this makes a rain crust"}
+  slr_at_0c: {value: 8, bounds: [6, 12], max_step: 1, source: literature, note: "snow-to-liquid ratio near 0 C (Roebber et al. 2003 climatology, PNW low end)"}
+  slr_per_c: {value: 1.0, bounds: [0.5, 2.0], max_step: 0.2, source: judgment call, note: "SLR rises this much per degree C of cooling below 0 C, capped at slr_max"}
+  slr_max: {value: 20, bounds: [15, 30], max_step: 2, source: literature, note: "cap on the snow-to-liquid ratio"}
+  refreeze_good: {value: 0.6, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "refreeze_index at or above this counts as a solid overnight refreeze"}
+  melt_tmax_c: {value: 2, bounds: [0, 6], max_step: 1, source: judgment call, note: "band daily max above this with solar melts the surface (corn cycle when it also refroze)"}
+  isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
+  min_depth_in: {value: 4, bounds: [2, 12], max_step: 2, source: judgment call, note: "SNODAS depth below this is 'no snow'"}
+  cloud_day_hours: {value: [8, 17], source: convention, note: "local hours whose NDFD sky cover feeds the solar term"}
+  cloud_night_hours: {value: [21, 6], source: convention, note: "local hours whose sky, dewpoint and wind feed the refreeze term"}
