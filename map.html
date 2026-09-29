@@ -139,6 +139,7 @@
       <label class="chip"><input type="radio" name="base" value="sat" hidden>Satellite</label>
       <label class="chip"><input type="radio" name="base" value="terrain" hidden>Terrain</label>
       <label class="chip"><input type="radio" name="base" value="streets" hidden>Streets</label>
+      <label class="chip" title="Esri shaded relief with place names and roads"><input type="radio" name="base" value="hillshade" hidden>Hillshade</label>
     </div>
   </div>
 
@@ -389,6 +390,12 @@
     topo:    L.tileLayer(esri('World_Topo_Map'), { maxZoom: 17, attribution: esriAttr }),
     streets: L.tileLayer(esri('World_Street_Map'), { maxZoom: 17, attribution: esriAttr }),
     terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 16, subdomains: 'abc', attribution: '&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap' }),
+    // shaded relief with the same reference overlays as Satellite; Esri serves hillshade to z16 natively
+    hillshade: L.layerGroup([
+               L.tileLayer(esri('Elevation/World_Hillshade'), { maxNativeZoom: 16, maxZoom: 17, attribution: esriAttr }),
+               L.tileLayer(esri('Reference/World_Boundaries_and_Places'), { maxZoom: 17 }),
+               L.tileLayer(esri('Reference/World_Transportation'), { maxZoom: 17 }),
+             ]),
     sat:     L.layerGroup([
                L.tileLayer(esri('World_Imagery'), { maxZoom: 17, attribution: esriAttr }),
                L.tileLayer(esri('Reference/World_Boundaries_and_Places'), { maxZoom: 17 }),
