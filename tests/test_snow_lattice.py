@@ -33,3 +33,21 @@ def test_dest_grid_is_whole_cells_and_covers_the_box():
     pytest.importorskip("rasterio")
     tr, h, w = lattice.dest_grid([-121.5, 47.2, -120.5, 47.8], "EPSG:26910", 100)
     assert h > 600 and w > 700 and tr.a == 100 and tr.e == -100 and tr.c % 100 == 0 and tr.f % 100 == 0
+
+
+def test_zones_from_geojson_rasterizes_a_polygon_onto_the_grid():
+    pytest.importorskip("pyproj")
+    rasterio = pytest.importorskip("rasterio")
+    pytest.importorskip("shapely")
+    from rasterio.transform import from_origin
+    tr = from_origin(670000.0, 5280000.0, 1000, 1000)          # 10 x 10 km near Leavenworth, UTM 10N
+    lat, lon = 47.62, -120.66
+    g = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "id": 1130, "properties": {"name": "Stevens Pass", "center_id": "NWAC"},
+         "geometry": {"type": "Polygon", "coordinates": [[[lon - 1, lat - 1], [lon + 1, lat - 1], [lon + 1, lat + 0.02], [lon - 1, lat + 0.02], [lon - 1, lat - 1]]]}},
+        {"type": "Feature", "id": 7, "properties": {"name": "far away", "center_id": "X"},
+         "geometry": {"type": "Polygon", "coordinates": [[[-110, 40], [-109, 40], [-109, 41], [-110, 41], [-110, 40]]]}},
+        {"type": "Feature", "properties": {"name": "no id"}, "geometry": None}]}
+    z, names = lattice.zones_from_geojson(g, tr, (10, 10), "EPSG:26910")
+    assert z.shape == (10, 10) and names == {1130: {"name": "Stevens Pass", "center_id": "NWAC"}, 7: {"name": "far away", "center_id": "X"}}
+    assert (z[-1] == 1130).all() and (z[0] == -1).all() and 7 not in z       # polygon top edge at 47.64 N cuts the grid
