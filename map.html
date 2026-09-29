@@ -1380,7 +1380,7 @@
   // END smokeHelpers
   const smokeOv = L.imageOverlay('', bounds(), { opacity: +$('smokeOpacity').value, interactive: false, zIndex: 386 });
   const smokeEdge = L.layerGroup();
-  const smokeBadge = L.control({ position: 'bottomleft' });
+  const smokeBadge = L.control({ position: 'bottomright' });   // above the attribution; the desktop panel covers bottom-left
   smokeBadge.onAdd = () => { const d = L.DomUtil.create('div', 'smokebadge'); d.id = 'smokeBadge'; return d; };
   let smokeData = null, smokeLoadedAt = 0, smokeHrs = [], smokeI = 0, smokeTimer = null;
   const smokeImgs = {};
@@ -1418,7 +1418,7 @@
     $('smokeInfo').innerHTML = '<div class="muted">HRRR run ' + smokeTimeLabel(smokeData.run_t) + ' (' + smokeData.run_utc.slice(11, 13) + 'Z) · ' + ahead + ' h ahead · updated ' + smokeData.updated + '</div>' +
       legendHtml(SMOKE_EDGES.map((e, i) => [e, SMOKE_COLS[i]]), v => String(Math.floor(v))) +
       '<div class="note" style="margin-top:18px">Smoke near the ground, µg/m³ of PM2.5, hourly. Colours are the AQI category for that much smoke; grey is light smoke (still Good). Smoke only, from a model: plumes from new fires can be missing or misplaced.' +
-      (smokeData.edge && smokeData.edge.length ? ' Dashed line: edge of the model; no smoke forecast beyond it.' : '') + '</div>';
+      (smokeData.coverage < 0.99 ? ' Dashed line: edge of the model; no smoke forecast beyond it.' : '') + '</div>';
     smokeShow(smokeIndex(smokeHrs, keepT));
   }
   function loadSmoke(keepT) {
