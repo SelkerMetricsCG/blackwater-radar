@@ -165,3 +165,21 @@ def test_class_png_and_index(tmp_path, monkeypatch):
     idx = state.update_index("2026-01-14")
     assert idx == {"dates": ["2026-01-14", "2026-01-15"], "latest": "2026-01-15"}
     assert open(tmp_path / "state" / "index.js").read().startswith("window.SNOW_INDEX = ")
+
+
+def test_tree_bombs_under_dense_canopy():
+    p, scfg = state.load_params()
+    lat = _lattice()
+    lat["canopy"] = np.array([[80, 80, 80, 255]] * 4, np.uint8)
+    lat["canopy"][3] = 5                                                     # the top row is bare
+    s = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
+    # a warm storm (mean -1 C) loads the canopy; a cold one (mean -8 C) does not
+    s = state.step(s, _forcing((4, 4), precip_in=1.5, tmax_c=1.0, tmin_c=-3.0), lat, p, scfg)
+    assert s["canopy_load"][2, 0] == 1.0 and s["canopy_load"][3, 0] == 1.0 and s["cls"][2, 0] == state.CID["fresh"]
+    # next day: wind dumps it; under dense canopy the surface is tree debris, in the open it is not
+    s = state.step(s, _forcing((4, 4), wind_h=6.0), lat, p, scfg)
+    assert s["cls"][2, 0] == state.CID["tree_debris"] and s["canopy_load"][2, 0] == 0.0
+    assert s["cls"][3, 0] != state.CID["tree_debris"]
+    s0 = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
+    s0 = state.step(s0, _forcing((4, 4), precip_in=1.5, tmax_c=-6.0, tmin_c=-10.0), lat, p, scfg)
+    assert s0["canopy_load"][2, 0] == 0.0

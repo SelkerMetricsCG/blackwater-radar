@@ -1,0 +1,8 @@
+# snow.blackwaterlabs.org: the snow-conditions page, assets only from ./web_snow (built by build_snow.py).
+# Deploy with `npx wrangler deploy --config wrangler_snow.toml` (Chris does the wrangler login).
+# The custom domain is attached in the Cloudflare dashboard, not here.
+name = "snow"
+compatibility_date = "2026-09-13"
+
+[assets]
+directory = "./web_snow"

@@ -10,14 +10,16 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
   wind_lee_h / wind_wwd_h   of those, the hours the cell was in the lee (aspect within wind_sector of the downwind
              direction: loading) or windward (facing the wind: scouring), from NDFD wind direction
   rain       1 when rain fell on the cell since the last fresh snow
+  canopy_load  snow held on the trees (0..1): grows with new snow that fell near 0 C, drops to 0 when wind or
+             warmth releases it; a release under dense canopy makes the surface `tree_debris` for a day
   melt_days  consecutive days of surface melt without a solid overnight refreeze
   refreeze   last night's refreeze index (0..1)
   depth_in   SNODAS snow depth
 
 Rules and parameters: snow_config.yaml `state` (all placeholders until the residual ledger exists; see the spec).
-Class priority, first match wins: no_snow, fresh, dust_on_crust, isothermal, melt_freeze, rain_crust, sun_crust,
-wind_scoured, wind_loaded, wind (direction unknown), fresh (settling), settled, old (aged powder with no crust
-trigger: the north-facing pocket).
+Class priority, first match wins: no_snow, fresh, dust_on_crust, tree_debris, isothermal, melt_freeze, rain_crust,
+sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (settling), settled, old (aged powder with
+no crust trigger: the north-facing pocket).
 
   python -m snow.state --date 2026-01-15      run one day (yesterday by default); reads and writes R2 through snow/store.py
 """
@@ -35,16 +37,16 @@ from snow import forcing, solar, store
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(ROOT, "snow_config.yaml")
 CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
-           "wind_loaded", "wind_scoured"]
+           "wind_loaded", "wind_scoured", "tree_debris"]
 CID = {c: i for i, c in enumerate(CLASSES)}
 CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
 OLD_DAYS = 14
 PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
            "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
-           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd"}
+           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476"}
 PNG_WIDTH = 1200
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
-          "wind_lee_h": np.float32, "wind_wwd_h": np.float32,
+          "wind_lee_h": np.float32, "wind_wwd_h": np.float32, "canopy_load": np.float32,
           "rain": np.uint8, "melt_days": np.uint8, "refreeze": np.float32, "depth_in": np.float32}
 
 
@@ -68,6 +70,10 @@ def new_state(shape, depth_in, min_depth_in, valid):
     s["cls"] = np.where(s["depth_in"] < min_depth_in, CID["no_snow"], CID["old"]).astype(np.uint8)
     s["cls"][~valid] = 255
     return s
+
+
+def prev_shape(s):
+    return s["cls"].shape
 
 
 def step(s, f, lat, p, scfg):
@@ -96,6 +102,13 @@ def step(s, f, lat, p, scfg):
     corn = melt & solid
     melt_days = np.where(melt & ~solid, np.minimum(s["melt_days"].astype(np.int32) + 1, 250), 0)
     depth = np.where(np.isnan(f["depth_in"]), s["depth_in"], f["depth_in"]).astype(np.float32)
+    canopy = lat["canopy"].astype(np.float32) / 100.0 if "canopy" in lat else np.zeros(prev_shape(s), np.float32)
+    canopy = np.where(canopy > 2.0, 0.0, canopy)                               # 255 = no data
+    sticky = (t_mean >= p["tree_load_tmin_c"]) & (t_mean <= p["tree_load_tmax_c"])
+    carried = s.get("canopy_load", np.zeros(canopy.shape, np.float32)) * (1 - p["tree_load_decay"])   # quiet shedding
+    load = np.clip(carried + np.where(sticky, hn24 / p["tree_load_full_cm"], 0.0) * (canopy > 0.1), 0, 1)
+    release = (load >= p["tree_release_load"]) & ((np.nan_to_num(f["wind_h"], nan=0.0) >= p["tree_release_wind_h"]) | (np.nan_to_num(f["tmax_c"], nan=-5.0) > p["tree_release_tmax_c"]))
+    load = np.where(release, 0.0, load)
     prev = s["cls"]
     cls = np.full(prev.shape, CID["old"], np.uint8)
     cls[days <= OLD_DAYS] = CID["settled"]
@@ -107,6 +120,7 @@ def step(s, f, lat, p, scfg):
     cls[rain == 1] = CID["rain_crust"]
     cls[corn] = CID["melt_freeze"]
     cls[melt_days >= p["isothermal_days"]] = CID["isothermal"]
+    cls[release & (canopy >= p["tree_debris_canopy"]) & ~fresh] = CID["tree_debris"]
     dust = (hn24 >= p["dust_cm"]) & ~fresh & np.isin(prev, CRUSTS)
     cls[dust] = CID["dust_on_crust"]
     cls[fresh] = CID["fresh"]
@@ -114,7 +128,7 @@ def step(s, f, lat, p, scfg):
     cls[~valid] = 255
     return {"cls": cls, "days": days.astype(np.uint8), "hn24_cm": hn24.astype(np.float32), "solar_mj": solar_mj.astype(np.float32),
             "wind_h": wind_h.astype(np.float32), "wind_lee_h": wind_lee_h.astype(np.float32), "wind_wwd_h": wind_wwd_h.astype(np.float32),
-            "rain": rain, "melt_days": melt_days.astype(np.uint8),
+            "canopy_load": load.astype(np.float32), "rain": rain, "melt_days": melt_days.astype(np.uint8),
             "refreeze": refreeze.astype(np.float32), "depth_in": depth}
 
 

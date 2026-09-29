@@ -65,6 +65,14 @@ state:
   refreeze_good: {value: 0.6, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "refreeze_index at or above this counts as a solid overnight refreeze"}
   melt_tmax_c: {value: 2, bounds: [0, 6], max_step: 1, source: judgment call, note: "band daily max above this with solar melts the surface (corn cycle when it also refroze)"}
   isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
+  tree_load_tmin_c: {value: -3, bounds: [-6, -1], max_step: 1, source: judgment call, note: "snow sticks to the canopy when the band mean temperature is between this"}
+  tree_load_tmax_c: {value: 1.5, bounds: [0, 3], max_step: 0.5, source: judgment call, note: "and this (wet snow near 0 C loads trees; cold dry snow blows through)"}
+  tree_load_full_cm: {value: 25, bounds: [10, 50], max_step: 5, source: judgment call, note: "sticky new snow that fills the canopy load (load = 1)"}
+  tree_load_decay: {value: 0.15, bounds: [0.05, 0.4], max_step: 0.05, source: judgment call, note: "fraction of the canopy load shed quietly per day"}
+  tree_release_load: {value: 0.5, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "load at or above this can come down all at once"}
+  tree_release_wind_h: {value: 3, bounds: [1, 12], max_step: 1, source: judgment call, note: "hours above wind_mph in a day that dump a loaded canopy"}
+  tree_release_tmax_c: {value: 3, bounds: [1, 8], max_step: 1, source: judgment call, note: "band max above this dumps a loaded canopy"}
+  tree_debris_canopy: {value: 0.5, bounds: [0.3, 0.8], max_step: 0.1, source: judgment call, note: "canopy fraction at or above which a release ruins the surface (tree_debris) for the day"}
   min_depth_in: {value: 4, bounds: [2, 12], max_step: 2, source: judgment call, note: "SNODAS depth below this is 'no snow'"}
   cloud_day_hours: {value: [8, 17], source: convention, note: "local hours whose NDFD sky cover feeds the solar term"}
   cloud_night_hours: {value: [21, 6], source: convention, note: "local hours whose sky, dewpoint and wind feed the refreeze term"}
