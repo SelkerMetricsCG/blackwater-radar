@@ -116,6 +116,27 @@ hours whose bytes equal the slot's previous run are skipped by the MD5 check). 4
 The layer ships only if A agrees to within interpolation error and B shows no sign of a unit, place or time error
 (HRRR smoke's known skill is modest; low correlation alone is not a defect, a shifted or scaled pattern is).
 
+### Data check results (run 2026-09-29 00Z, checked 19:16–19:20 PDT 2026-09-28, before the page was written)
+| | Sierra | PNW |
+|---|---|---|
+| Hours built / bytes | 48/48, 45.5 MB, 24 s (6 s from the runner cache) | 48/48 |
+| Window in the model | 100 % | 81.9 % (edge ~50–52°N, drawn dashed) |
+| Pixels ≥ 2 / ≥ 9.1 / ≥ 35.5 µg/m³ (all 48 h) | 3.21 % / 0.05 % / 0.010 % | 1.09 % / 0.17 % / 0.020 % |
+| Peak | 1,046 µg/m³ f25 at 37.64°N 119.59°W (Yosemite) | 661 µg/m³ f25 at 44.65°N 118.58°W (E Oregon) |
+| A: drawn value within its 4 nearest model points (ecCodes lat/lon + k-d tree, 2,000 px) | 100.0 %; median diff 0.01, p95 0.34 | 100.0 %; median 0.02, p95 4.78 |
+| A: saved frame colours = field categories | 100.000 % of 409,600 px | 100.000 % |
+| B: monitors (permanent + temporary) | 179 (158 + 21) | 244 (241 + 3) |
+| B: Spearman, all sites / smoke-affected sites | 0.13 / n = 4 (too few) | −0.30 / +0.36 (n = 5) |
+| B: median measured − model | 4.3 µg/m³ (background the model lacks) | 2.8 µg/m³ |
+| B: sites ≥ 35.5 either way | none | none |
+| B: shift test (unshifted / best shifted / shifted median) | 0.13 / 0.19 / 0.11 | −0.30 / −0.19 / −0.31 |
+| Figure | `smoke_research/checks/smoke_check_sierra.png` | `smoke_research/checks/smoke_check_pnw.png` |
+
+Reading: geometry and colours are right (A); the monitors check on this clean evening cannot measure skill (almost no
+site had smoke) but shows no place, time or unit error (no shift wins, the smoky sites rank the right way, values at
+the plume monitor are the same order as measured: 35 measured / 17 modelled). The PNW −0.30 is logged in
+`ANOMALY_LOG.md` (2026-09-28, smoke check B) with the rival explanations; re-run on a smoky day.
+
 ## RRFS: when and how to switch (decision 6)
 - Status (SCN 26-48, update "aad"): RRFS v1 goes operational **2026-10-14 at 12Z** (or the next weekday that is not a
   critical weather day); NOMADS paths move from `rrfs/para/` to `rrfs/prod/` (a `rrfs/v1.0/` tree is already served).
