@@ -30,9 +30,12 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
   (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1. Static: the 100 m terrain lattice
   (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
-  the surface-state model (`snow/state.py`, `snow.yml` daily at 09:20 UTC, writes `<region>/snow/state/`; forcing from the
-  archive in `snow/forcing.py`, R2 access in `snow/store.py`), parameters in `snow/snow_config.yaml` (same protocol as
-  `snotel_config.yaml`; nothing approved yet).
+  the surface-state model (`snow/state.py`, `snow.yml` step 1 daily at 09:20 UTC, writes `<region>/snow/state/`; forcing from
+  the archive in `snow/forcing.py`, R2 access in `snow/store.py`), the ledger and LLM passes (`snow/daily.py`, step 2: `ledger.py`,
+  `llm.py` through the Claude API with the `ANTHROPIC_API_KEY` secret, `score.py`; writes `<region>/snow/ledger/` and `brief/`),
+  parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`,
+  `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
+  Trip log: `snow/trips.json`.
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
@@ -42,7 +45,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
-| `snow.yml` | 09:20 UTC daily | `python -m snow.state`: the surface-state model for the previous local day, `<r>/snow/state/` |
+| `snow.yml` | 09:20 UTC daily | `python -m snow.state` then `python -m snow.daily`: the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
 | `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
@@ -191,5 +194,7 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
 - 2026-09-28: Smoke & fires section, phase 2 (fires, perimeters, satellite hotspots); spec
   `docs/superpowers/specs/2026-09-28-fires-layer-design.md`.
 - 2026-09-28: snow-conditions tracker started: design spec, season archive (`snow/`), NWAC access request drafted.
+- 2026-09-29: snow tracker: terrain lattice (USGS DEM, ESA WorldCover canopy), solar term, surface-state model, ledger and
+  LLM passes, `snow.html`; workflows `snow.yml`, `snow_static.yml`.
 - 2026-09-28/29: Smoke & fires section, phase 3 (HRRR near-surface smoke loop, `smoke.py`); spec
   `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`. Built and released in one session without review stops.

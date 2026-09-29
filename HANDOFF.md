@@ -227,12 +227,33 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   cell-by-cell integral takes ~15 s for the lattice). `snow.yml` now runs itself at 09:20 UTC; a run whose saved
   state is already at or past the date does nothing (`--force` steps again).
 
+### Done (2026-09-29 afternoon, cloud session: items 1-5 of the build list)
+- Wind direction (`ds.wdir.bin`) in the archive; the model keeps lee (loaded) and windward (scoured) hours by aspect
+  (`wind_sector_deg` 60) and has classes `wind_loaded`, `wind_scoured` beside `wind`.
+- Canopy on the lattice from ESA WorldCover 2021 (10 m class 10 averaged to the cell; four tiles, reachable from the
+  cloud session; checked Hoh 100%, Enchantments 0%, Leavenworth 3%, Stevens base 21%). Treeline per zone from the
+  canopy (`snow_config.yaml` `lattice.treeline`), near band 600 m below it; fixed 4000/6000 ft where no cut.
+  `snow static` must be rerun for the new lattice (it also writes `static/zones.js`, the zone polygons for the page).
+- Ledger (`snow/ledger.py`, `<r>/snow/ledger/ledger.json`), LLM passes (`snow/llm.py`: extraction of observations,
+  weak-layer snapshots and notes from the day's products and NAC observations; the brief from the ledger and the
+  state summary; Claude API, JSON-schema output, model `SNOW_MODEL` default `claude-opus-5`), scoring
+  (`snow/score.py`, residual records), the orchestrator `snow/daily.py` as `snow.yml` step 2. **Chris: add the
+  Actions secret `ANTHROPIC_API_KEY`**; without it the step logs "skipped" and still writes ledger and brief files.
+- Trip log: `snow/trips.json` in the repo (a list of obs-shaped records; the page's form writes one to paste);
+  records for a day become `trip` records and are scored like observations.
+- Site outputs: every state and brief file also as `.js` (`window.SNOW_STATE`, `SNOW_CLS`, `SNOW_BRIEF`, `SNOW_INDEX`,
+  `SNOW_ZONES`), a Web Mercator class PNG per day (`state/<date>_cls.png`, bounds and palette in `_cls.js`),
+  `state/index.js` (dates). The page: `snow.html`, `build_snow.py` (-> `web_snow/`, gitignored), `wrangler_snow.toml`
+  (Worker `snow`, deploy `npx wrangler deploy --config wrangler_snow.toml`; attach snow.blackwaterlabs.org in the
+  dashboard). Chris deploys.
+
 ### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into
    the archive so wind can be scoured vs loaded by aspect.
-1. Canopy fraction on the lattice (NLCD Tree Canopy Cover; mrlc.gov is blocked from the cloud session, try the
-   MRLC geoserver WCS with a bbox from Actions or a PC) and per-zone elevation bands (NWAC's forecast pages).
+1. Canopy: the tree-bomb state is not modeled yet (canopy is on the lattice; `canopy_load` from snowfall near 0 C,
+   released by wind or warming, is the next state field). Per-zone treeline values: check them against NWAC's zone
+   pages once the real-zone lattice is built (the quadrant test gave 1900-2200 m).
 2. Surface-state model: refinement after the first storms (the v1 is in `snow/state.py`) (`snow/state.py`, parameters in `snow/snow_config.yaml`): winter powder aging first.
 3. Ledger and the two LLM passes (`snow/ledger.py`, `snow/brief.py`): extraction with structured output, layer tracking,
    the brief from the ledger. `ANTHROPIC_API_KEY` as an Actions secret; `snow.yml` daily workflow.

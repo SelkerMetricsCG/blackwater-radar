@@ -30,7 +30,8 @@ OUT_DIR = os.path.join(region.frames_dir(), "forecast")
 TMP = os.path.join(OUT_DIR, "_grib")
 OUT = os.path.join(DATA, "forecast.js")
 SNOWVALS = os.path.join(DATA, "snowvals")      # archive-only grids for the snow model (never uploaded as site data)
-SNOW_FIELDS = (("ds.sky.bin", "sky", "%", 1.0, 0.0), ("ds.td.bin", "td", "F", 1.8, -459.67), ("ds.wspd.bin", "wspd", "mph", 2.23694, 0.0))
+SNOW_FIELDS = (("ds.sky.bin", "sky", "%", 1.0, 0.0), ("ds.td.bin", "td", "F", 1.8, -459.67), ("ds.wspd.bin", "wspd", "mph", 2.23694, 0.0),
+               ("ds.wdir.bin", "wdir", "deg", 1.0, 0.0))     # wdir: direction the wind blows from, degrees clockwise from north
 SNOW_HOURS = 48
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 BASE_URL = "https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndfd/AR.%s/VP.001-003/" % region.cfg()["ndfd"]

@@ -1,7 +1,8 @@
 name: snow static
 
 # One-off builds of the snow model's static inputs (the terrain lattice), started by hand.
-# Downloads 20 USGS DEM tiles (~1.1 GB), writes pnw/snow/static/lattice.npz and lattice.json to R2.
+# Downloads 20 USGS DEM tiles (~1.1 GB) and 4 ESA WorldCover tiles (~260 MB), writes pnw/snow/static/lattice.npz
+# and lattice.json to R2.
 on:
   workflow_dispatch:
     inputs:
@@ -27,5 +28,5 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install numpy pyyaml boto3 shapely rasterio pyproj
+      - run: pip install numpy scipy pyyaml boto3 shapely rasterio pyproj
       - run: python -m snow.lattice --upload

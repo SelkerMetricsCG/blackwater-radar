@@ -51,3 +51,47 @@ def test_zones_from_geojson_rasterizes_a_polygon_onto_the_grid():
     z, names = lattice.zones_from_geojson(g, tr, (10, 10), "EPSG:26910")
     assert z.shape == (10, 10) and names == {1130: {"name": "Stevens Pass", "center_id": "NWAC"}, 7: {"name": "far away", "center_id": "X"}}
     assert (z[-1] == 1130).all() and z[0, 0] == -1 and 7 not in z            # the polygon's top edge (47.64 N) cuts across the grid
+
+
+def test_wc_tiles_cover_the_bbox():
+    assert lattice.wc_tiles([-124.9, 45.2, -120.0, 49.0]) == ["N45W126", "N45W123", "N48W126", "N48W123"]
+    assert lattice.wc_tiles([-121.5, 47.2, -120.5, 47.8]) == ["N45W123"]
+
+
+def test_tree_fraction_blocks_average_the_classes(tmp_path):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+    a = np.zeros((40, 30), np.uint8)
+    a[:20, :] = 10           # top half trees
+    a[20:, :10] = 30         # grass
+    a[20:, 10:20] = 10       # trees
+    a[20:, 20:] = 0          # nodata
+    path = str(tmp_path / "wc.tif")
+    with rasterio.open(path, "w", driver="GTiff", height=40, width=30, count=1, dtype="uint8", crs="EPSG:4326",
+                       transform=from_origin(-121.0, 47.0, 0.0001, 0.0001)) as dst:
+        dst.write(a, 1)
+    with rasterio.open(path) as src:
+        blocks = list(lattice.tree_fraction_blocks(src, block=20))
+    assert len(blocks) == 2
+    (tr0, f0), (tr1, f1) = blocks
+    assert f0.shape == (2, 3) and (f0 == 1.0).all()
+    assert f1[0, 0] == 0.0 and f1[0, 1] == 1.0 and np.isnan(f1[0, 2])
+    assert tr0.a == pytest.approx(0.001) and tr1.f == pytest.approx(47.0 - 20 * 0.0001)
+
+
+def test_treeline_and_bands():
+    pytest.importorskip("scipy")
+    cfg = {"treeline_canopy": 0.15, "near_width_m": 600, "smooth_cells": 1, "min_cells": 10, "min_cells_per_bin": 2, "bands_ft": [4000, 6000]}
+    # zone 1: forest to 1700 m then bare; zone 2: forest all the way up (no treeline); cells outside any zone
+    elev = np.tile(np.arange(0, 2500, 100, dtype=np.float32), (12, 1))       # 12 rows x 25 elevation columns
+    zone = np.full(elev.shape, 1, np.int32)
+    zone[6:] = 2
+    zone[11] = -1
+    canopy = np.where(elev < 1700, 0.6, 0.05).astype(np.float32)
+    canopy[6:11] = 0.6
+    tl = lattice.treeline_by_zone(canopy, elev, zone, cfg, lambda *a: None)
+    assert tl == {1: 1700.0}
+    band = lattice.bands_from_treeline(elev, zone, tl, cfg)
+    assert band[0, 17] == 2 and band[0, 16] == 1 and band[0, 11] == 1 and band[0, 10] == 0     # 1000 m: 1700-600 = 1100 is near
+    assert band[7, 20] == 2 and band[7, 13] == 1 and band[7, 5] == 0                            # zone 2: fixed 4000/6000 ft
+    assert band[11, 24] == 2 and band[11, 0] == 0                                               # outside zones: fixed

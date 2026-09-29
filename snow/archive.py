@@ -6,7 +6,7 @@ already has in hand, written into
     HH.json.gz          every run: station readings, HRRR freezing level (analysis hour), MRMS 1 h QPE,
                         zone danger ratings
     daily.json.gz       first run of the day that finds none in R2: the 74 h SNOTEL series (so each day's
-                        file overlaps the last), NDFD forecast grids, NDFD sky cover, dewpoint and wind by
+                        file overlaps the last), NDFD forecast grids, NDFD sky cover, dewpoint, wind speed and direction by
                         step to 48 h (forecast.snow_fields), HRRR freezing level f0..f18, MRMS 24 h, SNODAS,
                         full station records
     products/*.json     every avalanche.org forecast product touching the window, saved when it changes
