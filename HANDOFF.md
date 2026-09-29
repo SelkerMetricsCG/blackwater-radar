@@ -253,8 +253,10 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Site outputs: every state and brief file also as `.js` (`window.SNOW_STATE`, `SNOW_CLS`, `SNOW_BRIEF`, `SNOW_INDEX`,
   `SNOW_ZONES`), a Web Mercator class PNG per day (`state/<date>_cls.png`, bounds and palette in `_cls.js`),
   `state/index.js` (dates). The page: `snow.html`, `build_snow.py` (-> `web_snow/`, gitignored), `wrangler_snow.toml`
-  (Worker `snow`, deploy `npx wrangler deploy --config wrangler_snow.toml`; attach snow.blackwaterlabs.org in the
-  dashboard). Chris deploys.
+  (Worker `snow`, deploy `npx wrangler deploy --config wrangler_snow.toml`, whose `routes` attach
+  snow.blackwaterlabs.org like taxes/roaring; workers.dev is off). Chris deploys. **LIVE 2026-09-29 16:00** (version
+  29cd6c2c, `f23edea`). Until a run writes `state/index.js` the page says "has not published a day yet": the 09-28 run
+  predates the `.js` outputs, so the first day it shows should come from the 09-30 09:20 UTC run (for 09-29).
 
 ### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
