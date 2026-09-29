@@ -294,6 +294,11 @@ def capture_all():
             ok.append("basins %d" % basins.build(log))
         except Exception as e:  # noqa: BLE001
             log("basins FAILED: %r" % e)
+        try:
+            import ski
+            ok.append("ski %d" % ski.build(log))
+        except Exception as e:  # noqa: BLE001
+            log("ski FAILED: %r" % e)
     try:
         import r2sync
         r = r2sync.sync(log)
