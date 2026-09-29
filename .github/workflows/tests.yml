@@ -17,5 +17,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pytest pyyaml numpy   # numpy: values.read_grid and the snow archive tests
+      - run: pip install pytest pyyaml numpy scipy pillow   # numpy: values.read_grid and the snow archive tests; scipy, pillow: smoke.py (test_smoke)
       - run: python -m pytest tests/ -v
