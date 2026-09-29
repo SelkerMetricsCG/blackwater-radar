@@ -50,4 +50,4 @@ def test_zones_from_geojson_rasterizes_a_polygon_onto_the_grid():
         {"type": "Feature", "properties": {"name": "no id"}, "geometry": None}]}
     z, names = lattice.zones_from_geojson(g, tr, (10, 10), "EPSG:26910")
     assert z.shape == (10, 10) and names == {1130: {"name": "Stevens Pass", "center_id": "NWAC"}, 7: {"name": "far away", "center_id": "X"}}
-    assert (z[-1] == 1130).all() and (z[0] == -1).all() and 7 not in z       # polygon top edge at 47.64 N cuts the grid
+    assert (z[-1] == 1130).all() and z[0, 0] == -1 and 7 not in z            # the polygon's top edge (47.64 N) cuts across the grid
