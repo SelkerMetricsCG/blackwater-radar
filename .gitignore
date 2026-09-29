@@ -33,3 +33,6 @@ slope/work/
 
 # ski-area list builder: raw Overpass answers and the review list
 ski_research/work/
+# snow-conditions season archive: written by the hourly job, lives in R2
+regions/*/snow/
+snow/work/

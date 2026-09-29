@@ -304,6 +304,12 @@ def capture_all():
             ok.append("ski %d" % ski.build(log))
         except Exception as e:  # noqa: BLE001
             log("ski FAILED: %r" % e)
+        if region.cfg().get("snow"):          # snow-conditions season archive: last, it reads what the jobs above wrote
+            try:
+                from snow import archive as snow_archive
+                ok.append("archive %s" % snow_archive.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("snow archive FAILED: %r" % e)
     try:
         import r2sync
         r = r2sync.sync(log)

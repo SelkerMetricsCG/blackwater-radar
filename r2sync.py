@@ -29,7 +29,7 @@ SKIP_FRAMES = False       # hourly cloud job: never upload frames or the manifes
 REMOTE = {}               # key -> (etag, last modified) from cloud.py's listing; empty = upload every rewritten file
 FRAME_DIRS = ("radar", "sat", "dbz", "rainviewer", "nws_pnw", "nws_conus")
 CONTENT_TYPES = {".jpg": "image/jpeg", ".gif": "image/gif", ".png": "image/png", ".webp": "image/webp", ".npy": "application/octet-stream",
-                 ".js": "application/javascript", ".json": "application/json", ".geojson": "application/geo+json"}
+                 ".js": "application/javascript", ".json": "application/json", ".geojson": "application/geo+json", ".gz": "application/gzip"}
 
 
 def load_env():
@@ -180,6 +180,21 @@ def sync(log=print):
             if key not in done:
                 put(s3, bucket, PREFIX + "data/" + fn, os.path.join(data_dir, fn), "public, max-age=3600")
                 done.add(key)
+
+    # snow-conditions season archive (snow/archive.py): every file is written once and never rewritten
+    arch = os.path.join(region.region_dir(), "snow", "archive")
+    if os.path.isdir(arch):
+        for root, _, files in os.walk(arch):
+            for fn in files:
+                if fn.endswith(".tmp"):
+                    continue
+                p = os.path.join(root, fn)
+                key = PREFIX + "snow/archive/" + os.path.relpath(p, arch).replace(os.sep, "/")
+                if key in done:
+                    continue
+                put(s3, bucket, key, p, "public, max-age=31536000, immutable")
+                done.add(key)
+                n_new += 1
 
     # manifest last, so the site never lists a frame that is not there yet
     manifest = os.path.join(region.region_dir(), "frames.js")
