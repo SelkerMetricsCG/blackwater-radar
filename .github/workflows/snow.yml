@@ -45,4 +45,5 @@ jobs:
       - name: ${{ matrix.region }} ledger and brief
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}     # no key: the LLM passes are skipped, the ledger and brief files are still written
+          SNOW_MODEL: ${{ vars.SNOW_MODEL }}                        # repository variable; blank = claude-opus-5 (snow/llm.py)
         run: python -m snow.daily ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
