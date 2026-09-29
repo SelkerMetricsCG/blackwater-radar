@@ -20,8 +20,19 @@ lattice:
   flat_below_deg: 2        # judgment call: aspect is undefined (-1) where slope is under this
   aspect_octants: [N, NE, E, SE, S, SW, W, NW]     # 45 deg bins centred on the cardinal directions
   # judgment call: NWAC's below / near / above treeline bands differ by zone and are not published as numbers.
-  # These are the Stevens Pass zone's from its forecast page, used everywhere until per-zone values are entered.
+  # These are the Stevens Pass zone's from its forecast page; they apply only where no treeline could be found.
   bands_ft: [4000, 6000]
+  canopy_dataset: "ESA WorldCover 2021 v200, 10 m, class 10 (tree cover) averaged onto the cell"
+  delete_downloads: true
+  treeline:
+    # judgment call (2026-09-29): the treeline of a zone is the elevation above which its median canopy (smoothed
+    # over 1.1 km) stays under 15%; the near-treeline band is the 600 m below it (NWAC's near band is about
+    # 2000 ft wide). Alternative not chosen: NWAC's per-zone numbers (not published as data).
+    treeline_canopy: 0.15
+    near_width_m: 600
+    smooth_cells: 11
+    min_cells: 5000
+    min_cells_per_bin: 200
 
 solar:
   solar_constant_w_m2: 1361        # literature (Kopp & Lean 2011)

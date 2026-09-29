@@ -141,3 +141,27 @@ def test_aspect_within_wraps_around_north():
     a = np.array([350.0, 10.0, 90.0, -1.0, 180.0])
     assert state.aspect_within(a, 0.0, 30).tolist() == [True, True, False, False, False]
     assert state.aspect_within(a, 170.0, 60).tolist() == [False, False, False, False, True]
+
+
+def test_class_png_and_index(tmp_path, monkeypatch):
+    pytest.importorskip("pyproj")
+    pytest.importorskip("PIL")
+    import r2sync
+    from snow import store
+    monkeypatch.setattr(r2sync, "load_env", lambda: None)
+    monkeypatch.setattr(store, "_ENV", None)
+    monkeypatch.setattr(store, "SNOW_DIR", str(tmp_path))
+    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0]}
+    cls = np.full((4, 4), state.CID["settled"], np.uint8)
+    cls[:, 3] = 255
+    cfg = {"bbox_lonlat": [-120.8, 47.6, -120.7, 47.7]}
+    img, bounds = state.class_png(cls, meta, cfg, width=60)
+    a = np.asarray(img)
+    assert a.shape[2] == 4 and bounds == [[47.6, -120.8], [47.7, -120.7]] and 40 < a.shape[0] < 100
+    assert (a[..., 3] == 255).sum() > 0 and (a[..., 3] == 0).sum() > 0        # some cells hit, some transparent
+    hit = a[..., 3] == 255
+    assert (a[hit][:, 0] == 0x6b).all()                                       # settled = #6baed6
+    state.update_index("2026-01-15")
+    idx = state.update_index("2026-01-14")
+    assert idx == {"dates": ["2026-01-14", "2026-01-15"], "latest": "2026-01-15"}
+    assert open(tmp_path / "state" / "index.js").read().startswith("window.SNOW_INDEX = ")

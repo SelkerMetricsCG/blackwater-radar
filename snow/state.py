@@ -39,9 +39,19 @@ CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "me
 CID = {c: i for i, c in enumerate(CLASSES)}
 CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
 OLD_DAYS = 14
+PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
+           "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
+           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd"}
+PNG_WIDTH = 1200
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
           "wind_lee_h": np.float32, "wind_wwd_h": np.float32,
           "rain": np.uint8, "melt_days": np.uint8, "refreeze": np.float32, "depth_in": np.float32}
+
+
+def cfg_lattice(path=CONFIG):
+    import yaml
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f)["lattice"]
 
 
 def load_params(path=CONFIG):
@@ -278,6 +288,54 @@ def summary(s, lat, meta, day):
     return out
 
 
+def write_js(rel, var, obj):
+    """<rel>.json and <rel>.js (window.<var> = ...) under the snow store; the page reads the .js (no CORS on R2)"""
+    os.makedirs(os.path.dirname(store.local(rel + ".json")), exist_ok=True)
+    with open(store.local(rel + ".json"), "w", encoding="utf-8") as f:
+        json.dump(obj, f, separators=(",", ":"))
+    with open(store.local(rel + ".js"), "w", encoding="utf-8") as f:
+        f.write("window.%s = %s;\n" % (var, json.dumps(obj, separators=(",", ":"))))
+
+
+def class_png(cls, meta, cfg, width=PNG_WIDTH):
+    """RGBA image of the classes on a Web Mercator grid over the lattice bbox (transparent off the lattice), and
+    its Leaflet bounds [[S, W], [N, E]]"""
+    import math
+    from PIL import Image
+    w, s_, e, n = cfg["bbox_lonlat"]
+    my = lambda lat: math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))  # noqa: E731
+    y0, y1 = my(s_), my(n)
+    height = int(round(width * (y1 - y0) / math.radians(e - w)))
+    lon = np.linspace(w, e, width, endpoint=False) + (e - w) / width / 2
+    ys = np.linspace(y1, y0, height, endpoint=False) - (y1 - y0) / height / 2
+    lat = np.degrees(2 * np.arctan(np.exp(ys)) - np.pi / 2)
+    LAT, LON = np.meshgrid(lat, lon, indexing="ij")
+    r, c = forcing.cell_of(meta, LAT.ravel(), LON.ravel())
+    v = np.full(r.shape, 255, np.uint8)
+    ok = r >= 0
+    v[ok] = cls[r[ok], c[ok]]
+    v = v.reshape(height, width)
+    rgba = np.zeros((height, width, 4), np.uint8)
+    for i, name in enumerate(CLASSES):
+        col = PALETTE.get(name, "#888888")
+        if col == "transparent":
+            continue
+        rgb = tuple(int(col[j:j + 2], 16) for j in (1, 3, 5))
+        m = v == i
+        rgba[m, :3] = rgb
+        rgba[m, 3] = 255
+    return Image.fromarray(rgba, "RGBA"), [[s_, w], [n, e]]
+
+
+def update_index(day):
+    rel = "state/index"
+    cur = store.read_json(rel + ".json", lambda *a: None) or {"dates": []}
+    dates = sorted(set(cur.get("dates", [])) | {day})
+    obj = {"dates": dates, "latest": dates[-1]}
+    write_js(rel, "SNOW_INDEX", obj)
+    return obj
+
+
 def run(day, log=print, upload=True, force=False):
     t0 = time.time()
     p, scfg = load_params()
@@ -308,12 +366,22 @@ def run(day, log=print, upload=True, force=False):
     np.savez_compressed(store.local("state/%s_cls.npz" % day.isoformat()), cls=s["cls"], hn24_cm=s["hn24_cm"].astype(np.float16))
     summ = summary(s, lat, meta, day)
     summ["prev_day"] = prev_day
-    for fn in ("state/%s.json" % day.isoformat(), "state/latest.json"):
-        with open(store.local(fn), "w", encoding="utf-8") as fh:
-            json.dump(summ, fh, separators=(",", ":"))
+    d = day.isoformat()
+    write_js("state/%s" % d, "SNOW_STATE", summ)
+    write_js("state/latest", "SNOW_STATE", summ)
+    img, bounds = class_png(s["cls"], meta, cfg_lattice())
+    img.save(store.local("state/%s_cls.png" % d), "PNG", optimize=True)
+    img.save(store.local("state/latest_cls.png"), "PNG", optimize=True)
+    clsmeta = {"date": d, "bounds": bounds, "palette": PALETTE, "classes": CLASSES, "file": "state/%s_cls.png" % d}
+    write_js("state/%s_cls" % d, "SNOW_CLS", clsmeta)
+    write_js("state/latest_cls", "SNOW_CLS", dict(clsmeta, file="state/latest_cls.png"))
+    update_index(d)
     if upload:
-        for rel, cache in (("state/latest.npz", "private, max-age=0"), ("state/%s_cls.npz" % day.isoformat(), "public, max-age=31536000, immutable"),
-                           ("state/%s.json" % day.isoformat(), "public, max-age=31536000, immutable"), ("state/latest.json", "no-cache")):
+        imm, nc = "public, max-age=31536000, immutable", "no-cache"
+        for rel, cache in (("state/latest.npz", "private, max-age=0"), ("state/%s_cls.npz" % d, imm),
+                           ("state/%s.json" % d, imm), ("state/%s.js" % d, imm), ("state/%s_cls.png" % d, imm), ("state/%s_cls.js" % d, imm),
+                           ("state/%s_cls.json" % d, imm), ("state/latest.json", nc), ("state/latest.js", nc), ("state/latest_cls.png", nc),
+                           ("state/latest_cls.js", nc), ("state/latest_cls.json", nc), ("state/index.json", nc), ("state/index.js", nc)):
             store.put(rel, cache, log)
     ok = s["cls"] != 255
     dist = {CLASSES[i]: round(float((s["cls"][ok] == i).mean()), 3) for i in range(len(CLASSES))}

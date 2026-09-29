@@ -1,8 +1,9 @@
 name: snow
 
 # The snow-conditions model, once a day for the previous local day, after that day's archive is complete
-# (the last hourly file lands at 23:04 local; 09:20 UTC is 01:20 PST / 02:20 PDT). Reads the lattice, the
-# archive and yesterday's state from R2, writes <r>/snow/state/. Needs nothing but numpy and pyproj.
+# (the last hourly file lands at 23:04 local; 09:20 UTC is 01:20 PST / 02:20 PDT). Step 1 reads the lattice, the
+# archive and yesterday's state from R2 and writes <r>/snow/state/; step 2 (snow/daily.py) extracts observations
+# and weak layers from the day's forecast products with the Claude API, scores them, writes the brief and the ledger.
 on:
   schedule:
     - cron: "20 9 * * *"
@@ -38,6 +39,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install numpy pyyaml boto3 pyproj
+      - run: pip install numpy pyyaml boto3 pyproj pillow anthropic
       - name: ${{ matrix.region }} surface state
         run: python -m snow.state ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
+      - name: ${{ matrix.region }} ledger and brief
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}     # no key: the LLM passes are skipped, the ledger and brief files are still written
+        run: python -m snow.daily ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
