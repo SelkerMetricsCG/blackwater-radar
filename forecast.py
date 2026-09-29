@@ -29,6 +29,9 @@ DATA = region.data_dir()
 OUT_DIR = os.path.join(region.frames_dir(), "forecast")
 TMP = os.path.join(OUT_DIR, "_grib")
 OUT = os.path.join(DATA, "forecast.js")
+SNOWVALS = os.path.join(DATA, "snowvals")      # archive-only grids for the snow model (never uploaded as site data)
+SNOW_FIELDS = (("ds.sky.bin", "sky", "%", 1.0, 0.0), ("ds.td.bin", "td", "F", 1.8, -459.67), ("ds.wspd.bin", "wspd", "mph", 2.23694, 0.0))
+SNOW_HOURS = 48
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
 BASE_URL = "https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndfd/AR.%s/VP.001-003/" % region.cfg()["ndfd"]
 
@@ -151,6 +154,37 @@ def build(log=print):
         f.write("window.FORECAST = %s;\n" % json.dumps(meta, separators=(",", ":")))
     os.replace(OUT + ".tmp", OUT)
     log("forecast: issued %sZ, %s" % (meta.get("issued_utc"), ", ".join("%s max %.1f" % (k, v["max"]) for k, v in meta["windows"].items())))
+    if region.cfg().get("snow"):
+        try:
+            snow_fields(log)
+        except Exception as e:  # noqa: BLE001
+            log("forecast: snow fields FAILED: %r" % e)
+    return meta
+
+
+def snow_fields(log=print):
+    """Sky cover, dewpoint and wind speed at every NDFD step up to SNOW_HOURS, as 256 px value grids in
+    data/snowvals/ plus meta.json, for the snow archive's daily file (the overnight-refreeze term needs cloud,
+    humidity and wind). Not a map layer: r2sync never uploads this folder."""
+    import shutil
+    os.makedirs(SNOWVALS, exist_ok=True)
+    meta = {"fields": {}}
+    for fn, key, unit, k, b in SNOW_FIELDS:
+        ds, da, steps = open_ndfd(fn)
+        meta["issued_utc"] = np.datetime_as_string(ds.time.values, unit="m")
+        info = {"unit": unit, "steps": [], "valid_utc": []}
+        for i, s in enumerate(steps):
+            if s > SNOW_HOURS:
+                continue
+            g = resample(da.values[i].astype(np.float32) * k + b, ds.latitude.values, ds.longitude.values)
+            values.write_grid("%s_%03d" % (key, int(s)), np.kron(g, np.ones((STEP, STEP))), unit=unit, scale=0.1, out_dir=SNOWVALS)
+            info["steps"].append(int(s))
+            info["valid_utc"].append(np.datetime_as_string(da.valid_time.values[i], unit="m"))
+        meta["fields"][key] = info
+    with open(os.path.join(SNOWVALS, "meta.json.tmp"), "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+    os.replace(os.path.join(SNOWVALS, "meta.json.tmp"), os.path.join(SNOWVALS, "meta.json"))
+    log("forecast: snow fields %s" % ", ".join("%s x%d" % (k, len(v["steps"])) for k, v in meta["fields"].items()))
     return meta
 
 

@@ -20,7 +20,20 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
     `rivers/sync_analysis.bat`.
 - The Roaring Creek SolSat telemetry pull (`solsat.py`) moved to the roaring repo (private
   `SelkerMetricsCG/roaring`) on 2026-09-27; nothing here feeds `roaring-data` any more.
-- `tests/`: pytest, network blocked in `conftest.py`; currently the webcam tests.
+- **Snow-conditions tracker (started 2026-09-28, in progress)**: a snow-surface model for skiing, to be its own site
+  (snow.blackwaterlabs.org) on this repo's Actions and R2. Spec `docs/superpowers/specs/2026-09-28-snow-conditions-model-design.md`,
+  status and next steps in `HANDOFF.md`. Built so far: the season archive (`snow/archive.py`, run last in the hourly job for
+  regions with `"snow": True` in `region.py`, `pnw` only), full avalanche.org products (`snow/avyproducts.py`), NAC
+  observations gated on `NAC_OBS_ORIGIN` (`snow/observations.py`; never send an origin we were not given). Archive layout:
+  `<region>/snow/archive/<local date>/HH.json.gz` (stations, HRRR freezing level f0, MRMS 1 h, zone danger), `daily.json.gz`
+  (74 h SNOTEL series, NDFD grids, freezing f0..f18, MRMS 24 h, SNODAS, full station records), `products/`, `obs/`; every
+  file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
+  (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1. Static: the 100 m terrain lattice
+  (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
+  the surface-state model (`snow/state.py`, `snow.yml` daily at 09:20 UTC, writes `<region>/snow/state/`; forcing from the
+  archive in `snow/forcing.py`, R2 access in `snow/store.py`), parameters in `snow/snow_config.yaml` (same protocol as
+  `snotel_config.yaml`; nothing approved yet).
+- `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)
 | Workflow | When | Does |
@@ -29,6 +42,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
+| `snow.yml` | 09:20 UTC daily | `python -m snow.state`: the surface-state model for the previous local day, `<r>/snow/state/` |
+| `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
 Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers. Its secret
@@ -153,3 +168,4 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `docs/superpowers/specs/2026-09-27-air-quality-layer-design.md`.
 - 2026-09-28: Smoke & fires section, phase 2 (fires, perimeters, satellite hotspots); spec
   `docs/superpowers/specs/2026-09-28-fires-layer-design.md`.
+- 2026-09-28: snow-conditions tracker started: design spec, season archive (`snow/`), NWAC access request drafted.

@@ -1,0 +1,58 @@
+# Snow-conditions model: every parameter the snow/ modules read, in the snotel_config.yaml format.
+# Source categories (verification protocol): measured / fitted from data / literature / library default /
+# judgment call. Library defaults and judgment calls need Chris's sign-off; record the date under `approved`.
+approved: null          # nothing here is approved yet (2026-09-29): first-season placeholders
+
+lattice:
+  name: nwac
+  # judgment call (2026-09-29): NWAC's forecast area, the Olympics to the Cascade east slope, Mt Hood to the
+  # border. North edge 49.0 because the USGS 1 arc-second tiles stop at the border. Alternative not chosen:
+  # the whole pnw map window (14 x 10 degrees, 20x the cells, mostly outside any forecast zone).
+  bbox_lonlat: [-124.9, 45.2, -120.0, 49.0]      # west, south, east, north (degrees)
+  crs: EPSG:26910          # NAD83 / UTM 10N (126-120 W): slope in true ground metres, see slope/slope_config.yaml
+  cell_m: 100              # judgment call: the observations can support zone x band x aspect, not finer; 15 M cells
+  dem_dataset: "USGS 3DEP 1 arc-second (about 30 m) seamless DEM, GeoTIFF tiles"
+  dem_url: "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/{tile}/USGS_1_{tile}.tif"
+  # judgment call: 30 m data averaged onto 100 m cells (each cell the mean of ~11 source cells). The spec named
+  # 1/3 arc-second; at 100 m the extra resolution changes nothing and the tiles are 9x bigger.
+  resampling: average
+  slope_algorithm: Horn    # convention (gdaldem's default); computed on the 100 m grid
+  flat_below_deg: 2        # judgment call: aspect is undefined (-1) where slope is under this
+  aspect_octants: [N, NE, E, SE, S, SW, W, NW]     # 45 deg bins centred on the cardinal directions
+  # judgment call: NWAC's below / near / above treeline bands differ by zone and are not published as numbers.
+  # These are the Stevens Pass zone's from its forecast page, used everywhere until per-zone values are entered.
+  bands_ft: [4000, 6000]
+
+solar:
+  solar_constant_w_m2: 1361        # literature (Kopp & Lean 2011)
+  # literature: Meinel & Meinel (1976) clear-sky direct-normal transmittance, with the altitude term of
+  # Laue (1970): I = I0 * ((1 - 0.14 h_km) * 0.7^(AM^0.678) + 0.14 h_km). Air mass: Kasten & Young (1989).
+  # Alternative not chosen: Ineichen-Perez (needs Linke turbidity by month).
+  clear_sky_model: meinel_laue
+  diffuse_fraction: 0.10           # judgment call: isotropic diffuse as a fraction of direct normal on a clear day
+  # literature: Kasten & Czeplak (1980) global-irradiance cloud factor 1 - 0.75 * N^3.4 (N cloud fraction 0..1)
+  cloud_a: 0.75
+  cloud_b: 3.4
+  step_min: 10                     # judgment call: integration step for daily totals
+
+# Surface-state model (snow/state.py). Every value is a first-season placeholder (judgment call) until the
+# residual ledger exists; bounds and max_step are what the fit may do to it later.
+state:
+  fresh_cm: {value: 10, bounds: [5, 25], max_step: 2, source: judgment call, note: "hn24 at or above this makes the surface 'fresh'"}
+  dust_cm: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "hn24 between this and fresh_cm on a crust is 'dust on crust'"}
+  settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
+  solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
+  wind_mph: {value: 25, bounds: [15, 40], max_step: 3, source: judgment call, note: "NDFD 10 m wind speed treated as transporting snow (ridgetop winds run higher; revisit with NWAC telemetry)"}
+  wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above wind_mph since the last fresh snow that make the surface wind-affected"}
+  rain_line_margin_ft: {value: 1000, bounds: [500, 2000], max_step: 250, source: literature, note: "snow level sits about this far below the HRRR freezing level"}
+  rain_mix_ft: {value: 500, bounds: [200, 1000], max_step: 100, source: judgment call, note: "half-width of the mixed band around the snow level"}
+  rain_in: {value: 0.1, bounds: [0.05, 0.5], max_step: 0.05, source: judgment call, note: "24 h liquid falling as rain on the cell above this makes a rain crust"}
+  slr_at_0c: {value: 8, bounds: [6, 12], max_step: 1, source: literature, note: "snow-to-liquid ratio near 0 C (Roebber et al. 2003 climatology, PNW low end)"}
+  slr_per_c: {value: 1.0, bounds: [0.5, 2.0], max_step: 0.2, source: judgment call, note: "SLR rises this much per degree C of cooling below 0 C, capped at slr_max"}
+  slr_max: {value: 20, bounds: [15, 30], max_step: 2, source: literature, note: "cap on the snow-to-liquid ratio"}
+  refreeze_good: {value: 0.6, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "refreeze_index at or above this counts as a solid overnight refreeze"}
+  melt_tmax_c: {value: 2, bounds: [0, 6], max_step: 1, source: judgment call, note: "band daily max above this with solar melts the surface (corn cycle when it also refroze)"}
+  isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
+  min_depth_in: {value: 4, bounds: [2, 12], max_step: 2, source: judgment call, note: "SNODAS depth below this is 'no snow'"}
+  cloud_day_hours: {value: [8, 17], source: convention, note: "local hours whose NDFD sky cover feeds the solar term"}
+  cloud_night_hours: {value: [21, 6], source: convention, note: "local hours whose sky, dewpoint and wind feed the refreeze term"}
