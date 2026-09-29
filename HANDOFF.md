@@ -228,10 +228,11 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Email to forecasters@nwac.us (draft given in chat 2026-09-28): telemetry API access, observation feed access.
 - Merge `claude/fervent-maxwell-q8kphc` so the hourly job on main keeps the archive going (a run was dispatched from
   the branch on 2026-09-29 to start it: check `pnw/snow/archive/<date>/` on R2 and the `products/*.json` shape).
-- After the merge: run the `snow static` workflow once (GitHub refuses to dispatch a workflow that has never been on
-  main), confirm `pnw/snow/static/lattice.json` on R2 lists `zones`, then dispatch `snow` for a date with a complete
-  archive day and read its log (class distribution, forcing line). Off season it should say mostly `no_snow`.
-- Enable R2 billing (Chris, 2026-09-29: "let's just pay for it"); the archive is ~1.5 MB/day, the lattice 40 MB.
+- Nothing: merged (PRs #2, #3, #4, 2026-09-29), R2 Paid is active, the lattice is on R2 (run 36512081004: 20 tiles,
+  59 s, zones rasterized), and the model ran for 2026-09-28 (run 36512417396: 1 hourly file, precip max 0.21 in,
+  freezing level 8120-13270 ft, `no_snow 100%`, 828 s of which 795 s solar; the binned solar lookup that replaced the
+  cell-by-cell integral takes ~15 s for the lattice). `snow.yml` now runs itself at 09:20 UTC; a run whose saved
+  state is already at or past the date does nothing (`--force` steps again).
 
 ### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
