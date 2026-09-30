@@ -1,7 +1,10 @@
 # Method card: sun and shade on terrain
 
 What the map's Sun & shade layer computes, precisely enough to re-implement it without reading the page code.
-Every number named here lives in `terrain_config.yaml` (`render:`), where its source is recorded.
+Every number named here lives in `terrain_config.yaml` (`render:`), where its source is recorded. Values in use
+(2026-09-30): `reach_km` 25, `near_reach_km` 2, `growth` 0.01, `bias_m` 0.5, `earth_radius_m` 6371000,
+`refraction_k` 0.13, `readout_step_min` 2. (The first blind re-implementation had to guess `bias_m` and
+`near_reach_km` because this card did not state them; see ANOMALY_LOG.md.)
 
 ## What it does
 For a ground point P and an instant t, P is **in direct sun** when all three hold:

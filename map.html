@@ -1864,7 +1864,7 @@ void main() {
         return out;
       }).catch(() => { sunTileCache.delete(key); return null; });
     sunTileCache.set(key, p);
-    if (sunTileCache.size > 400) sunTileCache.delete(sunTileCache.keys().next().value);
+    if (sunTileCache.size > 250) sunTileCache.delete(sunTileCache.keys().next().value);   // 256 KB each decoded; a zoom-14 view needs ~80
     return p;
   }
   function sunPlan(z, xa, ya, xb, yb, clip) {   // tile range of zoom z over mercator [xa, xb] x [ya, yb] cut to the lon/lat box clip
@@ -2022,9 +2022,10 @@ void main() {
   } else { $('lySun').closest('.opt').hidden = true; document.querySelector('.subwrap[data-for=lySun]').hidden = true; }
   // for the checks in terrain/README.md: the shader against the JavaScript walk at n random pixels of the current view
   window.sunDebug = {
-    state: sunState, sunAt, sunTerms, sunPacificMs, sunLit, sunWindows, sunPlan, sunGrid, sunMerc, sunLat,
+    map, state: sunState, sunAt, sunTerms, sunPacificMs, sunLit, sunWindows, sunPlan, sunGrid, sunMerc, sunLat, sunSample,
     compare(n) {
-      const st = sunState, gl = st.gl, v = st.view, buf = new Uint8Array(4), S = sunTerms(sunPacificMs(st.date, st.minute));
+      const st = sunState, gl = st.gl, v = st.view, buf = new Uint8Array(v.W * v.H * 4), S = sunTerms(sunPacificMs(st.date, st.minute));
+      gl.readPixels(0, 0, v.W, v.H, gl.RGBA, gl.UNSIGNED_BYTE, buf);           // one read: per-pixel reads stall the GPU
       const zmax = Math.max(st.near.zmax, st.far.zmax), out = { n: 0, agree: 0, gpuShade: 0, jsShade: 0, disagree: [] };
       for (let k = 0; k < n * 4 && out.n < n; k++) {
         const i = Math.floor(Math.random() * v.W), j = Math.floor(Math.random() * v.H), X = v.X0 + (i + 0.5) * v.res, Y = v.Y0 - (j + 0.5) * v.res;
@@ -2032,8 +2033,7 @@ void main() {
         if (!sunInBox({ lat, lng: lon })) continue;
         const lit = sunLit(st.near, st.far, X, Y, sunAt(lat, lon, S), zmax);
         if (lit === null) continue;
-        gl.readPixels(i, v.H - 1 - j, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-        const g = buf[3] > 0;
+        const g = buf[((v.H - 1 - j) * v.W + i) * 4 + 3] > 0;
         out.n++; out.gpuShade += g; out.jsShade += !lit;
         if (g === !lit) out.agree++; else if (out.disagree.length < 25) out.disagree.push([lat.toFixed(5), lon.toFixed(5), g ? 'gpu shade' : 'gpu sun']);
       }
