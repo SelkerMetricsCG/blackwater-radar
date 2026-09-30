@@ -30,6 +30,8 @@ snotel_check/out/
 
 # slope-angle build: downloads, 3 m DEMs, tiles (tens of GB)
 slope/work/
+# sun & shade elevation tiles: mosaics and tiles (several GB)
+terrain/work/
 
 # ski-area list builder: raw Overpass answers and the review list
 ski_research/work/

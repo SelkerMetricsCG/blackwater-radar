@@ -1,0 +1,64 @@
+# Sun & shade layer: every parameter of the elevation tiles (build_terrain.py) and of the page's shadow walk
+# (map.html, `sun & shade` section; tests/test_map_sunshade.py checks the page's constants against render: here).
+# Source categories: measured / literature / convention / library default / judgment call / Chris's decision.
+# Method: METHOD.md. Design: docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md.
+
+area:
+  bbox_lonlat: [-122.2, 46.0, -120.0, 49.0]   # Chris's decision 2026-09-29: the slope layer's box (WA Cascades)
+  # judgment call: the far (zoom 10) tiles reach this far past the box, so pixels near its edge still get shade
+  # from peaks outside it; must exceed render.reach_km.
+  margin_km: 30
+
+source:
+  dem3_vrt: ../slope/work/dem3/all.vrt          # slope build: USGS 1 m lidar averaged to 3 m, 10 m where no lidar
+  fallback_vrt: ../slope/work/fallback/fallback.vrt   # slope build: USGS 1/3 arc-second (10 m) tiles, 46-49 N, 120-123 W
+  # the ring beyond the box: USGS 3DEP 1 arc-second (about 30 m), public domain; tiles named by their NW corner
+  margin_url: "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1/TIFF/current/{tile}/USGS_1_{tile}.tif"
+  nodata: -9999.0
+
+tiles:
+  near_zooms: [11, 14]     # judgment call (approved 2026-09-30: zoom 14 cap): zoom 14 is ~6.5 m at 47.5 N, about
+                           # twice the 3 m DEM's pixel; zoom 15 would quadruple the tiles for detail the 3 m data
+                           # barely has at shadow scale
+  far_zoom: 10             # judgment call: ~100 m pixels for terrain 2-25 km away (the snow model uses 100 m)
+  resampling: average      # judgment call: mean of the finer pixels (as the slope build); alternative bilinear
+  encoding: terrarium      # convention: AWS / Mapzen terrain tiles, decodable by common tools
+  vertical_step_m: 0.125   # judgment call: elevation stored to 1/8 m (B channel in steps of 32); finer steps
+                           # compress worse and change no shadow (the walk's bias is 0.5 m)
+  png_compress_level: 6    # library default of PIL's zlib level
+
+render:                    # constants in map.html's `// BEGIN sunShade` block must equal these (tested)
+  reach_km: 25             # judgment call (approved 2026-09-30): a 2,000 m wall shades 23 km at a 5 deg sun
+  near_reach_km: 2         # judgment call (approved 2026-09-30): fine data for the first 2 km of the walk
+  growth: 0.01             # judgment call: steps grow to 1 % of the distance (about 100 m at 10 km)
+  bias_m: 0.5              # judgment call: the walk starts this far above the ground (stops lidar roughness and
+                           # the Terrarium steps from shading the pixel itself); 4x the vertical step
+  earth_radius_m: 6371000  # literature: mean Earth radius (IUGG)
+  refraction_k: 0.13       # literature: Gauss's mean terrestrial refraction coefficient (METHOD.md references)
+  readout_step_min: 2      # judgment call (approved 2026-09-30)
+  slider_min: [300, 1320, 10]   # Chris's decision 2026-09-29: 05:00 to 22:00, 10-minute steps (minutes of the day)
+  timezone: America/Los_Angeles # judgment call (approved 2026-09-30): Pacific whatever the device's zone
+  min_zoom: 10             # judgment call: the layer draws from zoom 10 (the whole box is ~3 screens wide)
+  shade_rgb: [40, 52, 78]  # judgment call: muted blue-grey (Chris prefers muted colours)
+  opacity: 0.45            # judgment call: default opacity (slider 0-1)
+
+upload:
+  prefix: pnw/dem/v1/      # served by site_worker.js at /pnw/dem/v1/...; immutable, so a rebuild goes to v2
+  cache_control: "public, max-age=31536000, immutable"
+  workers: 16
+
+work:
+  dir: work                # radar/terrain/work, gitignored
+
+# parameter -> date Chris signed it off. 2026-09-30: design sections approved in chat, including the five
+# judgment calls listed there (reach 25 km, 2 km apron, zoom 14 cap, 2-minute readout, Pacific time); the
+# remaining judgment calls above (margin, far zoom, resampling, vertical step, growth, bias, colour, opacity,
+# min zoom) are listed for his review.
+approved:
+  area.bbox_lonlat: 2026-09-29
+  render.reach_km: 2026-09-30
+  render.near_reach_km: 2026-09-30
+  tiles.near_zooms: 2026-09-30
+  render.readout_step_min: 2026-09-30
+  render.timezone: 2026-09-30
+  render.slider_min: 2026-09-29
