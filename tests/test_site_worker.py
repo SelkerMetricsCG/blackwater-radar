@@ -34,6 +34,6 @@ def test_routes():
     assert out.returncode == 0, out.stderr
     tile, missing, home, sneaky, slope, post = json.loads(out.stdout)
     assert tile == [200, "image/png", "public, max-age=31536000, immutable", "PNGDATA"]
-    assert missing[0] == 404 and missing[2] == "public, max-age=86400"
+    assert missing[0] == 404 and missing[2] == "public, max-age=300"
     assert home == [200, "text/plain;charset=UTF-8", None, "asset /"]
     assert sneaky[3].startswith("asset ") and slope[3].startswith("asset ") and post[3].startswith("asset ")

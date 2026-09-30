@@ -14,7 +14,7 @@ export default {
     const obj = await env.TILES.get(url.pathname.slice(1));
     const res = obj
       ? new Response(request.method === 'HEAD' ? null : obj.body, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=31536000, immutable', etag: obj.httpEtag } })
-      : new Response('no tile', { status: 404, headers: { 'content-type': 'text/plain', 'cache-control': 'public, max-age=86400' } });
+      : new Response('no tile', { status: 404, headers: { 'content-type': 'text/plain', 'cache-control': 'public, max-age=300' } });   // short: a tile uploaded later must not stay missing
     if (cache && request.method === 'GET') ctx.waitUntil(cache.put(request, res.clone()));
     return res;
   },
