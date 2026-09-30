@@ -298,18 +298,18 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
         for i in idx:
             sk = str(ws["steps"][i])
             speed = forcing.sample(ws["grids"][sk], latg, long_)
-            d = forcing.sample(wd["grids"][sk], latg, long_) if sk in wd.get("grids", {}) else None   # direction the wind comes from
-            if d is not None and "sx" in lat:
+            wdir = forcing.sample(wd["grids"][sk], latg, long_) if sk in wd.get("grids", {}) else None   # direction the wind comes from
+            if wdir is not None and "sx" in lat:
                 # Winstral shelter toward the wind's octant: sheltered cells see less wind, exposed ridges more
-                k = (np.round(np.nan_to_num(d, nan=0.0) / 45.0).astype(np.int64)) % 8
+                k = (np.round(np.nan_to_num(wdir, nan=0.0) / 45.0).astype(np.int64)) % 8
                 sxk = np.take_along_axis(lat["sx"].astype(np.float32), k[None, ...], axis=0)[0]
                 speed = speed * np.clip(1.0 - p["wind_sx_per_deg"] * sxk, p["wind_expo_min"], p["wind_expo_max"])
             for k, mph in thr.items():
                 strong = speed >= mph
                 wh[k] += 3.0 * strong
-                if d is not None:
-                    lee[k] += 3.0 * (strong & aspect_within(aspect, d + 180.0, p["wind_sector_deg"]))
-                    wwd[k] += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
+                if wdir is not None:
+                    lee[k] += 3.0 * (strong & aspect_within(aspect, wdir + 180.0, p["wind_sector_deg"]))
+                    wwd[k] += 3.0 * (strong & aspect_within(aspect, wdir, p["wind_sector_deg"]))
     for k in thr:
         f["wind_h" + k], f["wind_lee_h" + k], f["wind_wwd_h" + k] = wh[k], lee[k], wwd[k]
     # temperature by zone x band from SNOTEL, NDFD max/min where no site
