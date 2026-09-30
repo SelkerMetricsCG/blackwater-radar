@@ -25,7 +25,7 @@ import tilemath as tm  # noqa: E402
 
 RUNNER = r"""
 const fs = require('fs');
-const meta = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')), out = {};
+const meta = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')), out = {};
 function load(g) { const b = fs.readFileSync(g.file); return Object.assign({}, g, { data: new Float32Array(b.buffer, b.byteOffset, b.length / 4) }); }
 for (const pl of meta.places) {
   const near = load(pl.near), far = load(pl.far), zmax = Math.max(near.zmax, far.zmax), res = out[pl.name] = {};
