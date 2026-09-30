@@ -4,8 +4,9 @@ The ledger: dated, structured facts with sources, the snow model's memory across
 
   obs       an extracted field observation: date, source, location, zone, band, aspects, surface class seen, confidence
   residual  predicted class vs observed class for one obs (snow/score.py)
-  layer     a persistent weak layer snapshot: name, status (active / dormant / healed), zones, bands, buried, first,
-            last (a mention), evidence (product ids). The current table is the latest snapshot per name.
+  layer     a persistent weak layer snapshot: name, status (active / dormant / healed), zones, bands, buried, grain
+            (CAAML code), first, last (a mention), evidence (product ids). The current table is the latest snapshot per
+            layer, keyed by buried date and grain (layer_key) when both are known, else by name.
   note      an LLM model note with the evidence it cites
   param     a parameter change with the residuals that drove it (the fit, later)
   trip      Chris's own trip record (snow/trips.json, same fields as obs)
@@ -56,18 +57,43 @@ def recent(recs, end_date, days, kinds=None):
     return [r for r in recs if start <= r.get("date", "") <= end_date and (kinds is None or r.get("kind") in kinds)]
 
 
+def layer_key(rec):
+    """the canonical key of a layer snapshot: <YYYYMMDD of buried>_<grain lowercased> when both are known (NWAC's own
+    layer ids look like 20220130_fcsf), else the name"""
+    b, g = rec.get("buried"), rec.get("grain")
+    if b and g:
+        try:
+            return dt.date.fromisoformat(str(b)[:10]).strftime("%Y%m%d") + "_" + str(g).lower()
+        except ValueError:
+            pass
+    return rec.get("name")
+
+
 def layers(recs, dormant_after_days=21, today=None):
-    """the current weak-layer table: latest snapshot per name; active layers unmentioned for dormant_after_days
-    are reported dormant (never deleted in season)"""
-    table = {}
+    """the current weak-layer table: latest snapshot per layer, keyed by layer_key; a name-only snapshot of a layer
+    that another snapshot dated and typed joins that layer (and keeps its buried and grain). Active layers unmentioned
+    for dormant_after_days are reported dormant (never deleted in season)"""
+    table, by_name = {}, {}
     for r in recs:
-        if r.get("kind") == "layer" and r.get("name"):
-            table[r["name"]] = r
+        if r.get("kind") != "layer" or not r.get("name"):
+            continue
+        name, key = r["name"], layer_key(r)
+        if key == name and by_name.get(name, name) != name:
+            key = by_name[name]                              # a name-only mention of a layer already keyed by date and grain
+        elif key != name and by_name.get(name) == name:
+            table.pop(name, None)                            # earlier snapshots of this layer were keyed by name only
+        prev = table.get(key) or {}
+        rec = dict(r, key=key)
+        for k in ("buried", "grain"):
+            if rec.get(k) is None and prev.get(k) is not None:
+                rec[k] = prev[k]
+        table[key] = rec
+        by_name[name] = key
     if today:
         cut = (dt.date.fromisoformat(today) - dt.timedelta(days=dormant_after_days)).isoformat()
-        for name, r in table.items():
+        for key, r in table.items():
             if r.get("status") == "active" and (r.get("last") or r.get("date", "")) < cut:
-                table[name] = dict(r, status="dormant")
+                table[key] = dict(r, status="dormant")
     return table
 
 

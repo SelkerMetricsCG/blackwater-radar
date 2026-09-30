@@ -12,7 +12,8 @@ from snow import state as snow_state   # noqa: E402  the page mirrors the model'
 
 CLASSES = list(snow_state.CLASSES)
 DATA_FILES = ["state/index.js", "state/latest.js", "state/latest_cls.js", "brief/latest.js", "static/zones.js"]
-TRIP_KEYS = ["source", "source_id", "obs_date", "location", "lat", "lon", "zone", "elevation_ft", "band", "aspects", "surface", "confidence", "quote"]
+TRIP_KEYS = ["source", "source_id", "obs_date", "location", "lat", "lon", "zone", "elevation_ft", "band", "aspects", "surface",
+             "moisture", "wind_effect", "spatial_precision_m", "source_tier", "confidence", "quote"]
 
 
 @pytest.fixture(scope="module")
@@ -60,11 +61,17 @@ def test_fallback_palette_and_labels_cover_every_class(html):
 
 
 def test_trip_record_has_the_ledger_shape(html):
+    from snow import llm
     body = re.search(r"const rec = \{(.*?)\n\s*\};", html, re.S).group(1)
     keys = re.findall(r"^\s*([a-z_]+):", body, re.M)
-    assert keys == TRIP_KEYS
-    assert "source: 'trip'" in body
+    assert keys == TRIP_KEYS == llm.EXTRACT_SCHEMA["properties"]["observations"]["items"]["required"]
+    assert "source: 'trip'" in body and "source_tier: 'trip'" in body
     assert "snow/trips.json" in html
+    # moisture and wind effect are the extraction's small enums, in the same words
+    for sel, opts in (("tMoist", llm.MOISTURE), ("tWind", llm.WIND_EFFECT)):
+        m = re.search(r'<select name="[a-z_]+" id="%s">(.*?)</select>' % sel, html)
+        assert m and re.findall(r'value="([a-z]+)"', m.group(1)) == opts, sel
+    assert "spatial_precision_m: (num($('tLat').value) != null && num($('tLon').value) != null) ? 100 : (loc ? 1500 : null)" in body
 
 
 def test_latest_class_png_is_cache_busted(html):

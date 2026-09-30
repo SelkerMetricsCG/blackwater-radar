@@ -7,6 +7,9 @@ scaling and daily totals. Pure numpy, no network. Parameters and their sources: 
   cos_incidence(sun_el, sun_az, slope_deg, aspect_deg) -> cos of the angle between sun and the cell's normal
   daily_mj(lat, lon, date, slope_deg, aspect_deg, alt_m, cloud=0)
                                                        -> MJ/m2 on the slope for that day (arrays welcome)
+  daily_components_binned(...)                         -> {"direct", "diffuse", "global_flat"} MJ/m2 per cell
+  terrain_irradiance(parts, terrain_factor, svf)       -> MJ/m2 with horizon shading, sky view and terrain reflection
+                                                          (Dozier & Frew 1990)
 Sun position is NOAA's spreadsheet algorithm (Meeus), good to ~0.1 deg, plenty for a 100 m cell.
 """
 import datetime as dt
@@ -103,15 +106,42 @@ def cloud_factor(cloud, cfg=None):
     return 1 - cfg["cloud_a"] * n ** cfg["cloud_b"]
 
 
-def irradiance(lat, lon, t_utc, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=None):
-    """W/m2 on the inclined cell at one instant: direct + isotropic diffuse, scaled by cloud"""
-    cfg = cfg or load_config()
+def _clear_parts(lat, lon, t_utc, slope_deg, aspect_deg, alt_m, cfg):
+    """clear-sky W/m2 at one instant: (direct on the cell, isotropic diffuse on the cell, direct + diffuse flat)"""
     el, az = sun_position(lat, lon, t_utc)
     dni = clear_sky_direct(el, alt_m, cfg)
     direct = dni * cos_incidence(el, az, slope_deg, aspect_deg)
     s = np.radians(np.where(np.asarray(aspect_deg, float) < 0, 0.0, slope_deg))
-    diffuse = cfg["diffuse_fraction"] * dni * np.sin(np.radians(np.clip(el, 0, 90))) * (1 + np.cos(s)) / 2
+    flat_direct = dni * np.sin(np.radians(np.clip(el, 0, 90)))
+    diffuse = cfg["diffuse_fraction"] * flat_direct * (1 + np.cos(s)) / 2
+    global_flat = flat_direct * (1 + cfg["diffuse_fraction"])
+    return direct, diffuse, global_flat
+
+
+def _cloud_split(direct, diffuse, global_flat, cloud, cfg):
+    """apply the cloud to clear-sky parts. The global total (direct + diffuse) follows Kasten & Czeplak as in
+    `irradiance`; the split assumes the direct beam scales by (1 - n), n the cloud fraction (the sun shows for the
+    clear share of the sky), and the diffuse part takes the rest of the cloud-scaled global, so it rises under cloud.
+    n - cloud_a n^cloud_b >= 0 on 0..1 keeps the diffuse part non-negative. Returns (direct, diffuse, global_flat)."""
+    n = np.clip(np.asarray(cloud, float), 0, 1)
+    cf = cloud_factor(n, cfg)
+    d = direct * (1 - n)
+    return d, (direct + diffuse) * cf - d, global_flat * cf
+
+
+def irradiance(lat, lon, t_utc, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=None):
+    """W/m2 on the inclined cell at one instant: direct + isotropic diffuse, scaled by cloud"""
+    cfg = cfg or load_config()
+    direct, diffuse, _ = _clear_parts(lat, lon, t_utc, slope_deg, aspect_deg, alt_m, cfg)
     return (direct + diffuse) * cloud_factor(cloud, cfg)
+
+
+def irradiance_parts(lat, lon, t_utc, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=None):
+    """`irradiance` by component: {"direct", "diffuse", "global_flat"} W/m2 at one instant, cloud applied as in
+    `_cloud_split`; direct + diffuse equals `irradiance` (up to rounding)"""
+    cfg = cfg or load_config()
+    parts = _clear_parts(lat, lon, t_utc, slope_deg, aspect_deg, alt_m, cfg)
+    return dict(zip(("direct", "diffuse", "global_flat"), _cloud_split(*parts, cloud, cfg)))
 
 
 def daily_mj(lat, lon, date, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=None):
@@ -123,6 +153,22 @@ def daily_mj(lat, lon, date, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=No
     for m in range(0, 1440, step):
         total = total + irradiance(lat, lon, t0 + dt.timedelta(minutes=m), slope_deg, aspect_deg, alt_m, cloud, cfg)
     return total * step * 60 / 1e6
+
+
+def daily_parts(lat, lon, date, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=None):
+    """`daily_mj` by component: {"direct", "diffuse", "global_flat"} MJ/m2 over the UTC day, cloud (a daily value)
+    applied as in `_cloud_split` after the clear-sky integration; direct + diffuse equals `daily_mj`"""
+    cfg = cfg or load_config()
+    step = int(cfg["step_min"])
+    shape = np.broadcast(np.asarray(lat, float), np.asarray(slope_deg, float), np.asarray(aspect_deg, float)).shape
+    sums = [np.zeros(shape) for _ in range(3)]
+    t0 = dt.datetime(date.year, date.month, date.day)
+    for m in range(0, 1440, step):
+        parts = _clear_parts(lat, lon, t0 + dt.timedelta(minutes=m), slope_deg, aspect_deg, alt_m, cfg)
+        for i in range(3):
+            sums[i] = sums[i] + parts[i]
+    k = step * 60 / 1e6
+    return dict(zip(("direct", "diffuse", "global_flat"), _cloud_split(*(x * k for x in sums), cloud, cfg)))
 
 
 DIR16_AZ = [0.0, 26.6, 45.0, 63.4, 90.0, 116.6, 135.0, 153.4, 180.0, 206.6, 225.0, 243.4, 270.0, 296.6, 315.0, 333.4]
@@ -160,7 +206,9 @@ def shading_table(lat_bins, date, cfg=None, lon0=-121.0, max_el=45, azimuths=DIR
 def terrain_factor(horizon, lat, date, cfg=None, lat_step=0.5, direct_share=0.9, azimuths=None):
     """1 - direct_share x (share of the day's direct sun blocked by the terrain), per cell, from the horizon angles
     (deg) of each cell: (directions, N) array, directions at `azimuths` (16 by default, 8 octants if 8 rows).
-    Diffuse light (about a tenth) is not blocked."""
+    The default direct_share 0.9 is for callers that multiply the combined total of `daily_mj_binned`, where
+    diffuse light (about a tenth) is folded in and not blocked. Pass direct_share=1.0 for the direct-only factor
+    that `terrain_irradiance` takes."""
     cfg = cfg or load_config()
     hz_all = np.asarray(horizon)
     nd = hz_all.shape[0]
@@ -218,3 +266,47 @@ def daily_mj_binned(lat, lon, date, slope_deg, aspect_deg, alt_m, cloud=0.0, cfg
     c1 = daily_mj(u_li * lat_step, lon0, date, u_si * slope_step, u_aspect, 1000.0, 0.0, cfg)
     clear = c0[inv].reshape(shape) + (c1 - c0)[inv].reshape(shape) * alt_km
     return (clear * cloud_factor(cloud, cfg)).astype(np.float32)
+
+
+def daily_components_binned(lat, lon, date, slope_deg, aspect_deg, alt_m, cloud=0.0, cfg=None,
+                            lat_step=0.5, slope_step=1.0, aspect_step=5.0):
+    """`daily_mj_binned` by component, the same bins and altitude interpolation: {"direct": MJ/m2 direct on the
+    inclined cell, "diffuse": isotropic diffuse on the cell, (1 + cos s) / 2, unshaded, "global_flat": direct +
+    diffuse on a horizontal surface}, float32, each under the cell's cloud as in `_cloud_split` (direct + diffuse
+    equals `daily_mj_binned`). Feed the dict to `terrain_irradiance`."""
+    cfg = cfg or load_config()
+    lat = np.asarray(lat, np.float32)
+    shape = np.broadcast(lat, np.asarray(slope_deg), np.asarray(aspect_deg)).shape
+    slope = np.broadcast_to(np.asarray(slope_deg, np.float32), shape)
+    aspect = np.broadcast_to(np.asarray(aspect_deg, np.float32), shape)
+    alt_km = np.broadcast_to(np.asarray(alt_m, np.float32), shape) / 1000.0
+    flat = aspect < 0
+    li = np.round(np.broadcast_to(lat, shape) / lat_step).astype(np.int64)
+    si = np.where(flat, 0, np.round(slope / slope_step)).astype(np.int64)
+    ai = np.where(flat, 0, np.round((aspect % 360) / aspect_step)).astype(np.int64)
+    key = (li * 256 + si) * 128 + ai
+    uk, inv = np.unique(key.ravel(), return_inverse=True)
+    u_li, u_si, u_ai = uk // (256 * 128), (uk // 128) % 256, uk % 128
+    u_aspect = np.where(u_si == 0, -1.0, u_ai * aspect_step)
+    lon0 = float(np.nanmean(np.asarray(lon, np.float32)))
+    p0 = daily_parts(u_li * lat_step, lon0, date, u_si * slope_step, u_aspect, 0.0, 0.0, cfg)
+    p1 = daily_parts(u_li * lat_step, lon0, date, u_si * slope_step, u_aspect, 1000.0, 0.0, cfg)
+    clear = [p0[k][inv].reshape(shape) + (p1[k] - p0[k])[inv].reshape(shape) * alt_km
+             for k in ("direct", "diffuse", "global_flat")]
+    parts = _cloud_split(*clear, cloud, cfg)
+    return dict(zip(("direct", "diffuse", "global_flat"), (x.astype(np.float32) for x in parts)))
+
+
+def terrain_irradiance(parts, terrain_factor, svf, terrain_albedo=None, cfg=None):
+    """MJ/m2 (float32) on the cell with its surroundings (Dozier & Frew 1990): direct x terrain_factor (the
+    direct-only factor, `terrain_factor(..., direct_share=1.0)`) + diffuse x svf + (1 - svf) x terrain_albedo x
+    global_flat. `parts` is the dict from `daily_components_binned` (or `daily_parts`), svf the sky-view factor
+    0..1 (the lattice stores percent; divide by 100 first), terrain_albedo the albedo of the surrounding terrain,
+    from cfg["terrain_albedo"] (default 0.5) when not given."""
+    if terrain_albedo is None:
+        cfg = cfg or load_config()
+        terrain_albedo = float(cfg.get("terrain_albedo", 0.5))
+    v = np.clip(np.asarray(svf, np.float32), 0, 1)
+    out = (parts["direct"] * np.asarray(terrain_factor, np.float32) + parts["diffuse"] * v
+           + (1 - v) * terrain_albedo * parts["global_flat"])
+    return np.asarray(out, np.float32)

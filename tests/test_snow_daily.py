@@ -33,6 +33,53 @@ def test_ledger_append_recent_layers(tmp_path, monkeypatch):
     assert len(ledger.load()) == 4
 
 
+def test_layer_key_and_layers_merge_by_buried_date_and_grain():
+    assert ledger.layer_key({"name": "Jan 30 facets", "buried": "2026-01-30", "grain": "FC"}) == "20260130_fc"
+    assert ledger.layer_key({"name": "Jan 30 facets", "buried": None, "grain": "FC"}) == "Jan 30 facets"
+    assert ledger.layer_key({"name": "Jan 30 facets", "buried": "2026-01-30", "grain": None}) == "Jan 30 facets"
+    assert ledger.layer_key({"name": "odd", "buried": "late January", "grain": "FC"}) == "odd"
+    recs = []
+    ledger.append(recs, [{"name": "Dec 12 facets", "status": "active", "last": "2026-01-02"}], "2026-01-02", "layer")          # name only (old format)
+    ledger.append(recs, [{"name": "Dec 12 facets", "status": "active", "buried": "2025-12-12", "grain": "FC", "last": "2026-01-05"}], "2026-01-05", "layer")
+    ledger.append(recs, [{"name": "the December facets", "status": "dormant", "buried": "2025-12-12", "grain": "FC", "last": "2026-01-08"}], "2026-01-08", "layer")
+    ledger.append(recs, [{"name": "Dec 12 facets", "status": "healed", "last": "2026-01-20"}], "2026-01-20", "layer")          # name only again
+    ledger.append(recs, [{"name": "Jan 30 facets", "status": "active", "buried": "2026-01-30", "grain": "FC", "last": "2026-02-01"}], "2026-02-01", "layer")
+    ledger.append(recs, [{"name": "Feb crust", "status": "active", "buried": None, "grain": "MFcr", "last": "2026-02-10"}], "2026-02-10", "layer")
+    t = ledger.layers(recs)
+    assert set(t) == {"20251212_fc", "20260130_fc", "Feb crust"}
+    dec = t["20251212_fc"]
+    assert dec["status"] == "healed" and dec["last"] == "2026-01-20" and dec["key"] == "20251212_fc"
+    assert dec["buried"] == "2025-12-12" and dec["grain"] == "FC"           # carried onto the name-only snapshot
+    assert t["Feb crust"]["key"] == "Feb crust" and t["Feb crust"]["grain"] == "MFcr"
+    assert ledger.layers(recs, today="2026-03-15")["20260130_fc"]["status"] == "dormant"
+    assert ledger.layers(recs, today="2026-02-15")["20260130_fc"]["status"] == "active"
+
+
+def test_extract_schema_is_strict_and_carries_the_new_fields():
+    def walk(node):
+        if "properties" in node:
+            assert node["additionalProperties"] is False
+            assert list(node["properties"]) == node["required"]
+            for v in node["properties"].values():
+                walk(v)
+        if "items" in node:
+            walk(node["items"])
+    walk(llm.EXTRACT_SCHEMA)
+    walk(llm.BRIEF_SCHEMA)
+    ob = llm.EXTRACT_SCHEMA["properties"]["observations"]["items"]["properties"]
+    assert ob["surface"]["enum"] == state.CLASSES + ["unknown"]
+    assert ob["moisture"] == {"type": ["string", "null"], "enum": ["dry", "moist", "wet", None]}
+    assert ob["wind_effect"] == {"type": ["string", "null"], "enum": ["none", "light", "heavy", None]}
+    assert ob["spatial_precision_m"] == {"type": ["number", "null"]}
+    assert ob["source_tier"] == {"type": "string", "enum": ["center_product", "pro_obs", "public_obs", "trip"]}
+    la = llm.EXTRACT_SCHEMA["properties"]["layers"]["items"]["properties"]
+    assert la["buried"] == {"type": ["string", "null"]}
+    assert la["grain"] == {"type": ["string", "null"], "enum": ["SH", "FC", "DH", "MFcr", "IFrc", "PP", "DF", "RG", None]}
+    for word in ("moisture", "wind_effect", "spatial_precision_m", "center_product", "pro_obs", "public_obs", "trip",
+                 "reportedly", "possibly", "only a zone", "grain", "20220130_fcsf"):
+        assert word in llm.EXTRACT_SYSTEM, word
+
+
 def test_llm_call_without_key_is_skipped(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     msgs = []
@@ -111,6 +158,37 @@ def test_score_neighbourhood_place_and_group(monkeypatch):
     assert by["o3"]["how"] == "group" and not by["o3"]["match"] and by["o3"]["predicted"] == "settled" and by["o3"]["frac"] == 0.0
     # o6 sits on the crusted south column but names no aspect: its 300 m neighbourhood is that one cell, so frac 0
     assert by["o6"]["how"] == "near" and by["o6"]["frac"] == 0.0 and not by["o6"]["filtered"]
+    assert all(r["precision_m"] is None and r["tier"] is None for r in res)      # records without the new fields
+    assert by["o1"]["radius_m"] == 300.0 and by["o2"]["radius_m"] == 1500.0
+
+
+def test_score_uses_the_report_precision_as_the_radius(monkeypatch):
+    pytest.importorskip("pyproj")
+    from snow import forcing
+    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0], "cell_m": 1000,
+            "zones": {"1130": {"name": "Stevens Pass"}}}
+    lat = _lattice()
+    latg, long_ = forcing.lattice_latlon(meta)
+    cls = np.full((4, 4), state.CID["settled"], np.uint8)
+    cls[:, 1] = state.CID["sun_crust"]
+    cls[:, 3] = 255
+    import snow.score as sc
+    monkeypatch.setattr(sc, "places", lambda: {"Skyline Ridge": [float(latg[2, 1]), float(long_[2, 1])]})
+    at = {"lat": float(latg[2, 1]), "lon": float(long_[2, 1]), "aspects": ["all"], "band": None, "surface": "settled"}
+    obs = [dict(at, id="p0"),                                                        # 300 m: the one crusted cell
+           dict(at, id="p1", spatial_precision_m=1500, source_tier="pro_obs"),       # 1500 m: the 3 x 3 block, six of nine settled
+           dict(at, id="p2", spatial_precision_m=50000, source_tier="public_obs"),   # clipped to 5 km
+           dict(at, id="p3", spatial_precision_m=10),                                # clipped to 100 m
+           dict(at, id="p4", spatial_precision_m="bad"),                             # unreadable: as if absent
+           {"id": "p5", "lat": None, "lon": None, "location": "Skyline Ridge", "aspects": ["all"], "band": None, "surface": "settled",
+            "spatial_precision_m": 300, "source_tier": "center_product"}]           # a place with its own precision
+    by = {r["obs_id"]: r for r in sc.score(obs, cls, {}, lat, meta, lambda *a: None)}
+    assert by["p0"]["frac"] == 0.0 and by["p0"]["radius_m"] == 300.0 and by["p0"]["precision_m"] is None
+    assert by["p1"]["frac"] == 0.667 and by["p1"]["n_cells"] == 9 and by["p1"]["radius_m"] == 1500.0 and by["p1"]["precision_m"] == 1500.0 and by["p1"]["tier"] == "pro_obs"
+    assert by["p2"]["radius_m"] == 5000.0 and by["p2"]["precision_m"] == 5000.0 and by["p2"]["n_cells"] == 12 and by["p2"]["tier"] == "public_obs"
+    assert by["p3"]["radius_m"] == 100.0 and by["p3"]["frac"] == 0.0
+    assert by["p4"]["radius_m"] == 300.0 and by["p4"]["precision_m"] is None
+    assert by["p5"]["how"] == "place" and by["p5"]["radius_m"] == 300.0 and by["p5"]["frac"] == 0.0 and by["p5"]["tier"] == "center_product"
 
 
 def test_resolve_place_prefers_the_longest_name():
@@ -140,8 +218,9 @@ def test_daily_end_to_end_with_fake_llm(tmp_path, monkeypatch):
               open(tmp_path / "archive" / d / "products" / "NWAC_1130_99_abcd1234.json", "w"))
     payloads = iter([
         {"observations": [{"source": "nwac_product", "source_id": "99", "obs_date": d, "location": "Stevens Pass", "lat": float(latg[2, 0]), "lon": float(long_[2, 0]),
-                           "zone": "Stevens Pass", "elevation_ft": 6000, "band": "above", "aspects": ["N"], "surface": "settled", "confidence": 0.6, "quote": "soft snow on north aspects"}],
-         "layers": [{"name": "Dec 12 facets", "status": "active", "zones": ["Stevens Pass"], "bands": ["above"], "buried": "2025-12-12", "last": d, "evidence": ["99"], "summary": "reactive on N"}],
+                           "zone": "Stevens Pass", "elevation_ft": 6000, "band": "above", "aspects": ["N"], "surface": "settled", "moisture": "dry", "wind_effect": None,
+                           "spatial_precision_m": 1500, "source_tier": "center_product", "confidence": 0.6, "quote": "soft snow on north aspects"}],
+         "layers": [{"name": "Dec 12 facets", "status": "active", "zones": ["Stevens Pass"], "bands": ["above"], "buried": "2025-12-12", "grain": "FC", "last": d, "evidence": ["99"], "summary": "reactive on N"}],
          "notes": [{"text": "north aspects holding soft snow", "evidence": ["99"]}]},
         {"overview": "Soft snow on north aspects above treeline.", "zones": [{"zone": "Stevens Pass", "headline": "North holds", "text": "Settled powder N above treeline."}], "notes": []}])
     calls = []
@@ -154,14 +233,25 @@ def test_daily_end_to_end_with_fake_llm(tmp_path, monkeypatch):
     class C:
         messages = Msgs()
     monkeypatch.setattr(llm, "client", lambda: C())
+    # a trip from an older trips.json, without the new fields
+    monkeypatch.setattr(ledger, "trips", lambda log=print: [{"source": "trip", "source_id": "skyline-" + d, "obs_date": d, "location": "Skyline Ridge",
+                                                             "lat": float(latg[1, 0]), "lon": float(long_[1, 0]), "zone": "Stevens Pass", "elevation_ft": 5000,
+                                                             "band": "near", "aspects": ["N"], "surface": "settled", "confidence": 0.9, "quote": "soft"}])
     out = daily.run(dt.date(2026, 1, 15), lambda *a: None, upload=False)
     assert len(calls) == 2 and "Known weak layers" in calls[0]["messages"][0]["content"] and "Ledger, last weeks" in calls[1]["messages"][0]["content"]
-    assert out["overview"].startswith("Soft snow") and out["layers"][0]["name"] == "Dec 12 facets"
+    assert out["overview"].startswith("Soft snow") and out["layers"][0]["name"] == "Dec 12 facets" and out["layers"][0]["key"] == "20251212_fc"
     recs = ledger.load()
     kinds = [r["kind"] for r in recs]
-    assert kinds.count("obs") == 1 and kinds.count("layer") == 1 and kinds.count("residual") == 1 and kinds.count("note") == 1
-    res = next(r for r in recs if r["kind"] == "residual")
-    assert res["match"] and res["predicted"] == "settled" and res["obs_id"] == "obs_%s_0" % d and res["how"] == "near"
+    assert kinds.count("obs") == 1 and kinds.count("layer") == 1 and kinds.count("residual") == 2 and kinds.count("note") == 1 and kinds.count("trip") == 1
+    trip = next(r for r in recs if r["kind"] == "trip")
+    assert trip["source_tier"] == "trip" and "spatial_precision_m" not in trip
+    obs_rec = next(r for r in recs if r["kind"] == "obs")
+    assert obs_rec["moisture"] == "dry" and obs_rec["wind_effect"] is None and obs_rec["spatial_precision_m"] == 1500
+    res = {r["obs_id"]: r for r in recs if r["kind"] == "residual"}
+    ro = res["obs_%s_0" % d]
+    assert ro["match"] and ro["predicted"] == "settled" and ro["how"] == "near" and ro["radius_m"] == 1500.0 and ro["precision_m"] == 1500.0 and ro["tier"] == "center_product"
+    rt = res["trip_%s_0" % d]
+    assert rt["how"] == "near" and rt["radius_m"] == 300.0 and rt["precision_m"] is None and rt["tier"] == "trip"
     assert json.load(open(tmp_path / "brief" / "latest.json"))["date"] == d
 
 
