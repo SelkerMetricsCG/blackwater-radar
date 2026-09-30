@@ -75,11 +75,12 @@ def _synthetic_forcing(day, subset, p, scfg, tz, log=print, cache_dir=None, use_
     n = len(subset.flat)
     f = {k: np.zeros(n, np.float32) for k in replay.FORCING_KEYS}
     f["fzl_ft"][:] = 3000
-    f["tmax_c"][:] = -5
-    f["tmin_c"][:] = -10
+    f["tmax_c"][:] = 0            # warm enough that all the sun counts toward a crust
+    f["tmin_c"][:] = -4
     f["td_night_c"][:] = -12
     f["depth_in"][:] = 40
     f["snotel_hn24_in"][:] = np.nan
+    f["site_elev_m"][:] = np.nan          # no sites: no lapse to the cell
     if day >= dt.date(2026, 1, 14):                               # 5.5 MJ a day on the south-facing cells from Jan 14
         f["solar_mj"] = np.where(subset.lat["aspect"] == 180, 5.5, 0.0).astype(np.float32)
     return f

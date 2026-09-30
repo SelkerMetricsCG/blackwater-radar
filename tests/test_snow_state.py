@@ -183,3 +183,37 @@ def test_tree_bombs_under_dense_canopy():
     s0 = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
     s0 = state.step(s0, _forcing((4, 4), precip_in=1.5, tmax_c=-6.0, tmin_c=-10.0), lat, p, scfg)
     assert s0["canopy_load"][2, 0] == 0.0
+
+
+def test_lapse_canopy_shading_and_warmth_gate():
+    p, scfg = state.load_params()
+    lat = _lattice()
+    lat["canopy"] = np.array([[0, 0, 0, 255]] * 4, np.uint8)
+    lat["canopy"][1] = 90                                                   # the 1500 m row is under dense forest
+    s = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
+    # sites at 2000 m report max -2 C: the 2500 m row lapses to -5.25, the 3500 m row to -11.75 (colder than crust_tmin_c)
+    f = _forcing((4, 4), tmax_c=-2.0, tmin_c=-8.0, solar_mj=10.0)
+    f["site_elev_m"] = np.full((4, 4), 2000.0, np.float32)
+    s = state.step(s, f, lat, p, scfg)
+    open_warm = s["solar_mj"][2, 1]         # 2500 m, open, tmax -5.25: warm factor (−5.25+8)/8 = 0.34
+    open_cold = s["solar_mj"][3, 1]         # 3500 m: tmax -11.75 -> no crusting solar
+    shaded = s["solar_mj"][1, 1]            # 1500 m, 90% canopy, tmax +1.25 -> full warmth but 90% canopy at tau 0.25
+    assert open_cold == 0 and 3.0 < open_warm < 4.0
+    assert shaded == pytest.approx(10.0 * (0.1 + 0.9 * p["canopy_solar_tau"]), rel=1e-3)
+    # refreeze is weaker under the canopy
+    assert s["refreeze"][1, 1] < s["refreeze"][2, 1]
+
+
+def test_rain_is_wet_until_it_refreezes():
+    p, scfg = state.load_params()
+    lat = _lattice()
+    s = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], lat["elev"] != -32768)
+    # warm rain everywhere (freezing level 12000 ft), nights above -1 C
+    s = state.step(s, _forcing((4, 4), precip_in=1.0, fzl_ft=12000.0, tmax_c=5.0, tmin_c=1.0), lat, p, scfg)
+    assert s["cls"][2, 0] == state.CID["rain_wet"] and s["rain"][2, 0] == 1 and s["rain_refrozen"][2, 0] == 0
+    s = state.step(s, _forcing((4, 4), tmax_c=3.0, tmin_c=0.5), lat, p, scfg)
+    assert s["cls"][2, 0] == state.CID["rain_wet"]
+    s = state.step(s, _forcing((4, 4), tmax_c=-2.0, tmin_c=-6.0), lat, p, scfg)
+    assert s["cls"][2, 0] == state.CID["rain_crust"] and s["rain_refrozen"][2, 0] == 1
+    s = state.step(s, _forcing((4, 4), precip_in=1.5, tmax_c=-4.0, tmin_c=-9.0), lat, p, scfg)
+    assert s["cls"][2, 0] == state.CID["fresh"] and s["rain"][2, 0] == 0

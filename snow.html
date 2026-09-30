@@ -165,11 +165,11 @@
   const BASE = meta ? meta.replace(/\/?$/, '/') + 'pnw/snow/' : 'regions/pnw/snow/';
 
   // mirrors snow/state.py CLASSES and PALETTE; the day's files carry their own (SNOW_STATE.classes, SNOW_CLS.palette) and win
-  const CLASSES = ['no_snow', 'fresh', 'settled', 'wind', 'sun_crust', 'rain_crust', 'melt_freeze', 'isothermal', 'dust_on_crust', 'old', 'wind_loaded', 'wind_scoured', 'tree_debris'];
+  const CLASSES = ['no_snow', 'fresh', 'settled', 'wind', 'sun_crust', 'rain_crust', 'melt_freeze', 'isothermal', 'dust_on_crust', 'old', 'wind_loaded', 'wind_scoured', 'tree_debris', 'rain_wet'];
   const FALLBACK = { no_snow: 'transparent', fresh: '#e0f3ff', settled: '#6baed6', wind: '#969696', sun_crust: '#fdae6b', rain_crust: '#e6550d',
-                     melt_freeze: '#fee08b', isothermal: '#a63603', dust_on_crust: '#dadaeb', old: '#2171b5', wind_loaded: '#636363', wind_scoured: '#bdbdbd', tree_debris: '#74c476' };
+                     melt_freeze: '#fee08b', isothermal: '#a63603', dust_on_crust: '#dadaeb', old: '#2171b5', wind_loaded: '#636363', wind_scoured: '#bdbdbd', tree_debris: '#74c476', rain_wet: '#a1d99b' };
   const LABEL = { no_snow: 'no snow', fresh: 'fresh snow', settled: 'settled powder', wind: 'wind affected', sun_crust: 'sun crust', rain_crust: 'rain crust',
-                  melt_freeze: 'melt-freeze (corn)', isothermal: 'isothermal', dust_on_crust: 'dust on crust', old: 'old powder', wind_loaded: 'wind loaded', wind_scoured: 'wind scoured', tree_debris: 'tree debris' };
+                  melt_freeze: 'melt-freeze (corn)', isothermal: 'isothermal', dust_on_crust: 'dust on crust', old: 'old powder', wind_loaded: 'wind loaded', wind_scoured: 'wind scoured', tree_debris: 'tree debris', rain_wet: 'rain-soaked' };
   const OCTANTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'flat'];
   const BANDS = ['below', 'near', 'above'];
   const BAND_LABEL = { below: 'below treeline', near: 'near treeline', above: 'above treeline' };
