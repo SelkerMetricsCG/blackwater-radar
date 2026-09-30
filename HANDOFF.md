@@ -3,13 +3,29 @@
 Read `CLAUDE.md` in this folder for how the site works. Two pieces of work are open (2 and 3).
 Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE.md`); read his Terminal panel afterwards.
 
-## 13. Sun & shade layer (2026-09-30): built and checked; tiles upload, push and deploy pending
-- What: Terrain > "Sun & shade": GPU terrain shadows for any date, 05:00-22:00 Pacific slider (Play, 10-min steps), click
-  readout "Direct sun here on <date>: windows (h) · flat horizon ..." in the point popup. WA Cascades box, from zoom 10.
-  Spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`; everything else in `terrain/README.md`.
-- Tiles: `terrain/work/tiles` (27,565, 1.7 GB, gitignored) -> R2 `pnw/dem/v1/` with `python terrain/upload_tiles.py`.
-- Serving: `site_worker.js` + R2 binding in `wrangler.toml` (first time the radar Worker has a script).
-- STATUS: (filled in at release)
+## 13. Sun & shade layer (2026-09-30): built and checked; tiles on R2; Chris pushes and deploys
+- What: Terrain > "Sun & shade": GPU terrain shadows for any date, 05:00-22:00 Pacific slider (Play, 10-min steps), and a
+  line in the point popup, "Direct sun here on <date>: windows (h) · flat horizon ...". WA Cascades box, from zoom 10.
+  Spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`; method, checks and gotchas in `terrain/README.md`.
+- Tiles: `terrain/work/tiles` (27,565, 1.66 GB, gitignored) uploaded to R2 `pnw/dem/v1/` (`terrain/upload_tiles.py`,
+  resumable via `terrain/work/uploaded.txt`). Serving: `site_worker.js` + the R2 binding in `wrangler.toml` (first time
+  the radar Worker has a script; assets still served first).
+- Checks (numbers in `terrain/work/accounting.log`, figures in `terrain/work/diag/`):
+  1. `tests/test_map_sunshade.py` (sun vs astropy within 0.02 deg, Pacific times from any device zone, synthetic wall,
+     curvature, slope, plain) + `test_terrain_tiles.py`, `test_site_worker.py`: 18 pass.
+  2. Tiles: summits within 3 m of published values (Rainier 4,392.1 vs 4,392 m); tiles equal the mosaic to the 1/16 m step.
+  3. Blind re-implementation from `METHOD.md` alone: 100.00 % of 90,774 patch points and every sun window identical;
+     GPU shader vs the JS walk in the browser: 20,999 of 21,000 pixels.
+  4. Snow model's 100 m horizons: median -0.18 h over 18 place-days; the two outliers are banks 6-75 m from the sample
+     points (`terrain/ANOMALY_LOG.md`).
+  5. Open for Chris: ShadeMap and a timestamped photo of a shadow line.
+- Open for Chris (none blocking): sign-off on the judgment calls listed unapproved in `terrain_config.yaml` (margin,
+  far zoom, resampling, vertical step, growth, bias, colour, opacity, min zoom); whether the popup line should say
+  "for this exact spot" (it answers for the ~6 m spot clicked, see the anomaly log).
+- After the deploy: `https://radar.blackwaterlabs.org/pnw/dem/v1/10/163/351.png` must answer image/png through the
+  Worker, and the live page must equal `web/index.html`; then tick the layer at Colchuck on 21 Dec (lake in shade).
+- Local-only test noise: 3 tests in `test_snow_terrain.py` fail on this PC because Anaconda has a stray `tests` package
+  in site-packages that shadows `tests.test_snow_state`; CI is unaffected.
 
 ## 11. Hillshade basemap chip: LIVE 2026-09-28 19:36 (`2c854e1`, deploy d34e91d3); merged with origin/main 19:44, push is a fast-forward
 - Fifth chip in the Basemap row (`map.html`): Esri `Elevation/World_Hillshade` (native to z16, upsampled to 17) under the
