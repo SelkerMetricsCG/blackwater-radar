@@ -4,7 +4,7 @@ without touching the live state. Used by the fit (snow/fit.py) and for looking a
 
   Subset(lat, meta, centres, k)      the cells in (2k+1)-cell windows around the given (row, col) centres, as 1-D
                                      arrays the model steps directly (day_forcing and step are shape-agnostic)
-  forcing_for(day, subset, p, ...)   the day's forcing on the subset, cached on disk per (day, subset, wind_mph)
+  forcing_for(day, subset, p, ...)   the day's forcing on the subset, cached on disk per (day, subset, wind thresholds)
   run(start, end, p, subset, ...)    -> {date: cls array over the subset}, stepping from a fresh state at `start`
                                      (start SPINUP days before the first date that matters)
 
@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "snow", "work", "replay")
 SPINUP = 10
 FORCING_KEYS = ("precip_in", "fzl_ft", "cloud_night", "td_night_c", "wind_night_ms", "wind_h", "wind_lee_h", "wind_wwd_h",
-                "tmax_c", "tmin_c", "tmin_resid_c", "snotel_hn24_in", "site_elev_m", "depth_in", "solar_mj")
+                "wind_h_wet", "wind_lee_h_wet", "wind_wwd_h_wet", "tmax_c", "tmin_c", "tmin_resid_c", "snotel_hn24_in", "site_elev_m", "depth_in", "solar_mj")
 
 
 class Subset:
@@ -68,7 +68,7 @@ class Subset:
 
 def forcing_for(day, subset, p, scfg, tz, log=print, cache_dir=CACHE, use_cache=True):
     os.makedirs(cache_dir, exist_ok=True)
-    path = os.path.join(cache_dir, "%s_%s_w%g.npz" % (day.isoformat(), subset.key, p["wind_mph"]))
+    path = os.path.join(cache_dir, "%s_%s_w%g-%g.npz" % (day.isoformat(), subset.key, p["wind_mph_dry"], p["wind_mph_wet"]))
     if use_cache and os.path.exists(path):
         z = np.load(path)
         return {k: z[k] for k in FORCING_KEYS if k in z}

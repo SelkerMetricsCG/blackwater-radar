@@ -143,6 +143,8 @@
         <label class="half">Elevation (ft)<input type="number" step="1" name="elevation_ft" id="tElev" placeholder="5200"></label>
         <label class="half">Band<select name="band" id="tBand"><option value="">(band)</option><option value="below">below treeline</option><option value="near">near treeline</option><option value="above">above treeline</option></select></label>
         <label class="half">Surface<select name="surface" id="tSurf"><option value="">(surface class)</option></select></label>
+        <label class="half">Moisture<select name="moisture" id="tMoist"><option value="">(not noted)</option><option value="dry">dry</option><option value="moist">moist</option><option value="wet">wet</option></select></label>
+        <label class="half">Wind effect<select name="wind_effect" id="tWind"><option value="">(not noted)</option><option value="none">none</option><option value="light">light</option><option value="heavy">heavy</option></select></label>
         <label class="wide">Aspects<div class="asp" id="tAsp"></div></label>
         <label class="half">Confidence (0–1)<input type="number" min="0" max="1" step="0.1" name="confidence" id="tConf" value="0.8"></label>
         <label class="wide">Notes<textarea name="quote" id="tNotes" placeholder="what the surface was like, where, when"></textarea></label>
@@ -492,6 +494,10 @@
       band: $('tBand').value || null,
       aspects: [...$('tAsp').querySelectorAll('input:checked')].map(i => i.value),
       surface: $('tSurf').value || null,
+      moisture: $('tMoist').value || null,
+      wind_effect: $('tWind').value || null,
+      spatial_precision_m: (num($('tLat').value) != null && num($('tLon').value) != null) ? 100 : (loc ? 1500 : null),
+      source_tier: 'trip',
       confidence: conf == null ? null : Math.max(0, Math.min(1, conf)),
       quote: $('tNotes').value.trim()
     };

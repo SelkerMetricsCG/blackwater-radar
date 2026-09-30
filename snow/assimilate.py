@@ -7,8 +7,11 @@ elevation within assim_elev_m, canopy fraction within assim_canopy, and on the s
 elevation and aspect are different snow; near the crest they are close to the same.
 
 The nudge moves the state's continuous fields toward values that classify as the observed class, blended by
-w = assim_weight * confidence * exp(-d / radius) * (1 - frac) where frac is how much the model already agreed
-(from the residual). A report that matched nudges nothing. Nudged fields:
+w = assim_weight * tier_weight * confidence * exp(-d / radius) * (1 - frac) where frac is how much the model already
+agreed (from the residual) and tier_weight is TIER_WEIGHT for the report's source tier. A report that carries a
+spatial precision (residual `precision_m`, else the report's `spatial_precision_m`) is a region that size, not a
+point: the search radius grows by it and the decay starts at its edge, so a report placed to 1500 m nudges every
+similar cell within 1500 m at full weight. A report that matched nudges nothing. Nudged fields:
   fresh          days 0, hn24 fresh_cm, solar 0, wind hours 0, rain 0
   settled / old  solar below the crust threshold, wind hours below wind_hours, rain 0, melt_days 0
   sun_crust      solar to solar_crust_mj      rain_crust   rain 1, refrozen 1   rain_wet  rain 1, refrozen 0   wind*  wind hours to wind_hours
@@ -20,6 +23,13 @@ import numpy as np
 
 from snow import forcing
 from snow.state import CID
+
+# weight on the nudge by source tier (lit_review.md, "What the observation literature says about scoring": experts
+# disagree with the regional product a quarter of the time, so no single report moves a cell group far, public
+# observations less than professionals'). Moves to snow_config.yaml once the fit has residuals per tier to set it.
+# A record without a tier weighs 1.0.
+TIER_WEIGHT = {"center_product": 1.0, "pro_obs": 1.0, "public_obs": 0.6, "trip": 0.8}
+PRECISION_M = (100.0, 5000.0)
 
 
 def similar(lat, r0, c0, p, radius_cells):
@@ -144,15 +154,21 @@ def apply(s, residuals, obs_by_id, lat, meta, p, log=print):
         if lat["elev"][r0, c0] <= -30000:
             continue
         conf = float(o.get("confidence") if o.get("confidence") is not None else 0.6)
-        m, dist, win = similar(lat, r0, c0, p, radius_cells)
+        tier = r.get("tier") or o.get("source_tier")
+        tw = TIER_WEIGHT.get(tier, 1.0)
+        prec = r.get("precision_m", o.get("spatial_precision_m"))
+        prec = None if prec is None else float(min(max(float(prec), PRECISION_M[0]), PRECISION_M[1]))
+        prec_cells = (prec or 0.0) / cell_m
+        m, dist, win = similar(lat, r0, c0, p, radius_cells + prec_cells)
         if not m.any():
             continue
-        w = np.where(m, p["assim_weight"] * conf * (1 - frac) * np.exp(-dist / radius_cells), 0.0).astype(np.float32)
+        decay = np.exp(-np.maximum(dist - prec_cells, 0.0) / radius_cells)
+        w = np.where(m, p["assim_weight"] * tw * conf * (1 - frac) * decay, 0.0).astype(np.float32)
         sub = {k: v[win] for k, v in s.items() if k != "cls"}
         nudge(sub, m, w, cls_name, p)
         for k, v in sub.items():
             s[k][win] = v.astype(s[k].dtype)
         out.append({"obs_id": r.get("obs_id"), "observed": cls_name, "cells": int(m.sum()), "max_w": round(float(w.max()), 3),
-                    "cell": [r0, c0], "radius_km": p["assim_radius_km"]})
+                    "cell": [r0, c0], "radius_km": p["assim_radius_km"], "precision_m": prec, "tier": tier, "tier_w": tw})
     log("assimilate: %d reports nudged the state (%d cells in all)" % (len(out), sum(x["cells"] for x in out)))
     return out

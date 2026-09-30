@@ -6,7 +6,8 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
   days       days since the last fresh snowfall (capped at 250)
   hn24_cm    yesterday's new snow on the cell (MRMS liquid x snow fraction from the freezing level x SLR from temperature)
   solar_mj   MJ/m2 on the cell since the last fresh snow (snow/solar.py, NDFD sky cover)
-  wind_h     hours of NDFD 10 m wind above wind_mph since the last fresh snow
+  wind_h     hours of NDFD 10 m wind above the surface's transport threshold since the last fresh snow (wind_mph_dry
+             for dry snow, wind_mph_wet for a wet or melt-freeze surface; crusts never transport)
   wind_lee_h / wind_wwd_h   of those, the hours the cell was in the lee (aspect within wind_sector of the downwind
              direction: loading) or windward (facing the wind: scouring), from NDFD wind direction
   rain       1 when rain fell on the cell since the last fresh snow; rain_refrozen 1 once the band min has dropped
@@ -21,8 +22,9 @@ Rules and parameters: snow_config.yaml `state` (all placeholders until the resid
 Class priority, first match wins: no_snow, fresh, dust_on_crust, tree_debris, isothermal, melt_freeze, rain_crust,
 rain_wet, sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (the storm day and the next),
 settled (powder 2-7 days old), settled_late (8-14 days), old (over 14 days with no crust trigger: the north-facing
-pocket). The day's sun is also cut by the terrain's horizon (lattice `horizon`), the snow's albedo ages from fresh,
-and under a canopy part of what the dark trees absorb reaches the snow as longwave (canopy_lw_fraction).
+pocket). The day's sun is also cut by the terrain's horizon (lattice `horizon`), the snow's albedo ages from fresh
+(USACE 1956 decay, faster when the surface melts), and under a canopy part of what the dark trees absorb reaches the
+snow as longwave (canopy_lw_fraction).
 
 Per cell before the rules: the band temperatures are lapsed from the band's sites to the cell's elevation
 (lapse_c_per_km); the day's solar is cut by the canopy (canopy_solar_tau) and counts toward a sun crust only in
@@ -48,6 +50,8 @@ CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "me
 CID = {c: i for i, c in enumerate(CLASSES)}
 CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
 WET = CID["rain_wet"]
+WET_SURFACE = (CID["rain_wet"], CID["melt_freeze"], CID["isothermal"])          # transport only above wind_mph_wet
+NO_TRANSPORT = (CID["sun_crust"], CID["rain_crust"])                             # a crust does not blow around
 OLD_DAYS = 14
 PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
            "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
@@ -84,6 +88,16 @@ def prev_shape(s):
     return s["cls"].shape
 
 
+def albedo_aged(days, cls, tmax_c, p):
+    """USACE (1956) snow albedo decay as in VIC and FSM: albedo_fresh x A^(t^B), the cold pair (A, B) where the day's
+    max stays below 0 C, the melting pair where it does not (melt roughens and wets the surface faster than dry aging)"""
+    t = np.asarray(days, np.float32)
+    melting = np.asarray(tmax_c, np.float32) >= 0.0
+    a = np.where(melting, p["albedo_melt_a"], p["albedo_cold_a"]).astype(np.float32)
+    b = np.where(melting, p["albedo_melt_b"], p["albedo_cold_b"]).astype(np.float32)
+    return (p["albedo_fresh"] * a ** (t ** b)).astype(np.float32)
+
+
 def step(s, f, lat, p, scfg):
     """advance one day. f: forcing dict of per-cell arrays (see day_forcing); lat: dict of lattice arrays"""
     valid = lat["elev"] != -32768
@@ -103,7 +117,7 @@ def step(s, f, lat, p, scfg):
     under = p["canopy_solar_tau"] + p["canopy_lw_fraction"] * (1 - p["canopy_solar_tau"])   # sun through, plus longwave off the trees
     solar_cell = np.nan_to_num(f["solar_mj"], nan=0.0) * ((1 - canopy) + canopy * under)
     warm = np.clip((tmax - p["crust_tmin_c"]) / max(p["crust_tfull_c"] - p["crust_tmin_c"], 0.1), 0, 1)
-    albedo = np.clip(p["albedo_fresh"] - p["albedo_decay_per_day"] * s["days"].astype(np.float32), p["albedo_min"], p["albedo_fresh"])
+    albedo = np.clip(albedo_aged(s["days"], s["cls"], tmax, p), p["albedo_min"], p["albedo_fresh"])
     absorbed = (1 - albedo) / (1 - p["albedo_ref"])                                       # 1 at the reference albedo
     solar_crusting = solar_cell * warm * absorbed
     slr = np.clip(p["slr_at_0c"] + p["slr_per_c"] * np.maximum(-t_mean, 0), p["slr_at_0c"], p["slr_max"])
@@ -112,9 +126,18 @@ def step(s, f, lat, p, scfg):
     fresh = hn24 >= p["fresh_cm"]
     days = np.where(fresh, 0, np.minimum(s["days"].astype(np.int32) + 1, 250))
     solar_mj = np.where(fresh, 0, s["solar_mj"] + solar_crusting)
-    wind_h = np.where(fresh, 0, s["wind_h"] + np.nan_to_num(f["wind_h"], nan=0.0))
-    wind_lee_h = np.where(fresh, 0, s.get("wind_lee_h", 0) + np.nan_to_num(f.get("wind_lee_h", 0.0), nan=0.0))
-    wind_wwd_h = np.where(fresh, 0, s.get("wind_wwd_h", 0) + np.nan_to_num(f.get("wind_wwd_h", 0.0), nan=0.0))
+    # the day's transporting hours depend on yesterday's surface: dry snow moves at wind_mph_dry, a wet or melt-freeze
+    # surface at wind_mph_wet, a crust not at all (Li & Pomeroy 1997); the forcing carries both counts
+    wet = np.isin(s["cls"], WET_SURFACE)
+    crust = np.isin(s["cls"], NO_TRANSPORT)
+
+    def todays(key):
+        dry = np.nan_to_num(f.get(key, 0.0), nan=0.0)
+        w = np.nan_to_num(f.get(key + "_wet", dry), nan=0.0)
+        return np.where(crust, 0.0, np.where(wet, w, dry))
+    wind_h = np.where(fresh, 0, s["wind_h"] + todays("wind_h"))
+    wind_lee_h = np.where(fresh, 0, s.get("wind_lee_h", 0) + todays("wind_lee_h"))
+    wind_wwd_h = np.where(fresh, 0, s.get("wind_wwd_h", 0) + todays("wind_wwd_h"))
     rained_today = rain_in >= p["rain_in"]
     rain = np.where(fresh, 0, np.maximum(s["rain"], rained_today)).astype(np.uint8)
     refrozen = np.where(fresh, 0, np.maximum(s.get("rain_refrozen", np.zeros(rain.shape, np.uint8)), (rain == 1) & (tmin < p["rain_refreeze_tmin_c"]))).astype(np.uint8)
@@ -263,9 +286,11 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     f["cloud_night"] = _mean_grid(sky, night_idx, latg, long_, 0.01)
     f["td_night_c"] = _mean_grid(td, _steps_in(td, day, p["cloud_night_hours"], tz_offset_h) if td else [], latg, long_, 5 / 9.0, -32 * 5 / 9.0)
     f["wind_night_ms"] = _mean_grid(ws, _steps_in(ws, day, p["cloud_night_hours"], tz_offset_h) if ws else [], latg, long_, 0.44704)
-    wh = np.zeros(latg.shape, np.float32)
-    lee = np.zeros(latg.shape, np.float32)
-    wwd = np.zeros(latg.shape, np.float32)
+    # hours above each transport threshold (dry snow, wet surface); step() picks per cell by yesterday's surface
+    thr = {"": p["wind_mph_dry"], "_wet": p["wind_mph_wet"]}
+    wh = {k: np.zeros(latg.shape, np.float32) for k in thr}
+    lee = {k: np.zeros(latg.shape, np.float32) for k in thr}
+    wwd = {k: np.zeros(latg.shape, np.float32) for k in thr}
     wd = nd.get("wdir") or {}
     aspect = lat["aspect"].astype(np.float32)
     if ws:
@@ -279,12 +304,14 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
                 k = (np.round(np.nan_to_num(d, nan=0.0) / 45.0).astype(np.int64)) % 8
                 sxk = np.take_along_axis(lat["sx"].astype(np.float32), k[None, ...], axis=0)[0]
                 speed = speed * np.clip(1.0 - p["wind_sx_per_deg"] * sxk, p["wind_expo_min"], p["wind_expo_max"])
-            strong = speed >= p["wind_mph"]
-            wh += 3.0 * strong
-            if d is not None:
-                lee += 3.0 * (strong & aspect_within(aspect, d + 180.0, p["wind_sector_deg"]))
-                wwd += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
-    f["wind_h"], f["wind_lee_h"], f["wind_wwd_h"] = wh, lee, wwd
+            for k, mph in thr.items():
+                strong = speed >= mph
+                wh[k] += 3.0 * strong
+                if d is not None:
+                    lee[k] += 3.0 * (strong & aspect_within(aspect, d + 180.0, p["wind_sector_deg"]))
+                    wwd[k] += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
+    for k in thr:
+        f["wind_h" + k], f["wind_lee_h" + k], f["wind_wwd_h" + k] = wh[k], lee[k], wwd[k]
     # temperature by zone x band from SNOTEL, NDFD max/min where no site
     sn = snotel_day(daily_next, day, tz_offset_h, zone_full, band_full, meta, log)
     fc = (daily.get("forecast") or {}).get("grids") or {}
@@ -302,6 +329,8 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
         if tf:
             f["tmax_c"], f["tmin_c"], f["tmin_resid_c"] = tf["tmax_c"], tf["tmin_c"], tf["tmin_resid_c"]
             f["site_elev_m"] = np.full(latg.shape, np.nan, np.float32)          # already at the cell's elevation
+            f["tfield"] = {"n": tf["n"], "loo_mae": tf.get("loo_mae"), "lapse_min": tf.get("lapse_min"),
+                           "pooled_lapse_min": tf.get("pooled_lapse_min"), "inversions": tf.get("inversions")}
     except Exception as e:  # noqa: BLE001
         log("state: station temperature field failed (%r); band means used" % e)
     # snow depth: the next day's SNODAS (dated this day) else this day's
@@ -309,10 +338,13 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     f["depth_in"] = forcing.sample(sd["depth"], latg, long_).astype(np.float32) if sd.get("depth") else np.full(latg.shape, np.nan, np.float32)
     # solar on the cell under the day's cloud
     t0 = time.time()
-    f["solar_mj"] = solar.daily_mj_binned(latg, long_, day, lat["slope"].astype(np.float32), lat["aspect"].astype(np.float32),
+    # direct sun cut by the terrain's horizon, diffuse sky by the sky-view factor, plus what the surrounding slopes
+    # reflect (Dozier & Frew 1990); the lattice stores svf in percent
+    parts = solar.daily_components_binned(latg, long_, day, lat["slope"].astype(np.float32), lat["aspect"].astype(np.float32),
                                           np.maximum(lat["elev"], 0).astype(np.float32), np.nan_to_num(cloud_day, nan=0.5), scfg)
-    if "horizon" in lat:
-        f["solar_mj"] = f["solar_mj"] * solar.terrain_factor(lat["horizon"], latg, day, scfg)
+    tf = solar.terrain_factor(lat["horizon"], latg, day, scfg, direct_share=1.0) if "horizon" in lat else 1.0
+    svf = lat["svf"].astype(np.float32) / 100.0 if "svf" in lat else 1.0
+    f["solar_mj"] = solar.terrain_irradiance(parts, tf, svf, cfg=scfg)
     f["solar_mj"][lat["elev"] == -32768] = 0
     log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, solar %.0f s"
         % (d, len(hourlies), np.nanmax(f["precip_in"]) if np.isfinite(f["precip_in"]).any() else 0,
@@ -477,6 +509,8 @@ def run(day, log=print, upload=True, force=False):
     np.savez_compressed(store.local("state/%s_cls.npz" % day.isoformat()), cls=s["cls"], hn24_cm=s["hn24_cm"].astype(np.float16))
     summ = summary(s, lat, meta, day)
     summ["prev_day"] = prev_day
+    if f.get("tfield"):
+        summ["tfield"] = f["tfield"]                    # the station field's daily check (leave-one-out MAE, lapses, inversions)
     d = day.isoformat()
     write_js("state/%s" % d, "SNOW_STATE", summ)
     write_js("state/latest", "SNOW_STATE", summ)

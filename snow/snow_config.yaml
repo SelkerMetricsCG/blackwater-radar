@@ -53,6 +53,7 @@ solar:
   cloud_a: 0.75
   cloud_b: 3.4
   step_min: 10                     # judgment call: integration step for daily totals
+  terrain_albedo: 0.5              # judgment call: albedo of the surrounding terrain for the reflected term (1 - svf) x albedo x global (Dozier & Frew 1990); snow-covered slopes with trees
 
 # Surface-state model (snow/state.py). Every value is a first-season placeholder (judgment call) until the
 # residual ledger exists; bounds and max_step are what the fit may do to it later.
@@ -61,9 +62,10 @@ state:
   dust_cm: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "hn24 between this and fresh_cm on a crust is 'dust on crust'"}
   settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
   solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
-  wind_mph: {value: 25, bounds: [15, 40], max_step: 3, source: judgment call, note: "NDFD 10 m wind speed treated as transporting snow (ridgetop winds run higher; revisit with NWAC telemetry)"}
+  wind_mph_dry: {value: 18, bounds: [10, 30], max_step: 2, source: literature, note: "NDFD 10 m wind (exposure-scaled) that transports dry snow: Li & Pomeroy 1997 mean threshold 7.7 m/s (17 mph) for dry loose snow, Guyomarc'h & Merindol 1998 down to 4 m/s for very fresh snow; ridgetop winds run higher, revisit with NWAC telemetry"}
+  wind_mph_wet: {value: 22, bounds: [15, 35], max_step: 2, source: literature, note: "the same for a wet or melt-freeze surface (rain_wet, melt_freeze, isothermal): Li & Pomeroy 1997 9.9 m/s (22 mph) wet or icy; crusts (sun_crust, rain_crust) never transport"}
   wind_sector_deg: {value: 60, bounds: [30, 90], max_step: 10, source: judgment call, note: "a cell counts as lee (loading) or windward (scouring) when its aspect is within this many degrees of the downwind or upwind direction"}
-  wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above wind_mph since the last fresh snow that make the surface wind-affected"}
+  wind_hours: {value: 6, bounds: [3, 24], max_step: 2, source: judgment call, note: "hours above the surface's transport threshold (wind_mph_dry / wind_mph_wet) since the last fresh snow that make the surface wind-affected"}
   rain_line_margin_ft: {value: 1000, bounds: [500, 2000], max_step: 250, source: literature, note: "snow level sits about this far below the HRRR freezing level"}
   rain_mix_ft: {value: 500, bounds: [200, 1000], max_step: 100, source: judgment call, note: "half-width of the mixed band around the snow level"}
   rain_in: {value: 0.1, bounds: [0.05, 0.5], max_step: 0.05, source: judgment call, note: "24 h liquid falling as rain on the cell above this makes a rain crust"}
@@ -75,7 +77,7 @@ state:
   isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
   canopy_solar_tau: {value: 0.25, bounds: [0.05, 0.6], max_step: 0.05, source: literature, note: "fraction of the sun reaching the snow under a closed canopy (Link & Marks 1999 range 0.1-0.4); cell solar = solar * ((1 - canopy) + canopy * tau)"}
   canopy_refreeze_loss: {value: 0.4, bounds: [0.1, 0.8], max_step: 0.1, source: judgment call, note: "the canopy blocks the sky, so the refreeze index is reduced by this fraction under a closed canopy"}
-  lapse_c_per_km: {value: 6.5, bounds: [4, 8], max_step: 0.5, source: literature, note: "temperature lapse from the band's SNOTEL sites to the cell's own elevation (standard atmosphere; Cascade winter storms run 5-7)"}
+  lapse_c_per_km: {value: 4.5, bounds: [3, 7], max_step: 0.5, source: literature, note: "temperature lapse from the band's SNOTEL sites to the cell's elevation when the station field is missing, and the free-air lapse the field falls back to above an inversion: Minder, Mote & Lundquist 2010 windward Cascades annual 3.9-5.2 C/km (Tmax 6.1, Tmin 4.2)"}
   crust_tmin_c: {value: -8, bounds: [-14, -2], max_step: 1, source: judgment call, note: "sun on a surface whose band max is at or below this makes no crust (sublimation, no melt)"}
   crust_tfull_c: {value: 0, bounds: [-4, 4], max_step: 1, source: judgment call, note: "band max at or above this: all the day's solar counts toward the crust"}
   rain_refreeze_tmin_c: {value: -1, bounds: [-4, 1], max_step: 0.5, source: judgment call, note: "a rain-soaked surface becomes a rain crust once the band min drops below this; until then it is rain_wet"}
@@ -83,7 +85,13 @@ state:
   canopy_lw_fraction: {value: 0.35, bounds: [0.1, 0.6], max_step: 0.05, source: judgment call, note: "of the sun a canopy absorbs, the fraction that reaches the snow as longwave off the warm trees (spring tree wells)"}
   albedo_fresh: {value: 0.85, bounds: [0.75, 0.9], max_step: 0.02, source: literature, note: "albedo of fresh snow"}
   albedo_min: {value: 0.6, bounds: [0.45, 0.7], max_step: 0.03, source: literature, note: "albedo of old, dirty or wet snow"}
-  albedo_decay_per_day: {value: 0.03, bounds: [0.01, 0.06], max_step: 0.005, source: judgment call, note: "albedo lost per day since the storm (faster in spring in reality)"}
+  # literature: US Army Corps of Engineers (1956) snow albedo decay as used in VIC and FSM: albedo = albedo_fresh * A^(t^B),
+  # t days since a resetting snowfall; cold (band max below 0 C) A 0.94, B 0.58; melting A 0.82, B 0.46. At 8 days 0.69 cold,
+  # 0.51 melting (the linear 0.03/day it replaced gave 0.61 for both). Floored at albedo_min.
+  albedo_cold_a: {value: 0.94, bounds: [0.85, 0.98], max_step: 0.01, source: literature, note: "USACE 1956 cold-snow decay base"}
+  albedo_cold_b: {value: 0.58, bounds: [0.3, 0.8], max_step: 0.04, source: literature, note: "USACE 1956 cold-snow decay exponent"}
+  albedo_melt_a: {value: 0.82, bounds: [0.7, 0.9], max_step: 0.01, source: literature, note: "USACE 1956 melting-snow decay base"}
+  albedo_melt_b: {value: 0.46, bounds: [0.3, 0.7], max_step: 0.04, source: literature, note: "USACE 1956 melting-snow decay exponent"}
   albedo_ref: {value: 0.75, bounds: [0.7, 0.8], max_step: 0.02, source: convention, note: "the albedo at which solar_crust_mj means what it says; absorbed energy is scaled by (1 - albedo) / (1 - albedo_ref)"}
   wind_sx_per_deg: {value: 0.02, bounds: [0.005, 0.04], max_step: 0.005, source: judgment call, note: "wind speed multiplier is 1 - this x Winstral Sx (deg) toward the wind: +20 deg sheltered -> 0.6, -10 deg exposed -> 1.2"}
   wind_expo_min: {value: 0.3, bounds: [0.1, 0.6], max_step: 0.05, source: judgment call, note: "floor of the exposure multiplier"}
@@ -91,6 +99,8 @@ state:
   tfield_min_stations: {value: 20, bounds: [10, 60], max_step: 5, source: judgment call, note: "stations with a full day of readings needed before the station field replaces the band means"}
   tfield_min_per_zone: {value: 6, bounds: [4, 12], max_step: 1, source: judgment call, note: "stations in a zone (spanning 500 m of elevation) for its own lapse fit; else the pooled fit"}
   tfield_idw_km: {value: 40, bounds: [15, 80], max_step: 5, source: judgment call, note: "reach of the residual interpolation (inverse distance squared)"}
+  tfield_vertical_k: {value: 15, bounds: [5, 30], max_step: 3, source: literature, note: "elevation-aware distance for the residual interpolation, d^2 = dh^2 + (k dz)^2: a 300 m elevation difference counts like 4.5 km, so a valley cold-pool residual does not climb the ridges (Frei 2014 non-Euclidean distance; Magnusson et al. 2014 3-D localisation)"}
+  tfield_inversion_lapse: {value: -2.0, bounds: [-4, 0], max_step: 0.5, source: literature, note: "a night lapse (C/km, + = inversion) above this means the valley stations flattened the fit: refit on the stations above the inversion top and let the valley residuals carry the pool (Pages & Miro 2010; Frei 2014)"}
   tree_load_tmin_c: {value: -3, bounds: [-6, -1], max_step: 1, source: judgment call, note: "snow sticks to the canopy when the band mean temperature is between this"}
   tree_load_tmax_c: {value: 1.5, bounds: [0, 3], max_step: 0.5, source: judgment call, note: "and this (wet snow near 0 C loads trees; cold dry snow blows through)"}
   tree_load_full_cm: {value: 25, bounds: [10, 50], max_step: 5, source: judgment call, note: "sticky new snow that fills the canopy load (load = 1)"}

@@ -54,11 +54,51 @@ def test_station_field_finds_an_inversion(monkeypatch):
             t = s_["tmin"] if h < 6 else s_["tmax"]
             recs.append({"id": s_["id"], "src": "NWS", "lat": s_["lat"], "lon": s_["lon"], "elev": s_["elev"], "temp": t * 9 / 5 + 32})
         hourlies.append({"stations": recs})
-    out = tfield.fields(hourlies, None, dt.date(2026, 1, 15), -8, lat, meta, latg, long_, lat["zone"], lat["band"], p, lambda *a: None)
-    assert out and out["n"] == 20 and out["lapse_min"]["1130"] > 5          # +6 C/km: inverted
+    lines = []
+    out = tfield.fields(hourlies, None, dt.date(2026, 1, 15), -8, lat, meta, latg, long_, lat["zone"], lat["band"], p, lines.append)
+    # the whole network is inverted (+6 C/km), so nothing sits above the inversion top: the night fit falls back to the
+    # free-air lapse anchored at the warmest bin, and the valley stations carry the pool as negative residuals
+    assert out and out["n"] == 20 and out["lapse_min"]["1130"] == pytest.approx(-p["lapse_c_per_km"])
+    assert "1130" in out["inversions"] and "anchored" in out["inversions"]["1130"]
     assert out["tmin_c"][0, 0] < out["tmin_c"][9, 0] and abs(out["tmax_c"][0, 0] - 6.0) < 0.3
-    assert abs(out["tmin_resid_c"]).max() < 0.5                             # a perfectly linear network leaves no residual
+    assert out["tmin_resid_c"][0, 0] < -8 and abs(out["tmin_resid_c"][9, 0]) < 1.0
+    assert out["loo_mae"]["n"] == 20 and out["loo_mae"]["tmax"] < 0.2 and any("leave-one-out" in ln for ln in lines)
     assert tfield.fields(hourlies[:5], None, dt.date(2026, 1, 15), -8, lat, meta, latg, long_, lat["zone"], lat["band"], p, lambda *a: None) is None
+
+
+def test_night_fit_refits_above_a_valley_pool():
+    from snow import tfield
+    p, _ = state.load_params()
+    rng = np.random.default_rng(1)
+    elev = np.linspace(400, 2400, 21)
+    # free-air lapse -5 C/km above 1000 m, a 6 C cold pool below it
+    t = 2.0 - 5.0 * elev / 1000.0 + rng.normal(0, 0.2, elev.size)
+    t[elev < 1000] -= 6.0
+    a, b, note = tfield._fit_night(elev, t, p)
+    assert note and "refit above" in note and -5.6 < b < -4.4
+    # a plain profile is left alone
+    a, b, note = tfield._fit_night(elev, 2.0 - 5.0 * elev / 1000.0, p)
+    assert note is None and b == pytest.approx(-5.0, abs=0.05)
+
+
+def test_residual_distance_is_elevation_aware():
+    from snow import tfield
+    p, _ = state.load_params()
+    k = p["tfield_vertical_k"]
+    # one station at (0, 0, 1000 m) with residual -6: two cells 2 km away, one at its height and one 500 m higher
+    qx, qy, qz = np.array([2000.0, 2000.0]), np.array([0.0, 0.0]), np.array([1000.0, 1500.0])
+    (r,) = tfield._idw([0.0], [0.0], [1000.0], [np.array([-6.0])], qx, qy, qz, 40_000.0, k)
+    assert r[0] == pytest.approx(-6.0) and r[1] == pytest.approx(-6.0)       # one station: it is the only value
+    # add a second station at 1500 m with residual 0, 2 km the other way: the high cell listens to it, the low cell to the first
+    (r,) = tfield._idw([0.0, -2000.0], [0.0, 0.0], [1000.0, 1500.0], [np.array([-6.0, 0.0])], qx, qy, qz, 40_000.0, k)
+    assert r[0] < -5.0 and r[1] > -2.0                                         # k 15: 500 m counts like 7.5 km
+    # the 2-D windowed path agrees with the point path
+    X, Y = np.meshgrid(np.arange(-5000.0, 5001.0, 1000.0), np.arange(5000.0, -5001.0, -1000.0))
+    Z = np.full(X.shape, 1000.0)
+    Z[:, 8:] = 1500.0
+    (g,) = tfield._idw([0.0, -2000.0], [0.0, 0.0], [1000.0, 1500.0], [np.array([-6.0, 0.0])], X, Y, Z, 40_000.0, k)
+    (pnt,) = tfield._idw([0.0, -2000.0], [0.0, 0.0], [1000.0, 1500.0], [np.array([-6.0, 0.0])], X.ravel(), Y.ravel(), Z.ravel(), 40_000.0, k)
+    assert np.allclose(g.ravel(), pnt, atol=1e-4)
 
 
 def test_settled_split_and_albedo_aging():
@@ -110,3 +150,37 @@ def test_wind_exposure_scales_the_speed(tmp_path, monkeypatch):
     p, scfg = state.load_params()
     f = state.day_forcing(day, lat, meta, latlon, -8, scfg, p, lambda *a: None)
     assert f["wind_h"][0, 0] == 15 and f["wind_h"][1, 0] == 0 and f["wind_h"][2, 0] == 15     # sheltered row drops below the threshold
+
+
+def test_wind_threshold_depends_on_the_surface():
+    """dry snow transports above wind_mph_dry, a wet surface only above wind_mph_wet, a crust never (Li & Pomeroy 1997)"""
+    from tests.test_snow_state import _lattice, _forcing
+    p, scfg = state.load_params()
+    lat = _lattice()
+    valid = lat["elev"] != -32768
+
+    def surface(cls_name):
+        s = state.new_state(lat["elev"].shape, np.full((4, 4), 60.0), p["min_depth_in"], valid)
+        s["cls"][valid] = state.CID[cls_name]
+        s["days"][:] = 5
+        return s
+    # a day with 9 h above the dry threshold, of which 3 h above the wet one
+    f = _forcing((4, 4), wind_h=9.0, wind_h_wet=3.0)
+    assert state.step(surface("settled"), f, lat, p, scfg)["wind_h"][2, 0] == 9
+    assert state.step(surface("melt_freeze"), f, lat, p, scfg)["wind_h"][2, 0] == 3
+    assert state.step(surface("rain_crust"), f, lat, p, scfg)["wind_h"][2, 0] == 0
+    assert state.step(surface("rain_crust"), f, lat, p, scfg)["cls"][2, 0] != state.CID["wind"]
+    # without the wet count in the forcing (old replay caches) the dry count stands in
+    f1 = _forcing((4, 4), wind_h=9.0)
+    assert state.step(surface("melt_freeze"), f1, lat, p, scfg)["wind_h"][2, 0] == 9
+
+
+def test_albedo_decays_faster_when_melting():
+    p, _ = state.load_params()
+    days = np.array([0, 1, 8, 30], np.uint8)
+    cold = state.albedo_aged(days, None, np.full(4, -3.0), p)
+    melt = state.albedo_aged(days, None, np.full(4, 2.0), p)
+    assert cold[0] == pytest.approx(p["albedo_fresh"]) and melt[0] == pytest.approx(p["albedo_fresh"])
+    assert cold[2] == pytest.approx(0.85 * 0.94 ** (8 ** 0.58), rel=1e-3) and melt[2] == pytest.approx(0.85 * 0.82 ** (8 ** 0.46), rel=1e-3)
+    assert (melt[1:] < cold[1:]).all() and (np.diff(cold) < 0).all()
+    assert 0.65 < cold[2] < 0.72 and 0.48 < melt[2] < 0.55                 # 0.69 cold, 0.51 melting at 8 days (lit_review item 4)

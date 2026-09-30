@@ -40,6 +40,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   (bounded parameter fit on the ledger's residuals; `snow_fit.yml` by hand proposes, `--apply` from a session changes
   `snow_config.yaml` and writes `param` ledger records), `snow/sunhours.py` (sunrise and sunset on terrain at a point, from
   the lattice's 16-direction horizons). `snow/tfield.py` builds each day's temperature field from the station network.
+  Literature review and the ranked list of what to add next: `snow_research/lit_review.md` (2026-09-30).
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)

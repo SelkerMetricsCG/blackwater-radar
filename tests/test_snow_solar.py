@@ -86,3 +86,86 @@ def test_binned_daily_matches_direct_within_a_few_percent():
     assert ((err < 0.6) | (rel < 0.08)).all() and np.median(rel) < 0.03      # a 5 deg aspect bin on a steep slope
     flat_direct = solar.daily_mj(47.0, -121.0, d, 0, -1, 1000)
     assert abs(solar.daily_mj_binned(47.0, -121.0, d, 30.0, -1.0, 1000.0) - flat_direct) < 0.05 * flat_direct   # flat ignores slope
+
+
+def _cells(n=150, seed=2):
+    rng = np.random.default_rng(seed)
+    lat = rng.uniform(45.5, 48.9, n).astype(np.float32)
+    lon = rng.uniform(-124.5, -120.2, n).astype(np.float32)
+    slope = rng.uniform(0, 45, n).astype(np.float32)
+    aspect = rng.uniform(0, 360, n).astype(np.float32)
+    aspect[:15] = -1
+    alt = rng.uniform(200, 3000, n).astype(np.float32)
+    return lat, lon, slope, aspect, alt
+
+
+def test_components_sum_to_binned_total():
+    d = dt.date(2026, 2, 10)
+    lat, lon, slope, aspect, alt = _cells()
+    for cloud in (0.0, np.linspace(0, 1, len(lat)).astype(np.float32)):
+        parts = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, cloud)
+        total = solar.daily_mj_binned(lat, lon, d, slope, aspect, alt, cloud)
+        assert set(parts) == {"direct", "diffuse", "global_flat"}
+        assert all(v.dtype == np.float32 and v.shape == (len(lat),) for v in parts.values())
+        assert np.allclose(parts["direct"] + parts["diffuse"], total, rtol=1e-5, atol=1e-4)
+        assert (parts["direct"] >= 0).all() and (parts["diffuse"] >= 0).all() and (parts["global_flat"] > 0).all()
+    # flat cells: global_flat is the cell's own total
+    flat = aspect < 0
+    assert np.allclose(parts["global_flat"][flat], (parts["direct"] + parts["diffuse"])[flat], rtol=1e-5, atol=1e-4)
+    # the instant version agrees with the daily one on the split
+    inst = solar.irradiance_parts(LAT, LON, dt.datetime(2026, 2, 10, 20, 0), 30, 180, 1500, cloud=0.4)
+    assert inst["direct"] + inst["diffuse"] == pytest.approx(
+        solar.irradiance(LAT, LON, dt.datetime(2026, 2, 10, 20, 0), 30, 180, 1500, cloud=0.4), rel=1e-9)
+
+
+def test_shaded_cell_keeps_the_diffuse_part():
+    d = dt.date(2026, 2, 10)
+    lat, lon, slope, aspect, alt = _cells()
+    parts = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, 0.0)
+    shaded = solar.terrain_irradiance(parts, np.zeros(len(lat), np.float32), 1.0, terrain_albedo=0.5)
+    assert shaded.dtype == np.float32 and np.allclose(shaded, parts["diffuse"], rtol=1e-6)
+    open_sky = solar.terrain_irradiance(parts, 1.0, 1.0, terrain_albedo=0.5)
+    assert np.allclose(open_sky, parts["direct"] + parts["diffuse"], rtol=1e-6)
+
+
+def test_half_sky_view_halves_diffuse_and_adds_reflection():
+    d = dt.date(2026, 2, 10)
+    lat, lon, slope, aspect, alt = _cells()
+    parts = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, 0.2)
+    tf = np.full(len(lat), 0.7, np.float32)
+    got = solar.terrain_irradiance(parts, tf, 0.5, terrain_albedo=0.4)
+    want = parts["direct"] * 0.7 + 0.5 * parts["diffuse"] + 0.5 * 0.4 * parts["global_flat"]
+    assert np.allclose(got, want, rtol=1e-6)
+    # the config default (0.5 when the key is absent) is read when no albedo is given
+    cfg = dict(solar.load_config())
+    cfg.pop("terrain_albedo", None)
+    dflt = solar.terrain_irradiance(parts, tf, 0.5, cfg=cfg)
+    assert np.allclose(dflt, parts["direct"] * 0.7 + 0.5 * parts["diffuse"] + 0.25 * parts["global_flat"], rtol=1e-6)
+    cfg["terrain_albedo"] = 0.8
+    assert np.allclose(solar.terrain_irradiance(parts, tf, 0.5, cfg=cfg),
+                       parts["direct"] * 0.7 + 0.5 * parts["diffuse"] + 0.4 * parts["global_flat"], rtol=1e-6)
+
+
+def test_full_cloud_leaves_only_diffuse():
+    d = dt.date(2026, 3, 1)
+    lat, lon, slope, aspect, alt = _cells()
+    clear = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, 0.0)
+    cloudy = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, 1.0)
+    assert np.abs(cloudy["direct"]).max() < 1e-6 and (cloudy["diffuse"] > 0).all()
+    assert np.allclose(cloudy["diffuse"], 0.25 * (clear["direct"] + clear["diffuse"]), rtol=1e-5, atol=1e-4)
+    half = solar.daily_components_binned(lat, lon, d, slope, aspect, alt, 0.5)
+    assert np.allclose(half["direct"], 0.5 * clear["direct"], rtol=1e-5, atol=1e-4)
+    share = lambda p: p["diffuse"] / (p["direct"] + p["diffuse"])            # noqa: E731
+    sunny = clear["direct"] > 1.0
+    assert (share(clear)[sunny] < share(half)[sunny]).all() and (share(half)[sunny] < 1.0).all()
+    assert np.allclose(share(cloudy), 1.0)                                    # the diffuse share rises under cloud
+
+
+def test_january_north_slope_is_mostly_diffuse():
+    d = dt.date(2026, 1, 15)
+    parts = solar.daily_parts(LAT, LON, d, np.array([30.0, 0.0, 30.0]), np.array([0.0, -1.0, 180.0]), 1500)
+    north, flat, south = (dict((k, v[i]) for k, v in parts.items()) for i in range(3))
+    assert north["direct"] < 0.25 * north["diffuse"] and north["direct"] < 0.1 * south["direct"]
+    assert 0.9 < north["diffuse"] / flat["diffuse"] < 1.0                   # (1 + cos 30) / 2 = 0.933
+    assert flat["direct"] + flat["diffuse"] == pytest.approx(flat["global_flat"], rel=1e-9)
+    assert north["direct"] + north["diffuse"] == pytest.approx(solar.daily_mj(LAT, LON, d, 30, 0, 1500), rel=1e-9)

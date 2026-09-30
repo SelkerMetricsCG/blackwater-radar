@@ -19,6 +19,10 @@ SURFACE = CLASSES + ["unknown"]
 STATUS = ["active", "dormant", "healed"]
 BANDS = ["below", "near", "above"]
 ASPECTS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "all"]
+MOISTURE = ["dry", "moist", "wet"]
+WIND_EFFECT = ["none", "light", "heavy"]
+TIERS = ["center_product", "pro_obs", "public_obs", "trip"]
+GRAINS = ["SH", "FC", "DH", "MFcr", "IFrc", "PP", "DF", "RG"]      # CAAML grain codes, NWAC's layer ids use them lowercased
 
 EXTRACT_SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -26,7 +30,8 @@ EXTRACT_SCHEMA = {
     "properties": {
         "observations": {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
-            "required": ["source", "source_id", "obs_date", "location", "lat", "lon", "zone", "elevation_ft", "band", "aspects", "surface", "confidence", "quote"],
+            "required": ["source", "source_id", "obs_date", "location", "lat", "lon", "zone", "elevation_ft", "band", "aspects", "surface",
+                         "moisture", "wind_effect", "spatial_precision_m", "source_tier", "confidence", "quote"],
             "properties": {
                 "source": {"type": "string", "enum": ["nac_obs", "nwac_product", "trip", "other"]},
                 "source_id": {"type": "string"},
@@ -38,16 +43,21 @@ EXTRACT_SCHEMA = {
                 "band": {"type": ["string", "null"], "enum": BANDS + [None]},
                 "aspects": {"type": "array", "items": {"type": "string", "enum": ASPECTS}},
                 "surface": {"type": "string", "enum": SURFACE},
+                "moisture": {"type": ["string", "null"], "enum": MOISTURE + [None]},
+                "wind_effect": {"type": ["string", "null"], "enum": WIND_EFFECT + [None]},
+                "spatial_precision_m": {"type": ["number", "null"]},
+                "source_tier": {"type": "string", "enum": TIERS},
                 "confidence": {"type": "number"},
                 "quote": {"type": "string"}}}},
         "layers": {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
-            "required": ["name", "status", "zones", "bands", "buried", "last", "evidence", "summary"],
+            "required": ["name", "status", "zones", "bands", "buried", "grain", "last", "evidence", "summary"],
             "properties": {
                 "name": {"type": "string"}, "status": {"type": "string", "enum": STATUS},
                 "zones": {"type": "array", "items": {"type": "string"}},
                 "bands": {"type": "array", "items": {"type": "string", "enum": BANDS}},
-                "buried": {"type": ["string", "null"]}, "last": {"type": "string"},
+                "buried": {"type": ["string", "null"]}, "grain": {"type": ["string", "null"], "enum": GRAINS + [None]},
+                "last": {"type": "string"},
                 "evidence": {"type": "array", "items": {"type": "string"}},
                 "summary": {"type": "string"}}}},
         "notes": {"type": "array", "items": {
@@ -73,11 +83,23 @@ EXTRACT_SYSTEM = """You read avalanche-center forecast products and public field
 Olympics and turn them into structured records for a snow-surface model that predicts ski conditions (powder, wind
 effect, sun and rain crusts, melt-freeze). You do not forecast and you do not invent: every record quotes the text it
 came from, and anything the text does not say is null. Surface classes: """ + ", ".join(CLASSES) + """ (unknown when
-the text does not describe the surface). Elevation bands: below / near / above treeline. Persistent weak layers are
-tracked by the name the forecasters use (usually the date it was buried, e.g. "Dec 12 facets"): match today's
-mentions to the known layers you are given, keep their names, and add a snapshot only for layers mentioned today
-or whose status changed. Notes are for things a rule-based model would miss (e.g. "east-slope zones crusted faster
-than the sun alone explains, three reports"), each with the product or observation ids as evidence."""
+the text does not describe the surface). Beside the class, record what the text says separately: `moisture` (dry,
+moist, wet), `wind_effect` (none, light, heavy; "wind-affected but still soft" is light wind_effect with a soft
+class), each null when not stated. Elevation bands: below / near / above treeline.
+`spatial_precision_m` says how well the report is placed: about 100 when the text gives coordinates or a probe or
+pit site, 300 for a named slope, run or ridge, 1500 for a named place, drainage or pass, null when only the zone is
+known. `source_tier`: center_product for a forecast product or other center writing; pro_obs for an observation by a
+professional observer, guide, patroller or forecaster (say so in the text or the observer field); public_obs for any
+other public observation; trip for Chris's own trip log. `confidence` is your confidence that the surface class is
+what the text describes at that place: lower it for hedged phrasing ("may", "possibly", "reportedly", "likely",
+second-hand accounts) and for reports that name only a zone.
+Persistent weak layers are tracked by the name the forecasters use (usually the date it was buried, e.g. "Dec 12
+facets") plus `buried` (ISO date) and `grain` (CAAML code: """ + ", ".join(GRAINS) + """) when known; buried date and
+grain make the layer's key (like NWAC's own layer ids, 20220130_fcsf), so "Jan 30 facets" and "the late-January
+facet-crust sandwich" resolve to one layer. Match today's mentions to the known layers you are given, keep their
+names, dates and grains, and add a snapshot only for layers mentioned today or whose status changed. Notes are for
+things a rule-based model would miss (e.g. "east-slope zones crusted faster than the sun alone explains, three
+reports"), each with the product or observation ids as evidence."""
 
 BRIEF_SYSTEM = """You write the daily snow-conditions brief for backcountry skiers in the Washington Cascades and Olympics from
 three inputs: the model's state summary (class fractions by zone, elevation band and aspect), the ledger of dated

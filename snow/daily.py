@@ -54,8 +54,8 @@ def run(day, log=print, upload=True):
     products = day_products(d, log)
     obs = day_obs(d, log)
     log("daily %s: ledger %d records, %d products, %d obs files, state %s" % (d, len(recs), len(products), len(obs), "yes" if summ else "none"))
-    # trips: Chris's own records for the day
-    trips_today = [t for t in ledger.trips(log) if t.get("obs_date") == d]
+    # trips: Chris's own records for the day (their tier is known by construction; older trips.json entries lack it)
+    trips_today = [dict({"source_tier": "trip"}, **t) for t in ledger.trips(log) if t.get("obs_date") == d]
     new_obs = ledger.append(recs, trips_today, d, "trip") if trips_today else []
     # pass 1: extraction
     known = ledger.layers(recs, today=d)

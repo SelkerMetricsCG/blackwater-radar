@@ -214,7 +214,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - `snow/store.py`: R2 (or local) access for the daily run: lattice, archive days, state.
 - `snow/state.py` + `snow.yml` (09:20 UTC daily, `workflow_dispatch` with a date): the surface-state model. Per cell:
   class, days since fresh snow, hn24 (MRMS liquid x snow fraction from the HRRR freezing level x SLR from band
-  temperature), solar since fresh (cloud from NDFD sky), wind hours above `wind_mph` (NDFD 10 m), rain flag,
+  temperature), solar since fresh (cloud from NDFD sky), wind hours above the surface's transport threshold (NDFD 10 m), rain flag,
   melt days, refreeze index, SNODAS depth. Classes and priority in the module docstring; parameters and their
   bounds in `snow_config.yaml` `state` (all judgment-call placeholders). Writes `<r>/snow/state/latest.npz`
   (carried forward), `<date>_cls.npz`, `<date>.json` and `latest.json` (class fractions by zone x band x aspect octant).
@@ -261,7 +261,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 ### Done (2026-09-29 evening, cloud session): replay and fit
 - `snow/replay.py`: re-runs the model offline over a date range on a subset of the lattice (`Subset`: windows around
   chosen cells, 1-D arrays the model steps directly; `day_forcing` takes a subset and locates SNOTEL sites on the full
-  lattice). Forcing cached per (day, subset, wind_mph) under `snow/work/replay/`. `python -m snow.replay --start
+  lattice). Forcing cached per (day, subset, wind thresholds) under `snow/work/replay/`. `python -m snow.replay --start
   --end --lat --lon` prints the class at a point and in its window, day by day.
 - `snow/fit.py` + `snow_fit.yml` (by hand): coordinate descent over every `state` parameter with bounds and max_step,
   loss = confidence x (1 - share of the residual's neighbourhood cells in the observed class) over every residual that
@@ -298,18 +298,34 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   to validate. Most journal sites were blocked from the cloud session, so the figures are from abstracts (each note
   lists what it could not verify).
 
-### Next, in order (from `snow_research/lit_review.md`, "Ranked adoptions")
+### Done (2026-09-30, cloud session): lit-review items 1-8
+- Wind transport by surface (`wind_mph_dry` 18, `wind_mph_wet` 22; crusts never): `day_forcing` counts hours above
+  both thresholds (`wind_h`, `wind_h_wet` and the lee/windward pairs), `step` picks per cell by yesterday's class
+  (`WET_SURFACE`, `NO_TRANSPORT`). Replay caches are keyed by both thresholds (old caches are simply rebuilt).
+- `tfield`: residuals interpolated in the elevation-aware distance d^2 = dh^2 + (k dz)^2 (`tfield_vertical_k` 15), per
+  station over its reach window on the regular lattice (no coarse grid any more); on nights whose fit is flatter than
+  `tfield_inversion_lapse` (-2 C/km) the lapse is refitted on the stations above the warmest 200 m bin, or the free-air
+  `lapse_c_per_km` is anchored there (`_fit_night`; logged as `tfield: inversions:`); daily leave-one-out MAE for max
+  and min logged (`tfield: leave-one-out MAE`) and written into the day's `SNOW_STATE` summary as `tfield`.
+  **Watch the first winter runs for this line**: 1.0-1.5 C is the literature's good range; above 2 C means the fit or
+  the reach is wrong for that day.
+- Albedo: USACE 1956 form (`albedo_cold_a/b`, `albedo_melt_a/b`, melting when the cell's max is at or above 0 C),
+  `state.albedo_aged`; `albedo_decay_per_day` removed. `lapse_c_per_km` 6.5 -> 4.5, bounds [3, 7].
+- Solar: `solar.daily_components_binned` (direct, diffuse, global on the flat; direct scaled by 1 - cloud, diffuse takes
+  the rest of the Kasten-Czeplak total) and `solar.terrain_irradiance` (direct x terrain factor + diffuse x sky-view +
+  (1 - svf) x `terrain_albedo` 0.5 x global); `day_forcing` uses them, so a walled-in north cell now gets its diffuse.
+- Observation records (`snow/llm.py` schema): `moisture`, `wind_effect`, `spatial_precision_m`, `source_tier`;
+  layers keyed by `buried` + CAAML `grain` (`ledger.layer_key`); `score.py` uses the record's precision as the
+  neighbourhood radius; `assimilate.py` weights by tier (`TIER_WEIGHT`, to move into `snow_config.yaml` once fitted).
+
+### Next, in order (from `snow_research/lit_review.md`, "Ranked adoptions"; items 1-8 done above)
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell.
-1. The cheap parameter-shape items, each an afternoon, no new data: wind threshold by surface class (item 1),
-   elevation-aware residual distance and above-inversion lapse fit in `tfield` (2, 3), the USACE albedo form (4),
-   lapse fallback 4.5 (5), diffuse term by sky-view factor (6), daily leave-one-out MAE logged by `tfield` (7),
-   the obs-record and layer-key schema fields (8).
-2. Snow level per hour from rate, wet-bulb and cold pool, with the `upside_down` storm flag (9); sun crust as absorbed
+1. Snow level per hour from rate, wet-bulb and cold pool, with the `upside_down` storm flag (9); sun crust as absorbed
    energy split from melt-freeze (10); surface hoar and facet accumulators feeding the layer ledger (11).
-3. Precipitation drift from QPF with the SNOTEL ratio (12); Gaussian assimilation kernel and a confidence field (13);
+2. Precipitation drift from QPF with the SNOTEL ratio (12); Gaussian assimilation kernel and a confidence field (13);
    cold-pool mask (14); SLR wind term (15); canopy interception (16); corn clock (17).
-4. Season two: own SWE mass balance and satellite snow line (18); kriging for the error map (19).
+3. Season two: own SWE mass balance and satellite snow line (18); kriging for the error map (19).
 
 ### Gotchas
 - The cloud session's network policy blocks api.avalanche.org and nwac.us; add them to the environment's allowed

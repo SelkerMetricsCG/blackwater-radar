@@ -1,10 +1,12 @@
 """
 Residuals: each observation record against what the model said for its place and day. A report with coordinates
 is scored over the cells within 300 m of them; one whose location text names a place in snow/places.json over the
-cells within 1.5 km; only a report with neither is scored against its zone x band x aspect group. In every case
-the cells are kept to the band and aspects the report names, and the score is the share of those cells in the
-observed class (a zone is never assumed uniform). Residual records carry both classes, the share, how the cells
-were chosen and the cell's state, so the fit and the brief can weigh them.
+cells within 1.5 km; only a report with neither is scored against its zone x band x aspect group. A report that
+carries its own `spatial_precision_m` (the extraction's placing of it) uses that as the radius instead, clipped to
+PRECISION_M. In every case the cells are kept to the band and aspects the report names, and the score is the share
+of those cells in the observed class (a zone is never assumed uniform). Residual records carry both classes, the
+share, how the cells were chosen, the precision and source tier, and the cell's state, so the fit, the assimilation
+and the brief can weigh them.
 """
 import json
 import math
@@ -16,6 +18,18 @@ from snow import forcing
 from snow.state import CLASSES, CID, octants
 
 OCT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+PRECISION_M = (100.0, 5000.0)
+
+
+def precision_m(o):
+    """a report's own spatial precision as the neighbourhood radius in m, clipped; None when it has none"""
+    v = o.get("spatial_precision_m")
+    if v is None:
+        return None
+    try:
+        return float(min(max(float(v), PRECISION_M[0]), PRECISION_M[1]))
+    except (TypeError, ValueError):
+        return None
 
 
 def zone_id_for(name, meta):
@@ -97,19 +111,21 @@ def score(obs_records, cls, state, lat, meta, log=print, radius_point_m=300.0, r
             continue
         b = bands.get(o.get("band") or "")
         aspects = o.get("aspects") or []
+        prec = precision_m(o)
+        r_point, r_place = (prec, prec) if prec is not None else (radius_point_m, radius_place_m)
         counts, n, how, filtered, radius, place = None, 0, None, False, None, None
         if o.get("lat") is not None and o.get("lon") is not None:
-            nb = neighbourhood(cls, lat, meta, o["lat"], o["lon"], radius_point_m, b, aspects)
+            nb = neighbourhood(cls, lat, meta, o["lat"], o["lon"], r_point, b, aspects)
             if nb:
                 counts, n, filtered = nb
-                how, radius = "near", radius_point_m
+                how, radius = "near", r_point
         if counts is None:
             hit = resolve_place(o.get("location"), table)
             if hit:
-                nb = neighbourhood(cls, lat, meta, hit[0], hit[1], radius_place_m, b, aspects)
+                nb = neighbourhood(cls, lat, meta, hit[0], hit[1], r_place, b, aspects)
                 if nb:
                     counts, n, filtered = nb
-                    how, radius, place = "place", radius_place_m, hit[2]
+                    how, radius, place = "place", r_place, hit[2]
         if counts is None:
             zid = zone_id_for(o.get("zone"), meta)
             if zid is not None and b is not None:
@@ -124,7 +140,8 @@ def score(obs_records, cls, state, lat, meta, log=print, radius_point_m=300.0, r
         obs_i = CID.get(o["surface"])
         frac = float(counts[obs_i] / max(counts.sum(), 1)) if obs_i is not None else 0.0
         rec = {"obs_id": o.get("id"), "observed": o["surface"], "predicted": CLASSES[pred], "frac": round(frac, 3), "match": frac >= 0.5,
-               "how": how, "n_cells": n, "filtered": filtered, "radius_m": radius, "place": place, "confidence": o.get("confidence")}
+               "how": how, "n_cells": n, "filtered": filtered, "radius_m": radius, "place": place, "confidence": o.get("confidence"),
+               "precision_m": prec, "tier": o.get("source_tier")}
         if how == "near":
             r, c = forcing.cell_of(meta, [o["lat"]], [o["lon"]])
             rec["cell"] = [int(r[0]), int(c[0])]
