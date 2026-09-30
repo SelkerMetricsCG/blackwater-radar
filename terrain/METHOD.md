@@ -66,7 +66,7 @@ A window is a run of consecutive lit steps, reported from its first to its last 
 - The map's near grid follows the view zoom: zoomed out (zoom 10-13) small ridges and gullies are averaged away,
   so the picture sharpens as you zoom in. The click readout always uses zoom 14.
 - Terrain beyond 25 km is ignored (at a 5 degree sun a 2,000 m wall shades 23 km).
-- North of 49 N there is no data (USGS stops at the border): BC terrain casts no shade.
+- North of 49 N the ring is USGS 1 arc-second too (its border tiles carry BC terrain), about 30 m, averaged to ~100 m.
 - The web-mercator sphere differs from the WGS84 ellipsoid by about 0.1 % in ground distance.
 - Apparent elevation <= 0 counts as night even where a summit would see the sun over a lower horizon.
 

@@ -3,6 +3,14 @@
 Read `CLAUDE.md` in this folder for how the site works. Two pieces of work are open (2 and 3).
 Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE.md`); read his Terminal panel afterwards.
 
+## 13. Sun & shade layer (2026-09-30): built and checked; tiles upload, push and deploy pending
+- What: Terrain > "Sun & shade": GPU terrain shadows for any date, 05:00-22:00 Pacific slider (Play, 10-min steps), click
+  readout "Direct sun here on <date>: windows (h) · flat horizon ..." in the point popup. WA Cascades box, from zoom 10.
+  Spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`; everything else in `terrain/README.md`.
+- Tiles: `terrain/work/tiles` (27,565, 1.7 GB, gitignored) -> R2 `pnw/dem/v1/` with `python terrain/upload_tiles.py`.
+- Serving: `site_worker.js` + R2 binding in `wrangler.toml` (first time the radar Worker has a script).
+- STATUS: (filled in at release)
+
 ## 11. Hillshade basemap chip: LIVE 2026-09-28 19:36 (`2c854e1`, deploy d34e91d3); merged with origin/main 19:44, push is a fast-forward
 - Fifth chip in the Basemap row (`map.html`): Esri `Elevation/World_Hillshade` (native to z16, upsampled to 17) under the
   same Esri boundaries/places and transportation reference tiles Satellite uses. Saved defaults pick it up (`bases[d.base]`).

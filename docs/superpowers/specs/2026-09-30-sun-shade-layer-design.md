@@ -27,8 +27,8 @@ Elevation tiles on R2; the page traces shadows on the GPU (WebGL2) for the exact
 - Source: the slope build's 3 m DEMs (`slope/work/dem3`: USGS 1 m lidar averaged to 3 m, the 10 m model where no
   lidar). A 30 km ring around the box from USGS 1 arc-second (about 30 m) for distant peaks, plus the 10 m tiles
   the slope build already holds.
-- Known limit: USGS stops at 49 N, so shade cast from BC terrain on the first ~25 km south of the border (summer
-  mornings and evenings) is missing. Canada's CDEM could fill it later.
+- The USGS 1 arc-second border tiles carry BC terrain, so the ring covers north of 49 N too (the limit feared in the
+  design discussion does not exist; checked in the second build's figure, 2026-09-30).
 - Tiles: web-mercator XYZ PNG, Terrarium encoding (AWS terrain tiles' format: elevation = R*256 + G + B/256 - 32768),
   zoom 11-14 over the box (zoom 14 about 6.5 m on the ground) and zoom 10 (about 100 m) over the box plus the ring.
   R2 prefix `pnw/dem/v1/`, immutable (a rebuild goes to `v2`).
