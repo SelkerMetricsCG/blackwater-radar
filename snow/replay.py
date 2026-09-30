@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "snow", "work", "replay")
 SPINUP = 10
 FORCING_KEYS = ("precip_in", "fzl_ft", "cloud_night", "td_night_c", "wind_night_ms", "wind_h", "wind_lee_h", "wind_wwd_h",
-                "tmax_c", "tmin_c", "snotel_hn24_in", "depth_in", "solar_mj")
+                "tmax_c", "tmin_c", "snotel_hn24_in", "site_elev_m", "depth_in", "solar_mj")
 
 
 class Subset:

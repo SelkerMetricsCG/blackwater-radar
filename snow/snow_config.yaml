@@ -73,6 +73,12 @@ state:
   refreeze_good: {value: 0.6, bounds: [0.3, 0.9], max_step: 0.1, source: judgment call, note: "refreeze_index at or above this counts as a solid overnight refreeze"}
   melt_tmax_c: {value: 2, bounds: [0, 6], max_step: 1, source: judgment call, note: "band daily max above this with solar melts the surface (corn cycle when it also refroze)"}
   isothermal_days: {value: 3, bounds: [2, 7], max_step: 1, source: judgment call, note: "days of melt without a solid refreeze before the surface is isothermal"}
+  canopy_solar_tau: {value: 0.25, bounds: [0.05, 0.6], max_step: 0.05, source: literature, note: "fraction of the sun reaching the snow under a closed canopy (Link & Marks 1999 range 0.1-0.4); cell solar = solar * ((1 - canopy) + canopy * tau)"}
+  canopy_refreeze_loss: {value: 0.4, bounds: [0.1, 0.8], max_step: 0.1, source: judgment call, note: "the canopy blocks the sky, so the refreeze index is reduced by this fraction under a closed canopy"}
+  lapse_c_per_km: {value: 6.5, bounds: [4, 8], max_step: 0.5, source: literature, note: "temperature lapse from the band's SNOTEL sites to the cell's own elevation (standard atmosphere; Cascade winter storms run 5-7)"}
+  crust_tmin_c: {value: -8, bounds: [-14, -2], max_step: 1, source: judgment call, note: "sun on a surface whose band max is at or below this makes no crust (sublimation, no melt)"}
+  crust_tfull_c: {value: 0, bounds: [-4, 4], max_step: 1, source: judgment call, note: "band max at or above this: all the day's solar counts toward the crust"}
+  rain_refreeze_tmin_c: {value: -1, bounds: [-4, 1], max_step: 0.5, source: judgment call, note: "a rain-soaked surface becomes a rain crust once the band min drops below this; until then it is rain_wet"}
   tree_load_tmin_c: {value: -3, bounds: [-6, -1], max_step: 1, source: judgment call, note: "snow sticks to the canopy when the band mean temperature is between this"}
   tree_load_tmax_c: {value: 1.5, bounds: [0, 3], max_step: 0.5, source: judgment call, note: "and this (wet snow near 0 C loads trees; cold dry snow blows through)"}
   tree_load_full_cm: {value: 25, bounds: [10, 50], max_step: 5, source: judgment call, note: "sticky new snow that fills the canopy load (load = 1)"}

@@ -11,7 +11,7 @@ w = assim_weight * confidence * exp(-d / radius) * (1 - frac) where frac is how 
 (from the residual). A report that matched nudges nothing. Nudged fields:
   fresh          days 0, hn24 fresh_cm, solar 0, wind hours 0, rain 0
   settled / old  solar below the crust threshold, wind hours below wind_hours, rain 0, melt_days 0
-  sun_crust      solar to solar_crust_mj      rain_crust   rain 1      wind*  wind hours to wind_hours
+  sun_crust      solar to solar_crust_mj      rain_crust   rain 1, refrozen 1   rain_wet  rain 1, refrozen 0   wind*  wind hours to wind_hours
   melt_freeze    refreeze to refreeze_good, melt_days 0   isothermal   melt_days to isothermal_days
   no_snow        depth 0                       dust / tree_debris     left to the day's rules (transient)
 Returns records of what was nudged for the ledger.
@@ -80,6 +80,7 @@ def nudge(s, m, w, cls_name, p):
         for k in ("wind_h", "wind_lee_h", "wind_wwd_h"):
             setmax(s[k], 0.5 * p["wind_hours"])
         blend(s["rain"], 0.0)
+        blend(s["rain_refrozen"], 0.0)
         blend(s["melt_days"], 0.0)
         if cls_name == "old":
             setmin(s["days"], 15.0)
@@ -89,6 +90,10 @@ def nudge(s, m, w, cls_name, p):
         setmin(s["solar_mj"], p["solar_crust_mj"])
     elif cls_name == "rain_crust":
         blend(s["rain"], 1.0)
+        blend(s["rain_refrozen"], 1.0)
+    elif cls_name == "rain_wet":
+        blend(s["rain"], 1.0)
+        blend(s["rain_refrozen"], 0.0)
     elif cls_name in ("wind", "wind_loaded", "wind_scoured"):
         key = {"wind": "wind_h", "wind_loaded": "wind_lee_h", "wind_scoured": "wind_wwd_h"}[cls_name]
         setmin(s[key], p["wind_hours"])

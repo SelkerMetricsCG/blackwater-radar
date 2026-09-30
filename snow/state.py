@@ -9,7 +9,8 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
   wind_h     hours of NDFD 10 m wind above wind_mph since the last fresh snow
   wind_lee_h / wind_wwd_h   of those, the hours the cell was in the lee (aspect within wind_sector of the downwind
              direction: loading) or windward (facing the wind: scouring), from NDFD wind direction
-  rain       1 when rain fell on the cell since the last fresh snow
+  rain       1 when rain fell on the cell since the last fresh snow; rain_refrozen 1 once the band min has dropped
+             below rain_refreeze_tmin_c since (rain_wet until then, rain_crust after)
   canopy_load  snow held on the trees (0..1): grows with new snow that fell near 0 C, drops to 0 when wind or
              warmth releases it; a release under dense canopy makes the surface `tree_debris` for a day
   melt_days  consecutive days of surface melt without a solid overnight refreeze
@@ -18,8 +19,12 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
 
 Rules and parameters: snow_config.yaml `state` (all placeholders until the residual ledger exists; see the spec).
 Class priority, first match wins: no_snow, fresh, dust_on_crust, tree_debris, isothermal, melt_freeze, rain_crust,
-sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (settling), settled, old (aged powder with
-no crust trigger: the north-facing pocket).
+rain_wet, sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (the storm day and the next),
+settled (powder 2-14 days old), old (aged powder with no crust trigger: the north-facing pocket).
+
+Per cell before the rules: the band temperatures are lapsed from the band's sites to the cell's elevation
+(lapse_c_per_km); the day's solar is cut by the canopy (canopy_solar_tau) and counts toward a sun crust only in
+proportion to how warm the day was (crust_tmin_c..crust_tfull_c); the refreeze index is reduced under canopy.
 
   python -m snow.state --date 2026-01-15      run one day (yesterday by default); reads and writes R2 through snow/store.py
 """
@@ -37,17 +42,18 @@ from snow import forcing, solar, store
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(ROOT, "snow_config.yaml")
 CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
-           "wind_loaded", "wind_scoured", "tree_debris"]
+           "wind_loaded", "wind_scoured", "tree_debris", "rain_wet"]
 CID = {c: i for i, c in enumerate(CLASSES)}
 CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
+WET = CID["rain_wet"]
 OLD_DAYS = 14
 PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
            "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
-           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476"}
+           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476", "rain_wet": "#a1d99b"}
 PNG_WIDTH = 1200
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
           "wind_lee_h": np.float32, "wind_wwd_h": np.float32, "canopy_load": np.float32,
-          "rain": np.uint8, "melt_days": np.uint8, "refreeze": np.float32, "depth_in": np.float32}
+          "rain": np.uint8, "rain_refrozen": np.uint8, "melt_days": np.uint8, "refreeze": np.float32, "depth_in": np.float32}
 
 
 def cfg_lattice(path=CONFIG):
@@ -84,30 +90,41 @@ def step(s, f, lat, p, scfg):
     snowfrac = np.clip((elev_ft - snow_level + p["rain_mix_ft"]) / (2.0 * p["rain_mix_ft"]), 0, 1)
     snowfrac = np.where(np.isnan(f["fzl_ft"]), 1.0, snowfrac)          # no freezing level: assume snow (winter default)
     precip = np.nan_to_num(f["precip_in"], nan=0.0)
-    t_mean = np.nan_to_num(0.5 * (f["tmax_c"] + f["tmin_c"]), nan=-2.0)
+    # temperatures lapsed from the band's sites to the cell (only where the band value came from sites)
+    dz_km = np.nan_to_num(f.get("site_elev_m", np.full(precip.shape, np.nan)) - lat["elev"].astype(np.float32), nan=0.0) / 1000.0
+    tmax = np.nan_to_num(f["tmax_c"], nan=-5.0) + p["lapse_c_per_km"] * dz_km
+    tmin = np.nan_to_num(f["tmin_c"], nan=-10.0) + p["lapse_c_per_km"] * dz_km
+    t_mean = 0.5 * (tmax + tmin)
+    canopy = lat["canopy"].astype(np.float32) / 100.0 if "canopy" in lat else np.zeros(precip.shape, np.float32)
+    canopy = np.where(canopy > 2.0, 0.0, canopy)                               # 255 = no data
+    # the day's sun: cut by the canopy, and counting toward a crust only in proportion to the day's warmth
+    solar_cell = np.nan_to_num(f["solar_mj"], nan=0.0) * ((1 - canopy) + canopy * p["canopy_solar_tau"])
+    warm = np.clip((tmax - p["crust_tmin_c"]) / max(p["crust_tfull_c"] - p["crust_tmin_c"], 0.1), 0, 1)
+    solar_crusting = solar_cell * warm
     slr = np.clip(p["slr_at_0c"] + p["slr_per_c"] * np.maximum(-t_mean, 0), p["slr_at_0c"], p["slr_max"])
     hn24 = precip * snowfrac * slr * 2.54
     rain_in = precip * (1 - snowfrac)
     fresh = hn24 >= p["fresh_cm"]
     days = np.where(fresh, 0, np.minimum(s["days"].astype(np.int32) + 1, 250))
-    solar_mj = np.where(fresh, 0, s["solar_mj"] + np.nan_to_num(f["solar_mj"], nan=0.0))
+    solar_mj = np.where(fresh, 0, s["solar_mj"] + solar_crusting)
     wind_h = np.where(fresh, 0, s["wind_h"] + np.nan_to_num(f["wind_h"], nan=0.0))
     wind_lee_h = np.where(fresh, 0, s.get("wind_lee_h", 0) + np.nan_to_num(f.get("wind_lee_h", 0.0), nan=0.0))
     wind_wwd_h = np.where(fresh, 0, s.get("wind_wwd_h", 0) + np.nan_to_num(f.get("wind_wwd_h", 0.0), nan=0.0))
-    rain = np.where(fresh, 0, np.maximum(s["rain"], rain_in >= p["rain_in"])).astype(np.uint8)
-    refreeze = solar.refreeze_index(np.nan_to_num(f["tmin_c"], nan=-5.0), np.nan_to_num(f["cloud_night"], nan=0.5),
+    rained_today = rain_in >= p["rain_in"]
+    rain = np.where(fresh, 0, np.maximum(s["rain"], rained_today)).astype(np.uint8)
+    refrozen = np.where(fresh, 0, np.maximum(s.get("rain_refrozen", np.zeros(rain.shape, np.uint8)), (rain == 1) & (tmin < p["rain_refreeze_tmin_c"]))).astype(np.uint8)
+    refreeze = solar.refreeze_index(tmin, np.nan_to_num(f["cloud_night"], nan=0.5),
                                     np.nan_to_num(f["td_night_c"], nan=-5.0), np.nan_to_num(f["wind_night_ms"], nan=2.0))
-    melt = (np.nan_to_num(f["tmax_c"], nan=-5.0) > p["melt_tmax_c"]) & (np.nan_to_num(f["solar_mj"], nan=0.0) > 1.0)
+    refreeze = refreeze * (1 - p["canopy_refreeze_loss"] * canopy)
+    melt = (tmax > p["melt_tmax_c"]) & (solar_cell > 1.0)
     solid = refreeze >= p["refreeze_good"]
     corn = melt & solid
     melt_days = np.where(melt & ~solid, np.minimum(s["melt_days"].astype(np.int32) + 1, 250), 0)
     depth = np.where(np.isnan(f["depth_in"]), s["depth_in"], f["depth_in"]).astype(np.float32)
-    canopy = lat["canopy"].astype(np.float32) / 100.0 if "canopy" in lat else np.zeros(prev_shape(s), np.float32)
-    canopy = np.where(canopy > 2.0, 0.0, canopy)                               # 255 = no data
     sticky = (t_mean >= p["tree_load_tmin_c"]) & (t_mean <= p["tree_load_tmax_c"])
     carried = s.get("canopy_load", np.zeros(canopy.shape, np.float32)) * (1 - p["tree_load_decay"])   # quiet shedding
     load = np.clip(carried + np.where(sticky, hn24 / p["tree_load_full_cm"], 0.0) * (canopy > 0.1), 0, 1)
-    release = (load >= p["tree_release_load"]) & ((np.nan_to_num(f["wind_h"], nan=0.0) >= p["tree_release_wind_h"]) | (np.nan_to_num(f["tmax_c"], nan=-5.0) > p["tree_release_tmax_c"]))
+    release = (load >= p["tree_release_load"]) & ((np.nan_to_num(f["wind_h"], nan=0.0) >= p["tree_release_wind_h"]) | (tmax > p["tree_release_tmax_c"]))
     load = np.where(release, 0.0, load)
     prev = s["cls"]
     cls = np.full(prev.shape, CID["old"], np.uint8)
@@ -117,7 +134,8 @@ def step(s, f, lat, p, scfg):
     cls[wind_lee_h >= p["wind_hours"]] = CID["wind_loaded"]
     cls[wind_wwd_h >= p["wind_hours"]] = CID["wind_scoured"]
     cls[solar_mj >= p["solar_crust_mj"]] = CID["sun_crust"]
-    cls[rain == 1] = CID["rain_crust"]
+    cls[(rain == 1) & (refrozen == 0)] = CID["rain_wet"]
+    cls[(rain == 1) & (refrozen == 1)] = CID["rain_crust"]
     cls[corn] = CID["melt_freeze"]
     cls[melt_days >= p["isothermal_days"]] = CID["isothermal"]
     cls[release & (canopy >= p["tree_debris_canopy"]) & ~fresh] = CID["tree_debris"]
@@ -128,7 +146,7 @@ def step(s, f, lat, p, scfg):
     cls[~valid] = 255
     return {"cls": cls, "days": days.astype(np.uint8), "hn24_cm": hn24.astype(np.float32), "solar_mj": solar_mj.astype(np.float32),
             "wind_h": wind_h.astype(np.float32), "wind_lee_h": wind_lee_h.astype(np.float32), "wind_wwd_h": wind_wwd_h.astype(np.float32),
-            "canopy_load": load.astype(np.float32), "rain": rain, "melt_days": melt_days.astype(np.uint8),
+            "canopy_load": load.astype(np.float32), "rain": rain, "rain_refrozen": refrozen, "melt_days": melt_days.astype(np.uint8),
             "refreeze": refreeze.astype(np.float32), "depth_in": depth}
 
 
@@ -179,7 +197,7 @@ def snotel_day(daily_next, day, tz_offset_h, zone, band, meta, log):
     pts = []
     for site in sn.get("sites") or []:
         ser = (sn.get("series") or {}).get(site["id"]) or {}
-        rec = {"lat": site.get("lat"), "lon": site.get("lon")}
+        rec = {"lat": site.get("lat"), "lon": site.get("lon"), "elev_m": (site.get("elev") * 0.3048) if site.get("elev") is not None else None}
         depth = [(_utc(t), v) for t, v in ser.get("SNWD", []) if v is not None and v >= 0]
         if depth:
             rec["hn24"] = newsnow.new_snow(depth, t_end, [24], cfg).get(24)
@@ -187,7 +205,9 @@ def snotel_day(daily_next, day, tz_offset_h, zone, band, meta, log):
         if temps:
             rec["tmax"], rec["tmin"] = max(temps), min(temps)
         pts.append(rec)
-    return {k: forcing.band_values(pts, zone, band, k, meta) for k in ("hn24", "tmax", "tmin")}
+    for p_ in pts:
+        p_["elev_m"] = p_.get("elev_m")
+    return {k: forcing.band_values(pts, zone, band, k, meta) for k in ("hn24", "tmax", "tmin", "elev_m")}
 
 
 def aspect_within(aspect, direction, half_width):
@@ -261,6 +281,7 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     f["tmax_c"] = (fill_by_band(sn.get("tmax", {}), lat["zone"], lat["band"], fb_max) - 32) * 5 / 9
     f["tmin_c"] = (fill_by_band(sn.get("tmin", {}), lat["zone"], lat["band"], fb_min) - 32) * 5 / 9
     f["snotel_hn24_in"] = fill_by_band(sn.get("hn24", {}), lat["zone"], lat["band"], np.nan)
+    f["site_elev_m"] = fill_by_band({k: v for k, v in sn.get("elev_m", {}).items() if k in sn.get("tmax", {})}, lat["zone"], lat["band"], np.nan)
     # snow depth: the next day's SNODAS (dated this day) else this day's
     sd = (daily_next.get("snodas") or daily.get("snodas") or {}).get("grids") or {}
     f["depth_in"] = forcing.sample(sd["depth"], latg, long_).astype(np.float32) if sd.get("depth") else np.full(latg.shape, np.nan, np.float32)
@@ -365,7 +386,8 @@ def reclassify(s, lat, p):
     cls[s["wind_lee_h"] >= p["wind_hours"]] = CID["wind_loaded"]
     cls[s["wind_wwd_h"] >= p["wind_hours"]] = CID["wind_scoured"]
     cls[s["solar_mj"] >= p["solar_crust_mj"]] = CID["sun_crust"]
-    cls[s["rain"] >= 0.5] = CID["rain_crust"]
+    cls[(s["rain"] >= 0.5) & (s.get("rain_refrozen", np.zeros(prev.shape, np.uint8)) < 0.5)] = CID["rain_wet"]
+    cls[(s["rain"] >= 0.5) & (s.get("rain_refrozen", np.zeros(prev.shape, np.uint8)) >= 0.5)] = CID["rain_crust"]
     cls[(s["refreeze"] >= p["refreeze_good"]) & np.isin(prev, [CID["melt_freeze"]])] = CID["melt_freeze"]
     cls[s["melt_days"] >= p["isothermal_days"]] = CID["isothermal"]
     keep = np.isin(prev, [CID["dust_on_crust"], CID["tree_debris"], CID["melt_freeze"]])   # the day's transient calls stand
