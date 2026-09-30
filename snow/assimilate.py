@@ -75,7 +75,7 @@ def nudge(s, m, w, cls_name, p):
         blend(s["wind_lee_h"], 0.0)
         blend(s["wind_wwd_h"], 0.0)
         blend(s["rain"], 0.0)
-    elif cls_name in ("settled", "old"):
+    elif cls_name in ("settled", "settled_late", "old"):
         setmax(s["solar_mj"], 0.5 * p["solar_crust_mj"])
         for k in ("wind_h", "wind_lee_h", "wind_wwd_h"):
             setmax(s[k], 0.5 * p["wind_hours"])
@@ -84,8 +84,12 @@ def nudge(s, m, w, cls_name, p):
         blend(s["melt_days"], 0.0)
         if cls_name == "old":
             setmin(s["days"], 15.0)
+        elif cls_name == "settled_late":
+            setmin(s["days"], p["settled_days"] + 1)
+            setmax(s["days"], 14.0)
         else:
             setmin(s["days"], p["settle_days"])
+            setmax(s["days"], p["settled_days"])
     elif cls_name == "sun_crust":
         setmin(s["solar_mj"], p["solar_crust_mj"])
     elif cls_name == "rain_crust":

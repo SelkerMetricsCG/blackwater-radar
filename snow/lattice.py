@@ -5,8 +5,10 @@ Terrain lattice for the snow-conditions model: one static grid of 100 m cells in
 Per cell: elevation (m), slope (deg, Horn on the 100 m grid), aspect (deg from N, -1 where flat), canopy
 (tree-cover percent from ESA WorldCover 2021, 10 m classes averaged onto the cell), the avalanche zone id where
 the zone polygons are available (avalanche.org map layer; -1 outside any zone), and the elevation band
-(0 below / 1 near / 2 above treeline), and crest_km (signed east-west distance from the Cascade crest polyline in
-tenths of a km, negative west). The treeline is found per zone from the canopy itself: the elevation above
+(0 below / 1 near / 2 above treeline), crest_km (signed east-west distance from the Cascade crest polyline in
+tenths of a km, negative west), horizon (16 directions, deg: the terrain's elevation angle within 10 km, below which
+the sun is blocked), sx (8 octants, deg: Winstral's shelter index within 300 m, positive sheltered from wind out
+of that octant, negative exposed) and svf (sky-view factor, percent). The treeline is found per zone from the canopy itself: the elevation above
 which the zone's 1 km-smoothed median canopy stays under `treeline.treeline_canopy`; "near" is the
 `near_width_m` below it. Zones without a clear cut (and cells outside any zone) use the fixed `bands_ft`.
 
@@ -220,6 +222,56 @@ def crest_km(cfg, transform, out_shape):
     return ((cx[None, :] - crest_x[:, None]) / 1000.0).astype(np.float32)
 
 
+# sixteen directions for the horizon (index k, azimuth DIR16_AZ[k]: N, NNE, NE, ENE, E, ... as knight-move steps on
+# the grid, so the azimuths are 0, 26.6, 45, 63.4, ... deg) and eight octants for the wind shelter index
+# (k = round(azimuth / 45) % 8). Row steps are negative northward (north-up grid).
+DIR16 = [(-1, 0), (-2, 1), (-1, 1), (-1, 2), (0, 1), (1, 2), (1, 1), (2, 1), (1, 0), (2, -1), (1, -1), (1, -2), (0, -1), (-1, -2), (-1, -1), (-2, -1)]
+DIR16_AZ = [math.degrees(math.atan2(dc, -dr)) % 360 for dr, dc in DIR16]
+OCTANT_STEPS = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
+HORIZON_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 18, 22, 27, 33, 40, 50, 62, 78, 100]   # steps along the direction, every cell to 800 m, to ~10 km
+SX_CELLS = [1, 2, 3]                                              # to 300 m: Winstral's wind shelter / exposure
+
+
+def direction_angles(z, cell_m, dirs, distances, lo, hi, dtype):
+    """for each direction (dr, dc) the largest elevation angle (deg) from the cell to the terrain along it within the
+    given step counts: positive = terrain rises above the cell's horizontal, negative = it falls away. Clipped to
+    [lo, hi] and stored as dtype, one direction at a time (the full lattice is 16 M cells). Beyond the grid the
+    terrain is taken level with the edge."""
+    zf = np.nan_to_num(z, nan=0.0).astype(np.float32)
+    maxstep = max(abs(dr) for dr, dc in dirs) * max(distances)
+    maxstep = max(maxstep, max(abs(dc) for dr, dc in dirs) * max(distances))
+    zp = np.pad(zf, maxstep, mode="edge")
+    h, w = zf.shape
+    out = np.zeros((len(dirs),) + zf.shape, dtype)
+    for k, (dr, dc) in enumerate(dirs):
+        norm = math.hypot(dr, dc)
+        best = None
+        for d in distances:
+            r0, c0 = maxstep + dr * d, maxstep + dc * d
+            t = (zp[r0:r0 + h, c0:c0 + w] - zf) / (d * norm * cell_m)
+            best = t if best is None else np.maximum(best, t)
+        out[k] = np.round(np.clip(np.degrees(np.arctan(best)), lo, hi)).astype(dtype)
+    return out
+
+
+def octant_angles(z, cell_m, distances):
+    """8-octant angles as float32 (kept for tests and small windows)"""
+    return direction_angles(z, cell_m, OCTANT_STEPS, distances, -90, 90, np.float32)
+
+
+def horizon_sx_svf(z, cell_m):
+    """horizon (16, h, w) uint8 deg (0..90, the sun is blocked below it, directions DIR16_AZ), sx (8, h, w) int8
+    deg (Winstral shelter index toward each octant, negative exposed), svf (h, w) uint8 percent (sky-view factor
+    1 - mean sin(horizon))"""
+    hz = direction_angles(z, cell_m, DIR16, HORIZON_STEPS, 0, 90, np.uint8)
+    sx = direction_angles(z, cell_m, OCTANT_STEPS, SX_CELLS, -60, 60, np.int8)
+    svf = np.zeros(z.shape, np.float32)
+    for k in range(hz.shape[0]):
+        svf += np.sin(np.radians(hz[k].astype(np.float32)))
+    svf = 1.0 - svf / hz.shape[0]
+    return hz, sx, np.round(svf * 100).astype(np.uint8)
+
+
 def treeline_by_zone(canopy_frac, elev_m, zone, cfg, log):
     """{zone id: treeline elevation m} where the zone's median canopy (1 km smoothed) stays under
     `treeline_canopy` above it; zones without a clear cut are left out (fixed bands apply)"""
@@ -357,6 +409,17 @@ def build(tiles_limit=None, log=print, cfg=None, zones=True, with_canopy=True):
                 meta["treeline_m"] = {str(k): v for k, v in treeline.items()}
         except Exception as e:  # noqa: BLE001
             log("lattice: canopy FAILED (%r); no canopy, fixed bands" % e)
+    try:
+        t1 = time.time()
+        hz, sx, svf = horizon_sx_svf(z, cfg["cell_m"])
+        out["horizon"], out["sx"], out["svf"] = hz, sx, svf
+        meta["octants"] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        meta["horizon_azimuths"] = [round(a, 1) for a in DIR16_AZ]
+        meta["horizon_reach_m"] = HORIZON_STEPS[-1] * cfg["cell_m"]
+        meta["sx_reach_m"] = SX_CELLS[-1] * cfg["cell_m"]
+        log("lattice: horizon, wind exposure and sky view in %.0f s (svf p50 %.2f)" % (time.time() - t1, np.median(svf[np.isfinite(z)]) / 100))
+    except Exception as e:  # noqa: BLE001
+        log("lattice: horizon / exposure FAILED (%r)" % e)
     try:
         ck = crest_km(cfg, transform, z.shape)
         out["crest_km"] = np.round(ck * 10).astype(np.int16)      # tenths of a km
