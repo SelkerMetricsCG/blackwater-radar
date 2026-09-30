@@ -290,17 +290,26 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   `canopy_lw_fraction` of what the trees absorb reaches the snow as longwave; `settled` is 2-7 days and
   `settled_late` 8-14 (`settled_days`); page classes updated. Tests `test_snow_terrain.py` (5); 329 in all.
 
-### Next, in order
+### Literature review (2026-09-30, cloud session)
+- `snow_research/lit_review.md`: synthesis of three agent-written notes (`lit_models.md`, `lit_interpolation.md`,
+  `lit_products_obs.md`) against the model as built, with a 19-row ranked adoption table and a gap analysis of the
+  physical processes still missing. Finding: no public product maps a ski-surface class by aspect at sub-km scale, and
+  nothing published scores human observations against a surface model or extracts them with an LLM; the loop is ours
+  to validate. Most journal sites were blocked from the cloud session, so the figures are from abstracts (each note
+  lists what it could not verify).
+
+### Next, in order (from `snow_research/lit_review.md`, "Ranked adoptions")
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
-   both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into
-   the archive so wind can be scoured vs loaded by aspect.
-1. Canopy: the tree-bomb state is not modeled yet (canopy is on the lattice; `canopy_load` from snowfall near 0 C,
-   released by wind or warming, is the next state field). Per-zone treeline values: check them against NWAC's zone
-   pages once the real-zone lattice is built (the quadrant test gave 1900-2200 m).
-2. Surface-state model: refinement after the first storms (the v1 is in `snow/state.py`) (`snow/state.py`, parameters in `snow/snow_config.yaml`): winter powder aging first.
-3. Ledger and the two LLM passes (`snow/ledger.py`, `snow/brief.py`): extraction with structured output, layer tracking,
-   the brief from the ledger. `ANTHROPIC_API_KEY` as an Actions secret; `snow.yml` daily workflow.
-4. `snow.html` and its Worker; then a `SNOW` global and layer group in `map.html`.
+   both); does the freezing-level phase split put rain where SNOTEL depth fell.
+1. The cheap parameter-shape items, each an afternoon, no new data: wind threshold by surface class (item 1),
+   elevation-aware residual distance and above-inversion lapse fit in `tfield` (2, 3), the USACE albedo form (4),
+   lapse fallback 4.5 (5), diffuse term by sky-view factor (6), daily leave-one-out MAE logged by `tfield` (7),
+   the obs-record and layer-key schema fields (8).
+2. Snow level per hour from rate, wet-bulb and cold pool, with the `upside_down` storm flag (9); sun crust as absorbed
+   energy split from melt-freeze (10); surface hoar and facet accumulators feeding the layer ledger (11).
+3. Precipitation drift from QPF with the SNOTEL ratio (12); Gaussian assimilation kernel and a confidence field (13);
+   cold-pool mask (14); SLR wind term (15); canopy interception (16); corn clock (17).
+4. Season two: own SWE mass balance and satellite snow line (18); kriging for the error map (19).
 
 ### Gotchas
 - The cloud session's network policy blocks api.avalanche.org and nwac.us; add them to the environment's allowed
