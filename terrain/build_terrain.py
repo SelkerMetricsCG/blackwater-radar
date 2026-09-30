@@ -95,6 +95,8 @@ def grid_for(bbox, z):
 
 
 def warp_to(path, srcs, bbox, z, progress=True):
+    """warp srcs onto the tile-aligned mercator grid of zoom z over bbox; each source keeps its own no-data value
+    (the slope DEMs use -9999, USGS tiles -999999: forcing one value let -999999 through as terrain, 2026-09-30)"""
     bounds, w, h, rng = grid_for(bbox, z)
     t0 = [time.time(), -1]
 
@@ -106,7 +108,7 @@ def warp_to(path, srcs, bbox, z, progress=True):
         return 1
 
     gdal.Warp(path, srcs, format="GTiff", outputBounds=bounds, width=w, height=h, dstSRS=MERC.ExportToWkt(),
-              resampleAlg=CFG["tiles"]["resampling"], outputType=gdal.GDT_Float32, srcNodata=NODATA, dstNodata=NODATA,
+              resampleAlg=CFG["tiles"]["resampling"], outputType=gdal.GDT_Float32, dstNodata=NODATA,
               multithread=True, warpMemoryLimit=4096, warpOptions=["NUM_THREADS=ALL_CPUS"],
               creationOptions=["TILED=YES", "BLOCKXSIZE=256", "BLOCKYSIZE=256", "COMPRESS=DEFLATE", "PREDICTOR=3",
                                "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"], callback=cb)
@@ -121,7 +123,7 @@ def read_window(ds, col, row, w, h):
     if c1 <= c0 or r1 <= r0:
         return out
     a = ds.GetRasterBand(1).ReadAsArray(c0, r0, c1 - c0, r1 - r0).astype(np.float32)
-    a[a == NODATA] = np.nan
+    a[(a == NODATA) | (a < -1000)] = np.nan
     out[r0 - row:r1 - row, c0 - col:c1 - col] = a
     return out
 
@@ -278,9 +280,11 @@ def mosaic():
     wx0, wy0 = tm.lonlat_to_merc(BBOX[0], BBOX[1])
     wx1, wy1 = tm.lonlat_to_merc(BBOX[2], BBOX[3])
     inside = ((xs[None, :] >= wx0) & (xs[None, :] <= wx1)) & ((ys[:, None] >= wy0) & (ys[:, None] <= wy1))
+    small[small < -1000] = NODATA
     nod = (small == NODATA) & inside
     f = gdal.Open(z10)
     far = f.GetRasterBand(1).ReadAsArray().astype(np.float64)
+    far[far < -1000] = NODATA
     far_nod = float((far == NODATA).mean())
     account("mosaic", "z14.tif %d x %d px (%.1f GB), box no data %.3f%% (1/16 sample), elevation %.0f to %.0f m, %.0f min; "
             "z10.tif %d x %d px over box + margin, no data %.2f%% (north of 49 N expected), %.0f min"
