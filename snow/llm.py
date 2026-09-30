@@ -24,6 +24,12 @@ WIND_EFFECT = ["none", "light", "heavy"]
 TIERS = ["center_product", "pro_obs", "public_obs", "trip"]
 GRAINS = ["SH", "FC", "DH", "MFcr", "IFrc", "PP", "DF", "RG"]      # CAAML grain codes, NWAC's layer ids use them lowercased
 
+def _nullable_enum(values):
+    """a string enum or null. The API's structured-output validator rejects an enum on a ["string", "null"] type
+    ("Enum value 'below' does not match declared type", first seen on the 2026-09-30 run), so it is an anyOf."""
+    return {"anyOf": [{"type": "string", "enum": list(values)}, {"type": "null"}]}
+
+
 EXTRACT_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "required": ["observations", "layers", "notes"],
@@ -40,11 +46,11 @@ EXTRACT_SCHEMA = {
                 "lat": {"type": ["number", "null"]}, "lon": {"type": ["number", "null"]},
                 "zone": {"type": ["string", "null"]},
                 "elevation_ft": {"type": ["number", "null"]},
-                "band": {"type": ["string", "null"], "enum": BANDS + [None]},
+                "band": _nullable_enum(BANDS),
                 "aspects": {"type": "array", "items": {"type": "string", "enum": ASPECTS}},
                 "surface": {"type": "string", "enum": SURFACE},
-                "moisture": {"type": ["string", "null"], "enum": MOISTURE + [None]},
-                "wind_effect": {"type": ["string", "null"], "enum": WIND_EFFECT + [None]},
+                "moisture": _nullable_enum(MOISTURE),
+                "wind_effect": _nullable_enum(WIND_EFFECT),
                 "spatial_precision_m": {"type": ["number", "null"]},
                 "source_tier": {"type": "string", "enum": TIERS},
                 "confidence": {"type": "number"},
@@ -56,7 +62,7 @@ EXTRACT_SCHEMA = {
                 "name": {"type": "string"}, "status": {"type": "string", "enum": STATUS},
                 "zones": {"type": "array", "items": {"type": "string"}},
                 "bands": {"type": "array", "items": {"type": "string", "enum": BANDS}},
-                "buried": {"type": ["string", "null"]}, "grain": {"type": ["string", "null"], "enum": GRAINS + [None]},
+                "buried": {"type": ["string", "null"]}, "grain": _nullable_enum(GRAINS),
                 "last": {"type": "string"},
                 "evidence": {"type": "array", "items": {"type": "string"}},
                 "summary": {"type": "string"}}}},

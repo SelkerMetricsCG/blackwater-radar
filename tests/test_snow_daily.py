@@ -68,13 +68,15 @@ def test_extract_schema_is_strict_and_carries_the_new_fields():
     walk(llm.BRIEF_SCHEMA)
     ob = llm.EXTRACT_SCHEMA["properties"]["observations"]["items"]["properties"]
     assert ob["surface"]["enum"] == state.CLASSES + ["unknown"]
-    assert ob["moisture"] == {"type": ["string", "null"], "enum": ["dry", "moist", "wet", None]}
-    assert ob["wind_effect"] == {"type": ["string", "null"], "enum": ["none", "light", "heavy", None]}
+    # nullable enums are anyOf: the API rejects an enum on a ["string", "null"] type (2026-09-30 run)
+    assert ob["moisture"] == {"anyOf": [{"type": "string", "enum": ["dry", "moist", "wet"]}, {"type": "null"}]}
+    assert ob["wind_effect"] == {"anyOf": [{"type": "string", "enum": ["none", "light", "heavy"]}, {"type": "null"}]}
+    assert ob["band"] == {"anyOf": [{"type": "string", "enum": llm.BANDS}, {"type": "null"}]}
     assert ob["spatial_precision_m"] == {"type": ["number", "null"]}
     assert ob["source_tier"] == {"type": "string", "enum": ["center_product", "pro_obs", "public_obs", "trip"]}
     la = llm.EXTRACT_SCHEMA["properties"]["layers"]["items"]["properties"]
     assert la["buried"] == {"type": ["string", "null"]}
-    assert la["grain"] == {"type": ["string", "null"], "enum": ["SH", "FC", "DH", "MFcr", "IFrc", "PP", "DF", "RG", None]}
+    assert la["grain"] == {"anyOf": [{"type": "string", "enum": ["SH", "FC", "DH", "MFcr", "IFrc", "PP", "DF", "RG"]}, {"type": "null"}]}
     for word in ("moisture", "wind_effect", "spatial_precision_m", "center_product", "pro_obs", "public_obs", "trip",
                  "reportedly", "possibly", "only a zone", "grain", "20220130_fcsf"):
         assert word in llm.EXTRACT_SYSTEM, word
