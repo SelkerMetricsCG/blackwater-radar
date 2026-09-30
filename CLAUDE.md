@@ -38,7 +38,8 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
   Trip log: `snow/trips.json`. Offline: `snow/replay.py` (re-run a date range on a subset of cells), `snow/fit.py`
   (bounded parameter fit on the ledger's residuals; `snow_fit.yml` by hand proposes, `--apply` from a session changes
-  `snow_config.yaml` and writes `param` ledger records).
+  `snow_config.yaml` and writes `param` ledger records), `snow/sunhours.py` (sunrise and sunset on terrain at a point, from
+  the lattice's 16-direction horizons). `snow/tfield.py` builds each day's temperature field from the station network.
 - `tests/`: pytest, network blocked in `conftest.py`; webcams, SNOTEL, stations, air quality, the snow archive.
 
 ## How it runs (GitHub Actions, all free tier)

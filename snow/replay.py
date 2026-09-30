@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "snow", "work", "replay")
 SPINUP = 10
 FORCING_KEYS = ("precip_in", "fzl_ft", "cloud_night", "td_night_c", "wind_night_ms", "wind_h", "wind_lee_h", "wind_wwd_h",
-                "tmax_c", "tmin_c", "snotel_hn24_in", "site_elev_m", "depth_in", "solar_mj")
+                "tmax_c", "tmin_c", "tmin_resid_c", "snotel_hn24_in", "site_elev_m", "depth_in", "solar_mj")
 
 
 class Subset:
@@ -42,7 +42,7 @@ class Subset:
         self.shape = (h, w)
         self.meta = meta
         self.k = k
-        self.lat = {key: np.asarray(v)[self.rows, self.cols] for key, v in lat.items()}
+        self.lat = {key: (np.asarray(v)[:, self.rows, self.cols] if np.ndim(v) == 3 else np.asarray(v)[self.rows, self.cols]) for key, v in lat.items()}
         self.full = (lat["zone"], lat["band"])
         self.latlon = self._latlon()
         self.key = hashlib.sha1(flat.tobytes()).hexdigest()[:10]

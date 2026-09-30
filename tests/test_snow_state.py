@@ -198,8 +198,10 @@ def test_lapse_canopy_shading_and_warmth_gate():
     open_warm = s["solar_mj"][2, 1]         # 2500 m, open, tmax -5.25: warm factor (−5.25+8)/8 = 0.34
     open_cold = s["solar_mj"][3, 1]         # 3500 m: tmax -11.75 -> no crusting solar
     shaded = s["solar_mj"][1, 1]            # 1500 m, 90% canopy, tmax +1.25 -> full warmth but 90% canopy at tau 0.25
-    assert open_cold == 0 and 3.0 < open_warm < 4.0
-    assert shaded == pytest.approx(10.0 * (0.1 + 0.9 * p["canopy_solar_tau"]), rel=1e-3)
+    absorbed = (1 - p["albedo_min"]) / (1 - p["albedo_ref"])                  # 250-day-old snow: albedo at its floor
+    assert open_cold == 0 and open_warm == pytest.approx(10.0 * (2.75 / 8.0) * absorbed, rel=0.02)
+    under = p["canopy_solar_tau"] + p["canopy_lw_fraction"] * (1 - p["canopy_solar_tau"])
+    assert shaded == pytest.approx(10.0 * (0.1 + 0.9 * under) * absorbed, rel=1e-3)
     # refreeze is weaker under the canopy
     assert s["refreeze"][1, 1] < s["refreeze"][2, 1]
 

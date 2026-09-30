@@ -270,6 +270,26 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   in `snow_config.yaml` (comments and bounds kept) and appends `param` ledger records. Apply from a session, commit,
   and merge; the workflow only proposes. Tests `test_snow_fit.py` (4): a fit recovers a lower sun-crust threshold.
 
+### Done (2026-09-30, cloud session): terrain, wind exposure, station temperature field, albedo, settled split
+- Lattice: `horizon` (16 directions, deg, to 10 km; azimuths in `lattice.json` `horizon_azimuths`), `sx` (8 octants,
+  Winstral shelter index to 300 m, negative exposed), `svf` (sky view, percent). 19 s on the full lattice. Checked
+  against an exact ray-march at six points (within a few degrees; a twisting canyon differed 9 deg at 8 directions,
+  hence 16) and by sun hours: Colchuck Lake gets no direct sun on Dec 21 and 7.8 h on Mar 20; Alpental base 2.1 h on
+  Dec 21. `python -m snow.sunhours --lat --lon --date` prints sunrise/sunset on terrain for a point, to compare with
+  ShadeMap or SunCalc (blocked from the cloud session; Chris to spot-check a few places). **Rerun `snow static`.**
+- Solar: the day's direct sun is cut by the share the terrain blocks (`solar.terrain_factor`, a per-latitude table of
+  direct energy by sector and sun elevation); diffuse (a tenth) is not.
+- Wind: NDFD speed scaled per cell by the shelter index toward the wind's octant (`wind_sx_per_deg`, clamped).
+- `snow/tfield.py`: the station network's own daily max/min field (every station with 12+ hourly readings in the
+  archive; per-zone linear fit in elevation, pooled where a zone has under 6 stations spanning 500 m; residuals by
+  inverse distance squared to 40 km on a 1 km grid). Replaces the band means when 20+ stations reported. The night
+  fit's slope is logged per zone (`tfield: ... night lapse (C/km, + = inversion)`), and `tmin_resid_c` rides in the
+  forcing as the cold-pool field. Kriging with a fitted variogram is the upgrade once the season shows the
+  residuals' structure.
+- Model: albedo ages from `albedo_fresh` to `albedo_min` (absorbed energy scaled to `albedo_ref`); under a canopy
+  `canopy_lw_fraction` of what the trees absorb reaches the snow as longwave; `settled` is 2-7 days and
+  `settled_late` 8-14 (`settled_days`); page classes updated. Tests `test_snow_terrain.py` (5); 329 in all.
+
 ### Next, in order
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell. Wind direction (`ds.wdir.bin`) into

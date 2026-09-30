@@ -20,7 +20,9 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
 Rules and parameters: snow_config.yaml `state` (all placeholders until the residual ledger exists; see the spec).
 Class priority, first match wins: no_snow, fresh, dust_on_crust, tree_debris, isothermal, melt_freeze, rain_crust,
 rain_wet, sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (the storm day and the next),
-settled (powder 2-14 days old), old (aged powder with no crust trigger: the north-facing pocket).
+settled (powder 2-7 days old), settled_late (8-14 days), old (over 14 days with no crust trigger: the north-facing
+pocket). The day's sun is also cut by the terrain's horizon (lattice `horizon`), the snow's albedo ages from fresh,
+and under a canopy part of what the dark trees absorb reaches the snow as longwave (canopy_lw_fraction).
 
 Per cell before the rules: the band temperatures are lapsed from the band's sites to the cell's elevation
 (lapse_c_per_km); the day's solar is cut by the canopy (canopy_solar_tau) and counts toward a sun crust only in
@@ -42,14 +44,14 @@ from snow import forcing, solar, store
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(ROOT, "snow_config.yaml")
 CLASSES = ["no_snow", "fresh", "settled", "wind", "sun_crust", "rain_crust", "melt_freeze", "isothermal", "dust_on_crust", "old",
-           "wind_loaded", "wind_scoured", "tree_debris", "rain_wet"]
+           "wind_loaded", "wind_scoured", "tree_debris", "rain_wet", "settled_late"]
 CID = {c: i for i, c in enumerate(CLASSES)}
 CRUSTS = (CID["sun_crust"], CID["rain_crust"], CID["melt_freeze"], CID["isothermal"], CID["wind"], CID["wind_loaded"], CID["wind_scoured"])
 WET = CID["rain_wet"]
 OLD_DAYS = 14
 PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
            "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
-           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476", "rain_wet": "#a1d99b"}
+           "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476", "rain_wet": "#a1d99b", "settled_late": "#4292c6"}
 PNG_WIDTH = 1200
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
           "wind_lee_h": np.float32, "wind_wwd_h": np.float32, "canopy_load": np.float32,
@@ -98,9 +100,12 @@ def step(s, f, lat, p, scfg):
     canopy = lat["canopy"].astype(np.float32) / 100.0 if "canopy" in lat else np.zeros(precip.shape, np.float32)
     canopy = np.where(canopy > 2.0, 0.0, canopy)                               # 255 = no data
     # the day's sun: cut by the canopy, and counting toward a crust only in proportion to the day's warmth
-    solar_cell = np.nan_to_num(f["solar_mj"], nan=0.0) * ((1 - canopy) + canopy * p["canopy_solar_tau"])
+    under = p["canopy_solar_tau"] + p["canopy_lw_fraction"] * (1 - p["canopy_solar_tau"])   # sun through, plus longwave off the trees
+    solar_cell = np.nan_to_num(f["solar_mj"], nan=0.0) * ((1 - canopy) + canopy * under)
     warm = np.clip((tmax - p["crust_tmin_c"]) / max(p["crust_tfull_c"] - p["crust_tmin_c"], 0.1), 0, 1)
-    solar_crusting = solar_cell * warm
+    albedo = np.clip(p["albedo_fresh"] - p["albedo_decay_per_day"] * s["days"].astype(np.float32), p["albedo_min"], p["albedo_fresh"])
+    absorbed = (1 - albedo) / (1 - p["albedo_ref"])                                       # 1 at the reference albedo
+    solar_crusting = solar_cell * warm * absorbed
     slr = np.clip(p["slr_at_0c"] + p["slr_per_c"] * np.maximum(-t_mean, 0), p["slr_at_0c"], p["slr_max"])
     hn24 = precip * snowfrac * slr * 2.54
     rain_in = precip * (1 - snowfrac)
@@ -128,7 +133,8 @@ def step(s, f, lat, p, scfg):
     load = np.where(release, 0.0, load)
     prev = s["cls"]
     cls = np.full(prev.shape, CID["old"], np.uint8)
-    cls[days <= OLD_DAYS] = CID["settled"]
+    cls[days <= OLD_DAYS] = CID["settled_late"]
+    cls[days <= p["settled_days"]] = CID["settled"]
     cls[days < p["settle_days"]] = CID["fresh"]
     cls[wind_h >= p["wind_hours"]] = CID["wind"]
     cls[wind_lee_h >= p["wind_hours"]] = CID["wind_loaded"]
@@ -265,11 +271,17 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     if ws:
         idx = [i for i, v in enumerate(ws.get("valid_utc") or []) if _local_hour(v, tz_offset_h).date() == day and str(ws["steps"][i]) in ws.get("grids", {})]
         for i in idx:
-            strong = forcing.sample(ws["grids"][str(ws["steps"][i])], latg, long_) >= p["wind_mph"]
-            wh += 3.0 * strong
             sk = str(ws["steps"][i])
-            if sk in wd.get("grids", {}):
-                d = forcing.sample(wd["grids"][sk], latg, long_)          # direction the wind comes from
+            speed = forcing.sample(ws["grids"][sk], latg, long_)
+            d = forcing.sample(wd["grids"][sk], latg, long_) if sk in wd.get("grids", {}) else None   # direction the wind comes from
+            if d is not None and "sx" in lat:
+                # Winstral shelter toward the wind's octant: sheltered cells see less wind, exposed ridges more
+                k = (np.round(np.nan_to_num(d, nan=0.0) / 45.0).astype(np.int64)) % 8
+                sxk = np.take_along_axis(lat["sx"].astype(np.float32), k[None, ...], axis=0)[0]
+                speed = speed * np.clip(1.0 - p["wind_sx_per_deg"] * sxk, p["wind_expo_min"], p["wind_expo_max"])
+            strong = speed >= p["wind_mph"]
+            wh += 3.0 * strong
+            if d is not None:
                 lee += 3.0 * (strong & aspect_within(aspect, d + 180.0, p["wind_sector_deg"]))
                 wwd += 3.0 * (strong & aspect_within(aspect, d, p["wind_sector_deg"]))
     f["wind_h"], f["wind_lee_h"], f["wind_wwd_h"] = wh, lee, wwd
@@ -282,6 +294,16 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     f["tmin_c"] = (fill_by_band(sn.get("tmin", {}), lat["zone"], lat["band"], fb_min) - 32) * 5 / 9
     f["snotel_hn24_in"] = fill_by_band(sn.get("hn24", {}), lat["zone"], lat["band"], np.nan)
     f["site_elev_m"] = fill_by_band({k: v for k, v in sn.get("elev_m", {}).items() if k in sn.get("tmax", {})}, lat["zone"], lat["band"], np.nan)
+    # the station network's own temperature field (elevation regression per zone + interpolated residuals) beats
+    # band means where enough stations reported; it also says where cold air pooled overnight
+    try:
+        from snow import tfield
+        tf = tfield.fields(hourlies, daily_next, day, tz_offset_h, lat, meta, latg, long_, zone_full, band_full, p, log)
+        if tf:
+            f["tmax_c"], f["tmin_c"], f["tmin_resid_c"] = tf["tmax_c"], tf["tmin_c"], tf["tmin_resid_c"]
+            f["site_elev_m"] = np.full(latg.shape, np.nan, np.float32)          # already at the cell's elevation
+    except Exception as e:  # noqa: BLE001
+        log("state: station temperature field failed (%r); band means used" % e)
     # snow depth: the next day's SNODAS (dated this day) else this day's
     sd = (daily_next.get("snodas") or daily.get("snodas") or {}).get("grids") or {}
     f["depth_in"] = forcing.sample(sd["depth"], latg, long_).astype(np.float32) if sd.get("depth") else np.full(latg.shape, np.nan, np.float32)
@@ -289,6 +311,8 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     t0 = time.time()
     f["solar_mj"] = solar.daily_mj_binned(latg, long_, day, lat["slope"].astype(np.float32), lat["aspect"].astype(np.float32),
                                           np.maximum(lat["elev"], 0).astype(np.float32), np.nan_to_num(cloud_day, nan=0.5), scfg)
+    if "horizon" in lat:
+        f["solar_mj"] = f["solar_mj"] * solar.terrain_factor(lat["horizon"], latg, day, scfg)
     f["solar_mj"][lat["elev"] == -32768] = 0
     log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, solar %.0f s"
         % (d, len(hourlies), np.nanmax(f["precip_in"]) if np.isfinite(f["precip_in"]).any() else 0,
@@ -380,7 +404,8 @@ def reclassify(s, lat, p):
     valid = lat["elev"] != -32768
     cls = np.full(prev.shape, CID["old"], np.uint8)
     days = s["days"].astype(np.int32)
-    cls[days <= OLD_DAYS] = CID["settled"]
+    cls[days <= OLD_DAYS] = CID["settled_late"]
+    cls[days <= p["settled_days"]] = CID["settled"]
     cls[days < p["settle_days"]] = CID["fresh"]
     cls[s["wind_h"] >= p["wind_hours"]] = CID["wind"]
     cls[s["wind_lee_h"] >= p["wind_hours"]] = CID["wind_loaded"]

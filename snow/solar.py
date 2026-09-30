@@ -125,6 +125,59 @@ def daily_mj(lat, lon, date, slope_deg, aspect_deg, alt_m=0.0, cloud=0.0, cfg=No
     return total * step * 60 / 1e6
 
 
+DIR16_AZ = [0.0, 26.6, 45.0, 63.4, 90.0, 116.6, 135.0, 153.4, 180.0, 206.6, 225.0, 243.4, 270.0, 296.6, 315.0, 333.4]
+
+
+def sector_of(az, azimuths=DIR16_AZ):
+    """index of the nearest direction in `azimuths` (deg, clockwise from N) for each azimuth in az"""
+    a = np.asarray(az, float)[..., None]
+    d = np.abs((a - np.asarray(azimuths, float) + 180.0) % 360.0 - 180.0)
+    return np.argmin(d, axis=-1)
+
+
+def shading_table(lat_bins, date, cfg=None, lon0=-121.0, max_el=45, azimuths=DIR16_AZ):
+    """for each latitude in lat_bins: (directions x max_el+1) the fraction of the day's clear-sky direct energy on a
+    horizontal surface that arrives from that direction's sector with the sun below each elevation angle; used
+    with a cell's horizon angles to get the share of the day's direct sun the surrounding terrain blocks"""
+    cfg = cfg or load_config()
+    step = int(cfg["step_min"])
+    t0 = dt.datetime(date.year, date.month, date.day)
+    lat_bins = np.asarray(lat_bins, float)
+    hist = np.zeros((len(lat_bins), len(azimuths), max_el + 2))
+    for m in range(0, 1440, step):
+        el, az = sun_position(lat_bins, np.full(len(lat_bins), lon0), t0 + dt.timedelta(minutes=m))
+        e = clear_sky_direct(el, 1000.0, cfg) * np.sin(np.radians(np.clip(el, 0, 90)))
+        k = sector_of(az, azimuths)
+        ei = np.clip(np.floor(el).astype(int) + 1, 0, max_el + 1)
+        up = el > 0
+        for i in np.nonzero(up)[0]:
+            hist[i, k[i], ei[i]] += e[i]
+    cum = np.cumsum(hist, axis=2)
+    tot = hist.sum(axis=(1, 2))[:, None, None]
+    return cum / np.where(tot > 0, tot, 1)
+
+
+def terrain_factor(horizon, lat, date, cfg=None, lat_step=0.5, direct_share=0.9, azimuths=None):
+    """1 - direct_share x (share of the day's direct sun blocked by the terrain), per cell, from the horizon angles
+    (deg) of each cell: (directions, N) array, directions at `azimuths` (16 by default, 8 octants if 8 rows).
+    Diffuse light (about a tenth) is not blocked."""
+    cfg = cfg or load_config()
+    hz_all = np.asarray(horizon)
+    nd = hz_all.shape[0]
+    if azimuths is None:
+        azimuths = DIR16_AZ if nd == 16 else [k * 360.0 / nd for k in range(nd)]
+    lat = np.asarray(lat, np.float32)
+    li = np.round(lat / lat_step).astype(np.int64)
+    bins, inv = np.unique(li, return_inverse=True)
+    table = shading_table(bins * lat_step, date, cfg, azimuths=azimuths)            # (nbins, nd, 47)
+    hz = np.clip(hz_all.astype(np.int64), 0, 45)
+    blocked = np.zeros(lat.shape, np.float32)
+    inv = inv.reshape(lat.shape)
+    for k in range(nd):
+        blocked += table[inv, k, hz[k]].astype(np.float32)
+    return (1.0 - direct_share * np.clip(blocked, 0, 1)).astype(np.float32)
+
+
 def refreeze_index(tmin_c, cloud, dewpoint_c, wind_ms):
     """0..1 how well the surface refroze overnight: 1 clear, dry, calm and cold; 0 warm, cloudy or windy.
     A placeholder shape until the first season's residuals exist (see the spec): the parameters here are

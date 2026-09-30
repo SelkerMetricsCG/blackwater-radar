@@ -81,8 +81,8 @@ def _synthetic_forcing(day, subset, p, scfg, tz, log=print, cache_dir=None, use_
     f["depth_in"][:] = 40
     f["snotel_hn24_in"][:] = np.nan
     f["site_elev_m"][:] = np.nan          # no sites: no lapse to the cell
-    if day >= dt.date(2026, 1, 14):                               # 5.5 MJ a day on the south-facing cells from Jan 14
-        f["solar_mj"] = np.where(subset.lat["aspect"] == 180, 5.5, 0.0).astype(np.float32)
+    if day >= dt.date(2026, 1, 14):                               # 3.5 MJ a day on the south-facing cells from Jan 14 (old snow absorbs 1.6x)
+        f["solar_mj"] = np.where(subset.lat["aspect"] == 180, 3.5, 0.0).astype(np.float32)
     return f
 
 
@@ -93,7 +93,7 @@ def test_fit_lowers_the_sun_crust_threshold(tmp_path, monkeypatch):
     from snow import forcing
     latg, long_ = forcing.lattice_latlon(META)
     recs = []
-    d = "2026-01-15"                                              # two sunny days: 11 MJ on south cells, under the 12 MJ default
+    d = "2026-01-15"                                              # two sunny days: ~10.4 MJ absorbed-equivalent on south cells, under the 12 MJ default
     obs = ledger.append(recs, [{"surface": "sun_crust", "lat": float(latg[5, 4]), "lon": float(long_[5, 4]), "band": "above", "aspects": ["S"], "confidence": 1.0}], d, "obs")
     ledger.append(recs, [{"obs_id": obs[0]["id"], "observed": "sun_crust", "predicted": "settled", "frac": 0.0, "match": False, "how": "near",
                           "cell": [5, 4], "radius_m": 300}], d, "residual")

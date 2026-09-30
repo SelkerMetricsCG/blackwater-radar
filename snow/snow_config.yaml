@@ -79,6 +79,18 @@ state:
   crust_tmin_c: {value: -8, bounds: [-14, -2], max_step: 1, source: judgment call, note: "sun on a surface whose band max is at or below this makes no crust (sublimation, no melt)"}
   crust_tfull_c: {value: 0, bounds: [-4, 4], max_step: 1, source: judgment call, note: "band max at or above this: all the day's solar counts toward the crust"}
   rain_refreeze_tmin_c: {value: -1, bounds: [-4, 1], max_step: 0.5, source: judgment call, note: "a rain-soaked surface becomes a rain crust once the band min drops below this; until then it is rain_wet"}
+  settled_days: {value: 7, bounds: [4, 10], max_step: 1, source: judgment call, note: "powder is 'settled' through this many days since the storm, 'settled_late' after, 'old' past 14"}
+  canopy_lw_fraction: {value: 0.35, bounds: [0.1, 0.6], max_step: 0.05, source: judgment call, note: "of the sun a canopy absorbs, the fraction that reaches the snow as longwave off the warm trees (spring tree wells)"}
+  albedo_fresh: {value: 0.85, bounds: [0.75, 0.9], max_step: 0.02, source: literature, note: "albedo of fresh snow"}
+  albedo_min: {value: 0.6, bounds: [0.45, 0.7], max_step: 0.03, source: literature, note: "albedo of old, dirty or wet snow"}
+  albedo_decay_per_day: {value: 0.03, bounds: [0.01, 0.06], max_step: 0.005, source: judgment call, note: "albedo lost per day since the storm (faster in spring in reality)"}
+  albedo_ref: {value: 0.75, bounds: [0.7, 0.8], max_step: 0.02, source: convention, note: "the albedo at which solar_crust_mj means what it says; absorbed energy is scaled by (1 - albedo) / (1 - albedo_ref)"}
+  wind_sx_per_deg: {value: 0.02, bounds: [0.005, 0.04], max_step: 0.005, source: judgment call, note: "wind speed multiplier is 1 - this x Winstral Sx (deg) toward the wind: +20 deg sheltered -> 0.6, -10 deg exposed -> 1.2"}
+  wind_expo_min: {value: 0.3, bounds: [0.1, 0.6], max_step: 0.05, source: judgment call, note: "floor of the exposure multiplier"}
+  wind_expo_max: {value: 1.6, bounds: [1.2, 2.5], max_step: 0.1, source: judgment call, note: "ceiling of the exposure multiplier (ridge crests)"}
+  tfield_min_stations: {value: 20, bounds: [10, 60], max_step: 5, source: judgment call, note: "stations with a full day of readings needed before the station field replaces the band means"}
+  tfield_min_per_zone: {value: 6, bounds: [4, 12], max_step: 1, source: judgment call, note: "stations in a zone (spanning 500 m of elevation) for its own lapse fit; else the pooled fit"}
+  tfield_idw_km: {value: 40, bounds: [15, 80], max_step: 5, source: judgment call, note: "reach of the residual interpolation (inverse distance squared)"}
   tree_load_tmin_c: {value: -3, bounds: [-6, -1], max_step: 1, source: judgment call, note: "snow sticks to the canopy when the band mean temperature is between this"}
   tree_load_tmax_c: {value: 1.5, bounds: [0, 3], max_step: 0.5, source: judgment call, note: "and this (wet snow near 0 C loads trees; cold dry snow blows through)"}
   tree_load_full_cm: {value: 25, bounds: [10, 50], max_step: 5, source: judgment call, note: "sticky new snow that fills the canopy load (load = 1)"}
