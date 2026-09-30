@@ -5,7 +5,7 @@ name: snow
 # archive and yesterday's state from R2 and writes <r>/snow/state/; step 2 (snow/daily.py) extracts observations
 # and weak layers from the day's forecast products with the Claude API, scores them, writes the brief and the ledger.
 on:
-  schedule:
+  schedule:                 # backstop: the Worker radar-cron dispatches this at 09:20 UTC (GitHub's own schedule ran 6 h late on 2026-09-29)
     - cron: "20 9 * * *"
   workflow_dispatch:
     inputs:

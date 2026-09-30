@@ -50,12 +50,13 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
-| `snow.yml` | 09:20 UTC daily | `python -m snow.state` then `python -m snow.daily`: the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
+| `snow.yml` | 09:20 UTC daily, started by `radar-cron` | `python -m snow.state` then `python -m snow.daily` (each skips a day already done, `--force` overrides): the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
 | `snow_fit.yml` | by hand | `python -m snow.fit`: replays the model around every scored report, proposes bounded parameter moves to `<r>/snow/fit/` |
 | `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
 GitHub's own `schedule:` fired `capture.yml` only every 2–6 h (40 runs 2026-09-20 to 09-26), so the Cloudflare
-Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers. Its secret
+Worker `radar-cron` (`cron/`: `worker.js`, `wrangler.toml`) sends a `workflow_dispatch` on its cron triggers (capture, hourly and,
+since 2026-09-30, snow: its GitHub schedule ran 6.5 h late on 09-29). Its secret
 `GH_TOKEN` is a fine-grained token (this repo only, Actions read/write) that Chris made; when it expires the
 dispatches fail (visible in the Worker's logs) and the GitHub schedules, kept on as a backstop, are all that runs.
 The token expires 2027-09-27 (renewal steps in `cron/worker.js`). The last step of `capture.yml` is a watchdog: on a
