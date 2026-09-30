@@ -1,5 +1,14 @@
 name = "radar"
+main = "site_worker.js"
 compatibility_date = "2026-09-13"
 
+# The map page and its assets (./web) are served first; site_worker.js answers only what no asset matches:
+# the sun & shade elevation tiles (/<region>/dem/v<n>/...), read from the bucket through the binding below
+# because the page needs their pixel values and the bucket's public domain sends no CORS header.
 [assets]
 directory = "./web"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "TILES"
+bucket_name = "radar"

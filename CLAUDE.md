@@ -70,15 +70,18 @@ cache headers per file type (frames immutable, `data/*.js` and `frames.js` no-ca
 Every PUT and LIST is an R2 Class A operation (free: 1 million a month, whole account). So `r2sync` skips a rewritten file
 whose MD5 equals the ETag `cloud.py` listed; a state cache goes back only if the run changed it; and an hourly run exits if
 the region's `stations.js` went up this UTC hour under 30 min ago (hourly.yml's `force` input overrides). List narrow
-prefixes (`<region>/frames`, `<region>/data/`), never `<region>/`: pnw holds 109k slope tiles. Measured 2026-09-29:
+prefixes (`<region>/frames`, `<region>/data/`), never `<region>/`: pnw holds 109k slope tiles and 27.6k elevation tiles. Measured 2026-09-29:
 ~20k Class A a day before the smoke and snow jobs. Recheck with the bucket's Metrics tab or a read-only snapshot of
 LastModified/ETag.
 
 ## Publishing the map page (no workflow does this)
 ```
 python build_web.py      # bakes the R2 URL and region table into web/index.html
-npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be on PATH
+npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must be on PATH
 ```
+- Since 2026-09-30 the Worker has a script, `site_worker.js`, and an R2 binding (`TILES`, bucket `radar`): assets are
+  served first, and the script answers only `/<region>/dem/v<n>/<z>/<x>/<y>.png` (the sun & shade elevation tiles,
+  same origin because WebGL reads their pixels and the bucket sends no CORS header); anything else goes to the assets.
 - Ask Chris before deploying; he does `wrangler` and `gh` logins himself.
 - Chris runs `git push` and the deploy himself from Run-button blocks (format in `../CLAUDE.md`). Run
   `build_web.py` yourself first, then hand him `npx --yes wrangler deploy` from `C:/Users/16035/Desktop/BlackwaterLabs/radar`.
@@ -174,6 +177,11 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   `smoke_research/smoke_serve.py` (port 8797; restart after `build_web.py`). RRFS (operational 2026-10-14) stays off
   until it is on AWS and checked side by side (spec, "RRFS: when and how to switch"). Spec and ledger:
   `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`; anomalies in `ANOMALY_LOG.md`.
+- Sun & shade (`terrain/`, 2026-09-30): Terrarium elevation tiles built on the PC from the slope build's 3 m DEMs
+  (`terrain/build_terrain.py`, QGIS Python) and uploaded once to R2 `pnw/dem/v1/` (`terrain/upload_tiles.py`); the page
+  traces terrain shadows on the GPU (`SUN_FS`) and the click readout runs the same walk in JavaScript (`// BEGIN sunShade`,
+  tested by `tests/test_map_sunshade.py`). Method card `terrain/METHOD.md`, parameters `terrain/terrain_config.yaml`,
+  checks and gotchas `terrain/README.md`, spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -205,3 +213,5 @@ npx wrangler deploy      # Worker "radar", assets-only from ./web; Node must be 
   LLM passes, `snow.html`; workflows `snow.yml`, `snow_static.yml`.
 - 2026-09-28/29: Smoke & fires section, phase 3 (HRRR near-surface smoke loop, `smoke.py`); spec
   `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`. Built and released in one session without review stops.
+- 2026-09-30: Sun & shade layer (Terrain group): GPU terrain shadows for any date and time, click readout of sun windows;
+  elevation tiles in `terrain/`, served by the new `site_worker.js`. Built in one session after Chris approved the design.

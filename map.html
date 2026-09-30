@@ -64,6 +64,9 @@
   .slopetiles img { image-rendering:pixelated; }       /* zoom 16-17 enlarge the zoom 15 tiles: keep the 3 m cells crisp */
   .slopeleg { display:flex; flex-wrap:wrap; gap:3px 10px; font-size:11px; color:var(--muted); }
   .slopeleg i { display:inline-block; width:12px; height:10px; margin-right:4px; vertical-align:-1px; border-radius:2px; }
+  .suncanvas { position:absolute; left:0; top:0; pointer-events:none; }
+  #sunDate { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font:inherit; font-size:12px; color-scheme:dark; }
+  #sunLabel { width:100%; font-weight:600; font-variant-numeric:tabular-nums; font-size:12px; }
   .subwrap { display:none; padding-bottom:6px; }
   .subwrap.open { display:block; }
   .chip { display:inline-block; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer; line-height:1.4; }
@@ -262,6 +265,21 @@
     <div class="subwrap" data-for="lySlope">
       <div class="sub"><span class="muted">opacity</span><input type="range" id="slopeOpacity" min="0" max="1" step="0.05" value="0.6"></div>
       <div class="sub" id="slopeInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lySun"> Sun &amp; shade
+      <button type="button" class="help" aria-label="About the sun and shade layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Darkens the ground that is in shade at the chosen minute: shaded by terrain between it and the sun (out to 25 km), or facing away from the sun. Pick any date; times are Pacific. Clear-sky geometry only: clouds are not included, and the model is bare earth, so the shade of trees is not shown. Built from USGS lidar (10 m where there is none); WA Cascades only, from zoom 10, and it sharpens as you zoom in. Click a spot for its hours of direct sun that day. It shows where the sun reaches, not avalanche conditions: check the avalanche forecast.</span></label>
+    <div class="subwrap" data-for="lySun">
+      <div class="sub" id="sunPlayer">
+        <input type="date" id="sunDate" aria-label="Date">
+        <button type="button" class="chip" id="sunPlay">Play</button>
+        <button type="button" class="chip" id="sunPrev" title="10 minutes earlier">&lt;</button>
+        <button type="button" class="chip" id="sunNext" title="10 minutes later">&gt;</button>
+        <input type="range" id="sunSlider" min="300" max="1320" step="10" value="720" aria-label="Time of day">
+        <div id="sunLabel"></div>
+      </div>
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="sunOpacity" min="0" max="1" step="0.05" value="0.45"></div>
+      <div class="sub" id="sunInfo" style="display:block"></div>
     </div>
     </div>
   </div>
@@ -1661,6 +1679,368 @@
     map.on('zoomend', () => { if (map.hasLayer(slopeLayer)) slopeInfo(); });
   } else $('terrainGrp').style.display = 'none';     // no slope tiles for this region yet
 
+  // ---------- sun & shade: terrain shadows traced on the GPU from elevation tiles (terrain/, method in terrain/METHOD.md) ----------
+  // BEGIN sunShade (tests/test_map_sunshade.py runs this block under node; SUN must equal terrain/terrain_config.yaml)
+  const SUN = { reachKm: 25, nearReachKm: 2, growth: 0.01, biasM: 0.5, earthR: 6371000, refrK: 0.13, readoutStepMin: 2,
+    slider: [300, 1320, 10], tz: 'America/Los_Angeles', minZoom: 10, shadeRgb: [40, 52, 78], opacity: 0.45,
+    nearZooms: [11, 14], farZoom: 10, marginKm: 30, bbox: [-122.2, 46.0, -120.0, 49.0] };
+  const SUN_RM = 6378137, SUN_ORIGIN = Math.PI * SUN_RM, SUN_NODATA = -32768, SUN_D2R = Math.PI / 180;
+  const SUN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const SUN_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  function sunMerc(lat, lon) { return [lon * SUN_D2R * SUN_RM, SUN_RM * Math.log(Math.tan(Math.PI / 4 + lat * SUN_D2R / 2))]; }
+  function sunLat(Y) { return (2 * Math.atan(Math.exp(Y / SUN_RM)) - Math.PI / 2) / SUN_D2R; }
+  function sunTileRes(z) { return 2 * SUN_ORIGIN / (256 * Math.pow(2, z)); }
+  function sunGrowBox(b, km) {     // [w, s, e, n] grown by km (as terrain/tilemath.py grow_bbox)
+    const dlat = km / 111.32, dlon = km / (111.32 * Math.cos((b[1] + b[3]) / 2 * SUN_D2R));
+    return [b[0] - dlon, b[1] - dlat, b[2] + dlon, b[3] + dlat];
+  }
+  // NOAA's solar-position spreadsheet (Meeus), as snow/solar.py: declination (deg), equation of time (min), UTC minute
+  function sunTerms(ms) {
+    const T = (ms / 864e5 + 2440587.5 - 2451545) / 36525;
+    const L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360;
+    const M = 357.52911 + T * (35999.05029 - 0.0001537 * T), Mr = M * SUN_D2R;
+    const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+    const C = Math.sin(Mr) * (1.914602 - T * (0.004817 + 0.000014 * T)) + Math.sin(2 * Mr) * (0.019993 - 0.000101 * T) + Math.sin(3 * Mr) * 0.000289;
+    const omega = 125.04 - 1934.136 * T;
+    const appLon = L0 + C - 0.00569 - 0.00478 * Math.sin(omega * SUN_D2R);
+    const eps = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60 + 0.00256 * Math.cos(omega * SUN_D2R);
+    const decl = Math.asin(Math.sin(eps * SUN_D2R) * Math.sin(appLon * SUN_D2R)) / SUN_D2R;
+    const y = Math.pow(Math.tan(eps * SUN_D2R / 2), 2), L = L0 * SUN_D2R;
+    const eqt = 4 * (y * Math.sin(2 * L) - 2 * e * Math.sin(Mr) + 4 * e * y * Math.sin(Mr) * Math.cos(2 * L) - 0.5 * y * y * Math.sin(4 * L) - 1.25 * e * e * Math.sin(2 * Mr)) / SUN_D2R;
+    const d = new Date(ms);
+    return { decl, eqt, utcMin: d.getUTCHours() * 60 + d.getUTCMinutes() + d.getUTCSeconds() / 60 };
+  }
+  function sunRefraction(e0) {     // NOAA's atmospheric refraction (deg) for a true elevation e0 (deg)
+    if (e0 > 85) return 0;
+    const t = Math.tan(e0 * SUN_D2R);
+    if (e0 > 5) return (58.1 / t - 0.07 / (t * t * t) + 0.000086 / Math.pow(t, 5)) / 3600;
+    if (e0 > -0.575) return (1735 + e0 * (-518.2 + e0 * (103.4 + e0 * (-12.79 + e0 * 0.711)))) / 3600;
+    return -20.772 / t / 3600;
+  }
+  function sunAt(lat, lon, S) {    // {el: apparent elevation, el0: true elevation, az: clockwise from N}, degrees
+    const tst = (((S.utcMin + S.eqt + 4 * lon) % 1440) + 1440) % 1440, ha = (tst / 4 - 180) * SUN_D2R;
+    const la = lat * SUN_D2R, de = S.decl * SUN_D2R;
+    const cosz = Math.min(1, Math.max(-1, Math.sin(la) * Math.sin(de) + Math.cos(la) * Math.cos(de) * Math.cos(ha)));
+    const zen = Math.acos(cosz), el0 = 90 - zen / SUN_D2R, den = Math.cos(la) * Math.sin(zen);
+    let az = den === 0 ? 180 : Math.acos(Math.min(1, Math.max(-1, (Math.sin(la) * cosz - Math.sin(de)) / den))) / SUN_D2R;
+    az = ha > 0 ? (az + 180) % 360 : (540 - az) % 360;
+    return { el: el0 + sunRefraction(el0), el0, az };
+  }
+  function sunZoneOffsetMin(ms) {  // Pacific minus UTC, minutes, at instant ms
+    const p = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: SUN.tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+      .formatToParts(new Date(ms)).forEach(x => { p[x.type] = x.value; });
+    return Math.round((Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(ms / 6e4) * 6e4) / 6e4);
+  }
+  function sunPacificMs(dateStr, minute) {   // 'YYYY-MM-DD' and minutes after Pacific midnight -> ms since epoch
+    const [y, m, d] = dateStr.split('-').map(Number), guess = Date.UTC(y, m - 1, d, 0, minute);
+    return guess - sunZoneOffsetMin(guess - sunZoneOffsetMin(guess) * 6e4) * 6e4;
+  }
+  // a grid: tiles of one zoom in one Float32Array, SUN_NODATA where missing: {z, res, X0, Y0 (top-left, mercator m), w, h, data, zmax}
+  function sunSample(g, X, Y) {    // bilinear between pixel centres; NaN outside or next to no data
+    if (!g) return NaN;
+    const fx = (X - g.X0) / g.res - 0.5, fy = (g.Y0 - Y) / g.res - 0.5, i = Math.floor(fx), j = Math.floor(fy);
+    if (i < 0 || j < 0 || i + 1 >= g.w || j + 1 >= g.h) return NaN;
+    const k = j * g.w + i, a = g.data[k], b = g.data[k + 1], c = g.data[k + g.w], d = g.data[k + g.w + 1];
+    if (a < -1000 || b < -1000 || c < -1000 || d < -1000) return NaN;
+    const tx = fx - i, ty = fy - j;
+    return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
+  }
+  function sunElev(near, far, X, Y) { const v = sunSample(near, X, Y); return isNaN(v) ? sunSample(far, X, Y) : v; }
+  // is the ground at mercator (X, Y) in direct sun for s = sunAt(...)? true / false, null where there is no terrain.
+  // The shader SUN_FS below is the same walk; keep them in step (sunDebug.compare checks one against the other).
+  function sunLit(near, far, X, Y, s, zmax) {
+    const z0 = sunElev(near, far, X, Y);
+    if (isNaN(z0)) return null;
+    if (s.el <= 0) return false;
+    const sc = Math.cosh(Y / SUN_RM), step = near ? near.res : far.res, g = step / sc;
+    const e = s.el * SUN_D2R, a = s.az * SUN_D2R, sa = Math.sin(a), ca = Math.cos(a), ce = Math.cos(e);
+    const zE = sunElev(near, far, X + step, Y), zW = sunElev(near, far, X - step, Y);
+    const zN = sunElev(near, far, X, Y + step), zS = sunElev(near, far, X, Y - step);
+    if (!isNaN(zE + zW + zN + zS) && -(zE - zW) / (2 * g) * ce * sa - (zN - zS) / (2 * g) * ce * ca + Math.sin(e) <= 0) return false;
+    const tanE = Math.tan(e), h0 = z0 + SUN.biasM, curv = (1 - SUN.refrK) / (2 * SUN.earthR);
+    const reach = SUN.reachKm * 1000, nearReach = SUN.nearReachKm * 1000, gN = g, gF = far.res / sc;
+    let d = gN;
+    for (let k = 0; k < 800 && d <= reach; k++) {
+      const hr = h0 + d * tanE;
+      if (hr > zmax) break;
+      const s2 = Math.cosh((Y + 0.5 * d * ca * sc) / SUN_RM), px = X + d * sa * s2, py = Y + d * ca * s2;
+      const zt = d <= nearReach ? sunElev(near, far, px, py) : sunSample(far, px, py);
+      if (zt - d * d * curv > hr) return false;              // NaN (no terrain there) compares false
+      d += Math.max(d < nearReach ? gN : gF, SUN.growth * d);
+    }
+    return true;
+  }
+  // the day's windows of direct sun at a point: {windows: [[first, last] minutes after Pacific midnight], hours, flat}
+  function sunWindows(near, far, lat, lon, dateStr, zmax) {
+    const [X, Y] = sunMerc(lat, lon), st = SUN.readoutStepMin, windows = [];
+    let flat = null, cur = null, lit = 0;
+    for (let m = 0; m < 1440; m += st) {
+      const s = sunAt(lat, lon, sunTerms(sunPacificMs(dateStr, m)));
+      if (s.el > 0) flat = flat ? [flat[0], m] : [m, m];
+      if (sunLit(near, far, X, Y, s, zmax) === true) { lit++; if (cur) cur[1] = m; else windows.push(cur = [m, m]); } else cur = null;
+    }
+    return { windows, hours: lit * st / 60, flat };
+  }
+  function sunHM(m) { return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+  // END sunShade
+
+  const SUN_VS = '#version 300 es\nvoid main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }';
+  const SUN_FS = `#version 300 es
+precision highp float; precision highp int; precision highp sampler2D;
+uniform sampler2D uNear, uFar;
+uniform vec2 uNearO, uFarO, uOrigin;
+uniform float uNearRes, uFarRes, uRes, uH, uDecl, uTsBase, uZmax, uReach, uNearReach, uGrowth, uBias, uCurv;
+uniform ivec2 uNearN, uFarN;
+uniform vec4 uBox;
+uniform vec3 uShade;
+out vec4 frag;
+const float RM = 6378137.0, D2R = 0.017453292519943295;
+float bil(sampler2D t, ivec2 n, vec2 o, float r, vec2 p) {
+  vec2 f = vec2((p.x - o.x) / r - 0.5, (o.y - p.y) / r - 0.5), fi = floor(f);
+  ivec2 i = ivec2(fi);
+  if (i.x < 0 || i.y < 0 || i.x + 1 >= n.x || i.y + 1 >= n.y) return -32768.0;
+  float a = texelFetch(t, i, 0).r, b = texelFetch(t, i + ivec2(1, 0), 0).r, c = texelFetch(t, i + ivec2(0, 1), 0).r, d = texelFetch(t, i + ivec2(1, 1), 0).r;
+  if (min(min(a, b), min(c, d)) < -1000.0) return -32768.0;
+  vec2 w = f - fi;
+  return mix(mix(a, b, w.x), mix(c, d, w.x), w.y);
+}
+float elevF(vec2 p) { return bil(uFar, uFarN, uFarO, uFarRes, p); }
+float elev(vec2 p) { float v = bil(uNear, uNearN, uNearO, uNearRes, p); return v < -1000.0 ? elevF(p) : v; }
+float refr(float e) {
+  if (e > 85.0) return 0.0;
+  float t = tan(e * D2R);
+  if (e > 5.0) return (58.1 / t - 0.07 / (t * t * t) + 0.000086 / (t * t * t * t * t)) / 3600.0;
+  if (e > -0.575) return (1735.0 + e * (-518.2 + e * (103.4 + e * (-12.79 + e * 0.711)))) / 3600.0;
+  return -20.772 / t / 3600.0;
+}
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, gl_FragCoord.y - uH) * uRes;   // metres from the canvas's top-left corner, north up
+  if (p.x < uBox.x || p.x > uBox.y || p.y < uBox.z || p.y > uBox.w) { frag = vec4(0.0); return; }
+  float z0 = elev(p);
+  if (z0 < -1000.0) { frag = vec4(0.0); return; }
+  vec4 shade = vec4(uShade, 1.0);
+  float Y = uOrigin.y + p.y, lat = 2.0 * atan(exp(Y / RM)) - 1.5707963267948966, lon = (uOrigin.x + p.x) / RM / D2R;
+  float ha = (mod(uTsBase + 4.0 * lon, 1440.0) / 4.0 - 180.0) * D2R, de = uDecl * D2R;
+  float cosz = clamp(sin(lat) * sin(de) + cos(lat) * cos(de) * cos(ha), -1.0, 1.0), zen = acos(cosz), den = cos(lat) * sin(zen);
+  float az = den == 0.0 ? 180.0 : acos(clamp((sin(lat) * cosz - sin(de)) / den, -1.0, 1.0)) / D2R;
+  az = ha > 0.0 ? mod(az + 180.0, 360.0) : mod(540.0 - az, 360.0);
+  float el0 = 90.0 - zen / D2R, el = el0 + refr(el0);
+  if (el <= 0.0) { frag = shade; return; }
+  float e = el * D2R, a = az * D2R, sa = sin(a), ca = cos(a), ce = cos(e), sc = cosh(Y / RM), g = uNearRes / sc;
+  float zE = elev(p + vec2(uNearRes, 0.0)), zW = elev(p - vec2(uNearRes, 0.0)), zN = elev(p + vec2(0.0, uNearRes)), zS = elev(p - vec2(0.0, uNearRes));
+  if (min(min(zE, zW), min(zN, zS)) > -1000.0 && -(zE - zW) / (2.0 * g) * ce * sa - (zN - zS) / (2.0 * g) * ce * ca + sin(e) <= 0.0) { frag = shade; return; }
+  float tanE = tan(e), h0 = z0 + uBias, gF = uFarRes / sc, d = g;
+  for (int k = 0; k < 800; k++) {
+    if (d > uReach) break;
+    float hr = h0 + d * tanE;
+    if (hr > uZmax) break;
+    vec2 pt = p + d * cosh((Y + 0.5 * d * ca * sc) / RM) * vec2(sa, ca);
+    float zt = d <= uNearReach ? elev(pt) : elevF(pt);
+    if (zt > -1000.0 && zt - d * d * uCurv > hr) { frag = shade; return; }
+    d += max(d < uNearReach ? g : gF, uGrowth * d);
+  }
+  frag = vec4(0.0);
+}`;
+  const SUNBOX = window.REGION === 'pnw' ? SUN.bbox : null;
+  const SUN_FARBOX = sunGrowBox(SUN.bbox, SUN.marginKm);
+  const DEM = (window.REGION || 'pnw') + '/dem/v1/';     // same origin: site_worker.js serves it from R2 (the bucket sends no CORS header)
+  const sunState = { on: false, date: null, minute: 720, seq: 0, gl: undefined, canvas: null, u: null, tex: null, near: null, far: null, view: null, timer: null };
+  map.createPane('sunPane'); map.getPane('sunPane').style.zIndex = 340; map.getPane('sunPane').style.pointerEvents = 'none';
+  const sunTileCache = new Map();
+  let sunDecodeCtx = null;
+  function sunTile(z, x, y) {      // Promise of a 256 x 256 Float32Array (Terrarium decoded), or null where there is no tile
+    const key = z + '/' + x + '/' + y;
+    let p = sunTileCache.get(key);
+    if (p) { sunTileCache.delete(key); sunTileCache.set(key, p); return p; }
+    p = fetch(DEM + key + '.png').then(r => (r.ok ? r.blob() : null))
+      .then(b => b && createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then(bmp => {
+        if (!bmp) return null;
+        if (!sunDecodeCtx) { const c = document.createElement('canvas'); c.width = c.height = 256; sunDecodeCtx = c.getContext('2d', { willReadFrequently: true }); }
+        sunDecodeCtx.clearRect(0, 0, 256, 256); sunDecodeCtx.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+        const px = sunDecodeCtx.getImageData(0, 0, 256, 256).data, out = new Float32Array(65536);
+        for (let i = 0; i < 65536; i++) out[i] = px[4 * i] * 256 + px[4 * i + 1] + px[4 * i + 2] / 256 - 32768;
+        return out;
+      }).catch(() => { sunTileCache.delete(key); return null; });
+    sunTileCache.set(key, p);
+    if (sunTileCache.size > 400) sunTileCache.delete(sunTileCache.keys().next().value);
+    return p;
+  }
+  function sunPlan(z, xa, ya, xb, yb, clip) {   // tile range of zoom z over mercator [xa, xb] x [ya, yb] cut to the lon/lat box clip
+    const [Xw, Ys] = sunMerc(clip[1], clip[0]), [Xe, Yn] = sunMerc(clip[3], clip[2]), T = 256 * sunTileRes(z);
+    xa = Math.max(xa, Xw); xb = Math.min(xb, Xe); ya = Math.max(ya, Ys); yb = Math.min(yb, Yn);
+    if (xa >= xb || ya >= yb) return null;
+    const tx0 = Math.floor((xa + SUN_ORIGIN) / T), tx1 = Math.floor((xb + SUN_ORIGIN) / T), ty0 = Math.floor((SUN_ORIGIN - yb) / T), ty1 = Math.floor((SUN_ORIGIN - ya) / T);
+    return { z, tx0, ty0, nx: tx1 - tx0 + 1, ny: ty1 - ty0 + 1, w: (tx1 - tx0 + 1) * 256, h: (ty1 - ty0 + 1) * 256 };
+  }
+  async function sunGrid(pl) {
+    if (!pl) return null;
+    const res = sunTileRes(pl.z), data = new Float32Array(pl.w * pl.h).fill(SUN_NODATA), jobs = [];
+    for (let j = 0; j < pl.ny; j++) for (let i = 0; i < pl.nx; i++) jobs.push(sunTile(pl.z, pl.tx0 + i, pl.ty0 + j).then(a => {
+      if (a) for (let r = 0; r < 256; r++) data.set(a.subarray(r * 256, r * 256 + 256), (j * 256 + r) * pl.w + i * 256);
+    }));
+    await Promise.all(jobs);
+    let zmax = -Infinity;
+    for (let k = 0; k < data.length; k++) if (data[k] > zmax) zmax = data[k];
+    return { z: pl.z, res, X0: -SUN_ORIGIN + pl.tx0 * 256 * res, Y0: SUN_ORIGIN - pl.ty0 * 256 * res, w: pl.w, h: pl.h, data, zmax };
+  }
+  function sunToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: SUN.tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  function sunNowMinute() {
+    const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: SUN.tz, hourCycle: 'h23', hour: 'numeric', minute: 'numeric' }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+    return Math.max(SUN.slider[0], Math.min(SUN.slider[1], Math.floor((+p.hour * 60 + +p.minute) / 10) * 10));
+  }
+  function sunInfo(msg) {
+    $('sunInfo').innerHTML = (msg ? '<div class="muted"><b>' + msg + '</b></div>' : '') +
+      '<div class="note"><i style="display:inline-block;width:12px;height:10px;vertical-align:-1px;border-radius:2px;background:rgb(' + SUN.shadeRgb.join(',') + ')"></i> shade · ' +
+      'clear sky, bare earth (no tree shade) · click a spot for its hours of sun</div>';
+  }
+  function sunGL() {
+    if (sunState.gl !== undefined) return sunState.gl;
+    const c = sunState.canvas = L.DomUtil.create('canvas', 'suncanvas', map.getPane('sunPane'));
+    let gl = null;
+    try { gl = c.getContext('webgl2', { premultipliedAlpha: true, antialias: false, depth: false, preserveDrawingBuffer: true }); } catch (e) { gl = null; }
+    if (gl) {
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+      try {
+        const prog = gl.createProgram();
+        gl.attachShader(prog, sh(gl.VERTEX_SHADER, SUN_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, SUN_FS)); gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+        gl.useProgram(prog); gl.bindVertexArray(gl.createVertexArray());
+        sunState.u = {};
+        ['uNear', 'uFar', 'uNearO', 'uFarO', 'uOrigin', 'uNearRes', 'uFarRes', 'uRes', 'uH', 'uDecl', 'uTsBase', 'uZmax', 'uReach', 'uNearReach', 'uGrowth', 'uBias', 'uCurv', 'uNearN', 'uFarN', 'uBox', 'uShade']
+          .forEach(n => { sunState.u[n] = gl.getUniformLocation(prog, n); });
+        sunState.tex = [gl.createTexture(), gl.createTexture()].map((t, i) => {
+          gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t);
+          [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.NEAREST));
+          [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE));
+          return t;
+        });
+      } catch (e) { console.error('sun & shade shader:', e); gl = null; }
+    }
+    return (sunState.gl = gl);
+  }
+  function sunUpload(i, g) {
+    const gl = sunState.gl;
+    gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, sunState.tex[i]);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, g.w, g.h, 0, gl.RED, gl.FLOAT, g.data);
+  }
+  function sunHide() { if (sunState.canvas) sunState.canvas.style.display = 'none'; }
+  async function sunRedraw() {
+    if (!sunState.on || !SUNBOX) return;
+    const seq = ++sunState.seq, z = map.getZoom();
+    if (z < SUN.minZoom) { sunHide(); sunInfo('Zoom in to see it (from zoom ' + SUN.minZoom + ').'); return; }
+    const gl = sunGL();
+    if (!gl) { sunHide(); sunInfo('This browser has no WebGL2, so shade cannot be drawn; clicking a spot still gives its hours of sun.'); return; }
+    const size = map.getSize(), px = Math.round(size.x * 0.15), py = Math.round(size.y * 0.15);   // a margin so a short pan shows no bare edge
+    const nw = map.containerPointToLatLng([-px, -py]), [X0, Y0] = sunMerc(nw.lat, nw.lng), res = sunTileRes(z);
+    const v = { W: size.x + 2 * px, H: size.y + 2 * py, X0, Y0, res, tl: map.containerPointToLayerPoint([-px, -py]) };
+    const xb = X0 + v.W * res, ya = Y0 - v.H * res, sc = Math.cosh((Y0 + ya) / 2 / SUN_RM);
+    const np = (SUN.nearReachKm * 1000 + 300) * sc, fp = (SUN.reachKm * 1000 + 500) * sc, max = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    const farPl = sunPlan(SUN.farZoom, X0 - fp, ya - fp, xb + fp, Y0 + fp, SUN_FARBOX);
+    let nz = Math.max(SUN.farZoom, Math.min(SUN.nearZooms[1], Math.round(z))), nearPl = sunPlan(nz, X0 - np, ya - np, xb + np, Y0 + np, SUN.bbox);
+    while (nearPl && (nearPl.w > max || nearPl.h > max) && nz > SUN.farZoom) nearPl = sunPlan(--nz, X0 - np, ya - np, xb + np, Y0 + np, SUN.bbox);
+    if (!nearPl || !farPl) { sunHide(); sunInfo('WA Cascades only: pan to the mountains.'); return; }
+    if (nearPl.w > max || nearPl.h > max || farPl.w > max || farPl.h > max) { sunHide(); sunInfo('Zoom in one step to see it on a screen this large.'); return; }
+    sunInfo('loading terrain…');
+    const [near, far] = await Promise.all([sunGrid(nearPl), sunGrid(farPl)]);
+    if (seq !== sunState.seq || !sunState.on) return;
+    Object.assign(sunState, { near, far, view: v });
+    sunUpload(0, near); sunUpload(1, far);
+    sunInfo(near.zmax < -1000 ? 'No terrain data here yet.' : '');
+    sunDraw();
+  }
+  function sunDraw() {
+    const st = sunState, gl = st.gl, v = st.view;
+    if (!st.on || !gl || !st.near || !v) return;
+    const c = st.canvas, u = st.u;
+    if (c.width !== v.W || c.height !== v.H) { c.width = v.W; c.height = v.H; c.style.width = v.W + 'px'; c.style.height = v.H + 'px'; }
+    L.DomUtil.setPosition(c, v.tl); c.style.display = ''; c.style.opacity = $('sunOpacity').value;
+    const S = sunTerms(sunPacificMs(st.date, st.minute));
+    const [bx0, by0] = sunMerc(SUN.bbox[1], SUN.bbox[0]), [bx1, by1] = sunMerc(SUN.bbox[3], SUN.bbox[2]);
+    gl.viewport(0, 0, v.W, v.H);
+    gl.uniform1i(u.uNear, 0); gl.uniform1i(u.uFar, 1);
+    gl.uniform2f(u.uNearO, st.near.X0 - v.X0, st.near.Y0 - v.Y0); gl.uniform2f(u.uFarO, st.far.X0 - v.X0, st.far.Y0 - v.Y0);
+    gl.uniform2f(u.uOrigin, v.X0, v.Y0);
+    gl.uniform1f(u.uNearRes, st.near.res); gl.uniform1f(u.uFarRes, st.far.res); gl.uniform1f(u.uRes, v.res); gl.uniform1f(u.uH, v.H);
+    gl.uniform2i(u.uNearN, st.near.w, st.near.h); gl.uniform2i(u.uFarN, st.far.w, st.far.h);
+    gl.uniform4f(u.uBox, bx0 - v.X0, bx1 - v.X0, by0 - v.Y0, by1 - v.Y0);
+    gl.uniform1f(u.uDecl, S.decl); gl.uniform1f(u.uTsBase, S.utcMin + S.eqt); gl.uniform1f(u.uZmax, Math.max(st.near.zmax, st.far.zmax));
+    gl.uniform1f(u.uReach, SUN.reachKm * 1000); gl.uniform1f(u.uNearReach, SUN.nearReachKm * 1000); gl.uniform1f(u.uGrowth, SUN.growth);
+    gl.uniform1f(u.uBias, SUN.biasM); gl.uniform1f(u.uCurv, (1 - SUN.refrK) / (2 * SUN.earthR));
+    gl.uniform3f(u.uShade, SUN.shadeRgb[0] / 255, SUN.shadeRgb[1] / 255, SUN.shadeRgb[2] / 255);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function sunLabel() {
+    const [y, m, d] = sunState.date.split('-').map(Number), ms = sunPacificMs(sunState.date, sunState.minute), c = map.getCenter();
+    const s = sunAt(c.lat, c.lng, sunTerms(ms));
+    const zone = new Intl.DateTimeFormat('en-US', { timeZone: SUN.tz, timeZoneName: 'short' }).formatToParts(new Date(ms)).find(p => p.type === 'timeZoneName').value;
+    const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    $('sunLabel').textContent = wd + ' ' + d + ' ' + SUN_MONTHS[m - 1] + ', ' + sunHM(sunState.minute) + ' ' + zone + ' · ' +
+      (s.el > 0 ? 'sun ' + Math.round(s.el) + '° up, from the ' + SUN_DIRS[Math.round(s.az / 45) % 8] + ' (' + Math.round(s.az) + '°)' : 'sun below the horizon');
+  }
+  function sunSet(minute) {
+    sunState.minute = Math.max(SUN.slider[0], Math.min(SUN.slider[1], minute));
+    $('sunSlider').value = sunState.minute; sunLabel(); sunDraw();
+  }
+  function sunPause() { clearTimeout(sunState.timer); sunState.timer = null; $('sunPlay').textContent = 'Play'; }
+  function sunTick() {
+    const end = sunState.minute >= SUN.slider[1];
+    sunState.timer = setTimeout(() => { sunSet(end ? SUN.slider[0] : sunState.minute + SUN.slider[2]); sunTick(); }, end ? 1500 : 300);
+  }
+  async function sunReadout(ll) {  // the popup line: this spot's windows of direct sun on the chosen date
+    const [X, Y] = sunMerc(ll.lat, ll.lng), sc = Math.cosh(Y / SUN_RM);
+    const np = (SUN.nearReachKm * 1000 + 300) * sc, fp = (SUN.reachKm * 1000 + 500) * sc;
+    const [near, far] = await Promise.all([sunGrid(sunPlan(SUN.nearZooms[1], X - np, Y - np, X + np, Y + np, SUN.bbox)),
+      sunGrid(sunPlan(SUN.farZoom, X - fp, Y - fp, X + fp, Y + fp, SUN_FARBOX))]);
+    if (!far || far.zmax < -1000) return '';
+    const r = sunWindows(near, far, ll.lat, ll.lng, sunState.date, Math.max(near ? near.zmax : -Infinity, far.zmax));
+    const [, m, d] = sunState.date.split('-').map(Number), day = d + ' ' + SUN_MONTHS[m - 1];
+    const txt = r.windows.length ? 'Direct sun here on ' + day + ': ' + r.windows.map(w => sunHM(w[0]) + '–' + sunHM(w[1])).join(', ') + ' (' + r.hours.toFixed(1) + ' h)'
+      : 'No direct sun here on ' + day;
+    return '<div style="color:#666;font-size:12px">' + txt + (r.flat ? ' · flat horizon ' + sunHM(r.flat[0]) + '–' + sunHM(r.flat[1]) : '') + ' (Pacific)</div>';
+  }
+  function sunInBox(ll) { return !!SUNBOX && ll.lng >= SUNBOX[0] && ll.lng <= SUNBOX[2] && ll.lat >= SUNBOX[1] && ll.lat <= SUNBOX[3]; }
+  if (SUNBOX) {
+    $('sunSlider').min = SUN.slider[0]; $('sunSlider').max = SUN.slider[1]; $('sunSlider').step = SUN.slider[2]; $('sunOpacity').value = SUN.opacity;
+    $('lySun').onchange = e => {
+      sunState.on = e.target.checked;
+      if (sunState.on) {
+        if (!sunState.date) { sunState.date = sunToday(); $('sunDate').value = sunState.date; sunState.minute = sunNowMinute(); $('sunSlider').value = sunState.minute; }
+        sunLabel(); sunInfo(); sunRedraw();
+      } else { sunPause(); sunHide(); sunState.seq++; }
+    };
+    $('sunDate').onchange = () => { sunState.date = $('sunDate').value || sunToday(); $('sunDate').value = sunState.date; sunLabel(); sunDraw(); };
+    $('sunSlider').oninput = () => { sunPause(); sunSet(+$('sunSlider').value); };
+    $('sunPrev').onclick = () => { sunPause(); sunSet(sunState.minute - SUN.slider[2]); };
+    $('sunNext').onclick = () => { sunPause(); sunSet(sunState.minute + SUN.slider[2]); };
+    $('sunPlay').onclick = () => { if (sunState.timer) sunPause(); else { $('sunPlay').textContent = 'Pause'; sunTick(); } };
+    $('sunOpacity').oninput = e => { if (sunState.canvas) sunState.canvas.style.opacity = e.target.value; };
+    map.on('zoomstart', sunHide);
+    map.on('moveend', () => { if (sunState.on) { sunRedraw(); sunLabel(); } });
+  } else { $('lySun').closest('.opt').hidden = true; document.querySelector('.subwrap[data-for=lySun]').hidden = true; }
+  // for the checks in terrain/README.md: the shader against the JavaScript walk at n random pixels of the current view
+  window.sunDebug = {
+    state: sunState, sunAt, sunTerms, sunPacificMs, sunLit, sunWindows, sunPlan, sunGrid, sunMerc, sunLat,
+    compare(n) {
+      const st = sunState, gl = st.gl, v = st.view, buf = new Uint8Array(4), S = sunTerms(sunPacificMs(st.date, st.minute));
+      const zmax = Math.max(st.near.zmax, st.far.zmax), out = { n: 0, agree: 0, gpuShade: 0, jsShade: 0, disagree: [] };
+      for (let k = 0; k < n * 4 && out.n < n; k++) {
+        const i = Math.floor(Math.random() * v.W), j = Math.floor(Math.random() * v.H), X = v.X0 + (i + 0.5) * v.res, Y = v.Y0 - (j + 0.5) * v.res;
+        const lon = X / SUN_RM / SUN_D2R, lat = sunLat(Y);
+        if (!sunInBox({ lat, lng: lon })) continue;
+        const lit = sunLit(st.near, st.far, X, Y, sunAt(lat, lon, S), zmax);
+        if (lit === null) continue;
+        gl.readPixels(i, v.H - 1 - j, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        const g = buf[3] > 0;
+        out.n++; out.gpuShade += g; out.jsShade += !lit;
+        if (g === !lit) out.agree++; else if (out.disagree.length < 25) out.disagree.push([lat.toFixed(5), lon.toFixed(5), g ? 'gpu shade' : 'gpu sun']);
+      }
+      return out;
+    },
+  };
+
   // ---------- NWS alerts ----------
   const alertLayer = L.layerGroup();
   function alertColor(p) {
@@ -1756,6 +2136,8 @@
     let head = '<div style="font-weight:600">' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4) + (elev != null ? ' · ' + Math.round(elev).toLocaleString() + ' ft' : '') + '</div>';
     if (sun) head += '<div style="color:#666;font-size:12px">sunrise ' + sun.rise.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · sunset ' + sun.set.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div>';
     sec.push(head); render('<div style="color:#666">loading…</div>');
+    let popDone = false;
+    if (sunState.on && sunInBox(ll)) sunReadout(ll).then(t => { if (t) { sec[0] += t; render(popDone ? '' : '<div style="color:#666">loading…</div>'); } }).catch(() => {});
     // freezing level now and later
     if (!fzData) await new Promise(res => loadScript('data/freezing.js', () => { fzData = window.FREEZING || null; res(); }, res));
     if (fzData) {
@@ -1838,7 +2220,7 @@
       }
     } catch (err) { /* outside NWS coverage or offline */ }
     sec.push('<div style="color:#666;font-size:11px;margin-top:6px">station windows follow the Weather stations selection (' + w + ' h)</div>');
-    render('');
+    popDone = true; render('');
   });
 
   // ---------- refresh ----------
@@ -1892,7 +2274,7 @@
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }

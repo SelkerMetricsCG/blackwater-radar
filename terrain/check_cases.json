@@ -1,0 +1,51 @@
+{
+  "note": "Cases for check 3 (blind re-implementation) and check 4 (snow model horizons). Coordinates are sample points near each named place, not surveyed positions. Times are Pacific (America/Los_Angeles).",
+  "places": [
+    {
+      "name": "Colchuck Lake",
+      "lat": 47.496,
+      "lon": -120.8345
+    },
+    {
+      "name": "Stevens Pass base",
+      "lat": 47.745,
+      "lon": -121.088
+    },
+    {
+      "name": "Alpental base",
+      "lat": 47.4447,
+      "lon": -121.4254
+    },
+    {
+      "name": "Paradise (Rainier)",
+      "lat": 46.786,
+      "lon": -121.7353
+    },
+    {
+      "name": "Heather Meadows (Baker)",
+      "lat": 48.8573,
+      "lon": -121.6793
+    },
+    {
+      "name": "Snoqualmie Pass",
+      "lat": 47.4245,
+      "lon": -121.4137
+    }
+  ],
+  "dates": [
+    "2026-12-21",
+    "2027-03-20",
+    "2027-06-21"
+  ],
+  "patch_times_min": [
+    540,
+    720,
+    900
+  ],
+  "patch": {
+    "n": 41,
+    "spacing_m": 50,
+    "points": "point (i, j) for i, j = 0..n-1 (i east, j south, row-major j then i): north_m = (n // 2 - j) * spacing_m, east_m = (i - n // 2) * spacing_m; lat = lat0 + north_m / 111320; lon = lon0 + east_m / (111320 * cos(radians(lat0)))"
+  },
+  "readout_step_min": 2
+}
