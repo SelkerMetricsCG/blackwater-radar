@@ -5,7 +5,7 @@
 // write, made 2026-09-27 to expire 2027-09-27. Renew: regenerate it at github.com/settings/personal-access-tokens, then
 // here run `npx wrangler secret put GH_TOKEN` and paste it. If it lapses, capture.yml's watchdog step fails (email).
 const REPO = 'SelkerMetricsCG/blackwater-radar';
-const WORKFLOW = { '*/15 * * * *': 'capture.yml', '4 * * * *': 'hourly.yml' };   // keys must match wrangler.toml crons
+const WORKFLOW = { '*/15 * * * *': 'capture.yml', '4 * * * *': 'hourly.yml', '20 9 * * *': 'snow.yml' };   // keys must match wrangler.toml crons
 
 export default {
   async scheduled(event, env) {

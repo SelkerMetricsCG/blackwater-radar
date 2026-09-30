@@ -4,7 +4,7 @@ compatibility_date = "2026-09-13"
 workers_dev = false          # no public URL: the Worker only runs on its crons
 
 [triggers]
-crons = ["*/15 * * * *", "4 * * * *"]    # capture.yml every 15 min, hourly.yml at minute 4 (see worker.js)
+crons = ["*/15 * * * *", "4 * * * *", "20 9 * * *"]    # capture.yml every 15 min, hourly.yml at minute 4, snow.yml 09:20 UTC (see worker.js)
 
 [observability]
 enabled = true               # keeps invocation logs, so a failed dispatch is visible in the dashboard

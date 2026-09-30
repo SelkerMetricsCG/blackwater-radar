@@ -45,9 +45,13 @@ def bottom_lines(products):
     return [{k: p.get(k) for k in keep if k in p} for p in products]
 
 
-def run(day, log=print, upload=True):
+def run(day, log=print, upload=True, force=False):
     t0 = time.time()
     d = day.isoformat()
+    if not force and store.read_json("brief/%s.json" % d, log):
+        # the Worker dispatch and GitHub's own (late) schedule can both fire for one day: the API passes run once
+        log("daily %s: brief already written for this day, nothing to do (--force to run the passes again)" % d)
+        return None
     recs = ledger.load(log)
     summ = store.read_json("state/%s.json" % d, log)
     meta = store.read_json("static/lattice.json", log) or {}
@@ -107,6 +111,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=None)
     ap.add_argument("--no-upload", action="store_true")
+    ap.add_argument("--force", action="store_true", help="run the passes again for a day whose brief exists")
     a = ap.parse_args()
     dd = dt.date.fromisoformat(a.date) if a.date else dt.date.today() - dt.timedelta(days=1)
-    run(dd, upload=not a.no_upload)
+    run(dd, upload=not a.no_upload, force=a.force)
