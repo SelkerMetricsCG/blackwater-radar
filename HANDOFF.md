@@ -3,7 +3,9 @@
 Read `CLAUDE.md` in this folder for how the site works. Two pieces of work are open (2 and 3).
 Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE.md`); read his Terminal panel afterwards.
 
-## 13. Sun & shade layer (2026-09-30): built and checked; tiles on R2; Chris pushes and deploys
+## 13. Sun & shade layer: LIVE 2026-09-30 19:3x (pushed `0dafb39`, deploy version 604403c2)
+- Checked live 19:40: page = `web/index.html`; tiles through the Worker identical to local (200, immutable);
+  a missing tile 404 with 5-min cache; GPU vs JS 2,000/2,000 pixels; popup readout at Colchuck; no console errors.
 - What: Terrain > "Sun & shade": GPU terrain shadows for any date, 05:00-22:00 Pacific slider (Play, 10-min steps), and a
   line in the point popup, "Direct sun here on <date>: windows (h) · flat horizon ...". WA Cascades box, from zoom 10.
   Spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`; method, checks and gotchas in `terrain/README.md`.
@@ -22,8 +24,6 @@ Pushes and deploys: Chris runs them from Run-button blocks (format in `../CLAUDE
 - Open for Chris (none blocking): sign-off on the judgment calls listed unapproved in `terrain_config.yaml` (margin,
   far zoom, resampling, vertical step, growth, bias, colour, opacity, min zoom); whether the popup line should say
   "for this exact spot" (it answers for the ~6 m spot clicked, see the anomaly log).
-- After the deploy: `https://radar.blackwaterlabs.org/pnw/dem/v1/10/163/351.png` must answer image/png through the
-  Worker, and the live page must equal `web/index.html`; then tick the layer at Colchuck on 21 Dec (lake in shade).
 - Local-only test noise: 3 tests in `test_snow_terrain.py` fail on this PC because Anaconda has a stray `tests` package
   in site-packages that shadows `tests.test_snow_state`; CI is unaffected.
 
