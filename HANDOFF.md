@@ -362,7 +362,8 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   (tonight) is the first from the fixed state. Check after 09:20 UTC: `snow.yml` log has `backfill 2026-10-11:` and
   `state: forcing for 2026-10-11: ... (24 hourly grids)`.
 
-### Map-first snow site 2026-10-11 (branch `feat/snow-map-first`; Chris: "use the layout and continue")
+### Map-first snow site 2026-10-11: LIVE (pushed `19299d2`, deploy version 12443b40; live page == web_snow/index.html,
+    `/r2/` class PNG and DEM tile 200, other paths fall through to the assets)
 - `snow.html` rebuilt map first (see CLAUDE.md), `snow_worker.js` + R2 binding in `wrangler_snow.toml` (needs the deploy),
   `build_snow.py` bakes `snow-window`. Checked in the in-app browser (desktop 1280x760 and phone 375x812): zone tabs and
   map clicks select each other, `#z=` links, readout elevation within one lattice cell (3,344 vs 3,248 ft; 4,483 vs 4,475
@@ -370,6 +371,10 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   stands in for the Worker's `/r2/` paths.
 - Judgment calls for Chris: Roaring's teal accent; legend lists only the classes present that day; readout slope over
   +-2 px at zoom 13 (~26 m); elevation only inside the sun & shade box (WA Cascades; not the Olympics or Mt Hood).
+- Band stats (branch `feat/snow-band-stats`, `cddcadf`): Chris saw East Central at "0.0 cm" after it snowed on him; the
+  zone-mean tile averaged a dusting above 4,500 ft down to the valleys. `summary()` now has `by_band` (mean, p90, max,
+  share >= fresh_cm per band); the zone tab shows a table, the zone list a line; `--resummarize` rebuilt 09-29..10-10
+  from the class snapshots (see the log line below once run); `snow.yml` input `rebrief` rewrites a day's brief.
 - Next (phase 2, Chris 2026-10-11 "all three, storm log first", option C): spec the season record: hourly snowfall
   grids (MRMS 1 h x hourly snow fraction x SLR) -> 12/24 h new snow and totals since Oct 1 (backfill from AWS) as layers
   on both sites, and a per-zone storm log on the snow site's zone tabs. Spec before code.
