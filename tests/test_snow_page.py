@@ -116,3 +116,32 @@ def test_build_without_env_or_base_fails_clearly(tmp_path, monkeypatch):
     r = subprocess.run([sys.executable, os.path.join(ROOT, "build_snow.py"), "--out", str(tmp_path / "o")], capture_output=True, text=True, cwd=str(tmp_path))
     assert r.returncode != 0 and "R2_PUBLIC_URL" in r.stderr
     assert not (tmp_path / "o").exists()
+
+
+def test_map_first_layout(html):
+    # Chris 2026-10-11: the map is the page, it zooms with the scroll wheel, zones are tabs, the trip log sits behind a button
+    assert "scrollWheelZoom: true" in html and "scrollWheelZoom: false" not in html
+    assert 'id="tabs"' in html and "'All zones'" in html and 'id="tripBtn"' in html and '<dialog id="tripDlg"' in html
+    for k in ("topo", "terrain", "hillshade", "sat"):
+        assert re.search(r"\b%s: \['" % k, html), k
+    assert "{ id: 'cls', label: 'Surface'" in html and "{ id: 'depth', label: 'Snow depth'" in html
+
+
+def test_pixel_reads_go_through_the_worker_paths(html):
+    # the class PNG and the elevation tiles are read from the page's own origin (snow_worker.js), the rest from R2
+    worker = open(os.path.join(ROOT, "snow_worker.js"), encoding="utf-8").read()
+    pat = re.compile(re.search(r"const R2 = /(.*)/;", worker).group(1).replace(r"\/", "/"))
+    assert "const PROXY = '/r2/pnw/';" in html
+    assert pat.match("/r2/pnw/snow/state/2026-10-10_cls.png") and pat.match("/r2/pnw/snow/state/latest_cls.png")
+    assert pat.match("/r2/pnw/dem/v1/13/1342/2850.png")
+    assert "PROXY + 'snow/' + CLS.file" in html and "PROXY + 'dem/v1/' + key + '.png'" in html
+
+
+def test_build_bakes_the_map_window(tmp_path):
+    out = tmp_path / "w"
+    subprocess.run([sys.executable, os.path.join(ROOT, "build_snow.py"), "--base", "http://x/", "--out", str(out)], check=True,
+                   capture_output=True, cwd=str(tmp_path))
+    built = (out / "index.html").read_text(encoding="utf-8")
+    m = re.search(r'<meta name="snow-window" content="([-0-9.,]+)">', built)
+    s, w, n, e = map(float, m.group(1).split(","))
+    assert 42 < s < 46 and -127 < w < -122 and 49 < n < 53 and -118 < e < -110     # the pnw window around the NWAC area

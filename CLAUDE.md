@@ -36,8 +36,13 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   the archive in `snow/forcing.py`, R2 access in `snow/store.py`), the ledger and LLM passes (`snow/daily.py`, step 2: `ledger.py`,
   `llm.py` through the Claude API with the Actions secret `BW_SNOW_MODEL` (the key, expires 2027-07-31; model from the
   repository variable of the same name), `score.py`, `assimilate.py`; writes `<region>/snow/ledger/` and `brief/`),
-  parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`,
-  `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
+  parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`
+  (map first since 2026-10-11: full-screen Leaflet map, scroll-wheel zoom, layer chips, basemaps Topo/Terrain/Hillshade/
+  Satellite, zone tabs in a left panel that is a bottom sheet on phones, click readout of zone, surface class and
+  elevation/slope/aspect, `#d=<date>&z=<zone id>` links, trip log in a dialog), `python build_snow.py` -> `web_snow/`
+  (gitignored; bakes the R2 URL and the pnw window bounds), `npx wrangler deploy --config wrangler_snow.toml` (Worker
+  `snow`: assets first, then `snow_worker.js` serves `/r2/<region>/snow/state/*.png` and `/r2/<region>/dem/v<n>/...` from
+  the bucket through the `BUCKET` binding, because the page reads their pixels and the bucket sends no CORS header).
   Trip log: `snow/trips.json`. Offline: `snow/backfill.py` (fill archive gaps: SNODAS from NSIDC, MRMS hours from AWS;
   new files only), `python -m snow.state --start <d> --date <d>` (re-run the full model over a range from a fresh state
   after a fix), `snow/replay.py` (re-run a date range on a subset of cells), `snow/fit.py`

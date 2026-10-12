@@ -342,7 +342,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   layers keyed by `buried` + CAAML `grain` (`ledger.layer_key`); `score.py` uses the record's precision as the
   neighbourhood radius; `assimilate.py` weights by tier (`TIER_WEIGHT`, to move into `snow_config.yaml` once fitted).
 
-### First-snow fixes 2026-10-11 (branch `fix/snow-first-snow`, built in a radar worktree; Chris approved all four)
+### First-snow fixes 2026-10-11: PUSHED (`b7d56c7`, Chris 18:4x); no deploy needed (pages unchanged)
 - Done (371 tests pass): (a) `archive.file_snodas` writes `<SNODAS date>/snodas.json.gz` from the run that downloaded it;
   `day_forcing` reads it first; `snow/backfill.py` fills SNODAS (NSIDC) and missing MRMS 1 h hours (AWS, Pass2 else
   Pass1) as new files. (b) Chris: any new snow counts: `fresh_cm` 10 -> 1 (floor against radar speckle), new `bury_cm` 10
@@ -353,14 +353,26 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   `python -m snow.state --start D1 --date D2` re-runs a range from a fresh state; day PNG links carry `?v=`.
   Also: NOAA's 24 h Pass 2 total dropped the hours its feed skipped (10-10 read 0.00 where the hours held 0.11-0.19 in),
   so a day with all 24 hourly grids uses their sum; `snow.yml` now backfills yesterday first (`continue-on-error`).
-- Local check (no upload; scratch `verify_local.py`, `compare_local.py`): 10-09 above 4,500 ft: fresh in 47 % of Stevens
-  (median 0.9, p90 2.7 cm), 56 % Snoqualmie, 49 % W Central, 28 % W North, 13-16 % E North/Central; Lyman Lake 5.2 cm.
-  Before: 0 % everywhere. Enchantments ~0: MRMS saw 0.04-0.07 in there (radar shadow east of the crest).
-- Next: ff-merge to main; Chris pushes; backfill `--upload` 09-28..10-10; re-run the model 09-28..10-10 on R2 (the
-  10-11 run comes from the nightly job); check the live page.
-- Then (Chris 2026-10-11): design the season record: hourly snowfall grids (radar x hourly snow fraction) giving a
-  12/24 h new-snow view (where, how much), totals since Oct 1 (backfill from AWS), and the per-zone storm log; all three,
-  storm log first. Architectural: spec before code.
+- Local check (no upload; scratch `verify_local.py`, `compare_local.py`), hourly-sum rule included: above 4,500 ft
+  10-09 fresh in 46 % of Stevens (median 0.9, p90 2.9 cm), 56 % Snoqualmie, 41 % W Central; 10-10 53 % Stevens, 100 %
+  Snoqualmie, 24-51 % of the east-side zones (Colchuck 2.2 cm, Sasse Ridge 2.6 cm). Before: 0 % everywhere.
+- Live (19:00-19:45 PDT, from this PC, credentials in-process): backfill uploaded 09-28..10-10 (SNODAS every day; MRMS
+  10-09 10 hours, 10-10 21 hours); model re-run 09-29..10-10 with uploads (`state.run_range`). The 10-10 brief predates
+  the fix ("still no snow"); snow.daily skips a day whose brief exists, so it stays until a `--force` run; 10-11's brief
+  (tonight) is the first from the fixed state. Check after 09:20 UTC: `snow.yml` log has `backfill 2026-10-11:` and
+  `state: forcing for 2026-10-11: ... (24 hourly grids)`.
+
+### Map-first snow site 2026-10-11 (branch `feat/snow-map-first`; Chris: "use the layout and continue")
+- `snow.html` rebuilt map first (see CLAUDE.md), `snow_worker.js` + R2 binding in `wrangler_snow.toml` (needs the deploy),
+  `build_snow.py` bakes `snow-window`. Checked in the in-app browser (desktop 1280x760 and phone 375x812): zone tabs and
+  map clicks select each other, `#z=` links, readout elevation within one lattice cell (3,344 vs 3,248 ft; 4,483 vs 4,475
+  ft, SW, 41 vs 37 deg), trip pick fills point, zone and elevation. Tests 376. Preview: scratch `snow_preview_server.py`
+  stands in for the Worker's `/r2/` paths.
+- Judgment calls for Chris: Roaring's teal accent; legend lists only the classes present that day; readout slope over
+  +-2 px at zoom 13 (~26 m); elevation only inside the sun & shade box (WA Cascades; not the Olympics or Mt Hood).
+- Next (phase 2, Chris 2026-10-11 "all three, storm log first", option C): spec the season record: hourly snowfall
+  grids (MRMS 1 h x hourly snow fraction x SLR) -> 12/24 h new snow and totals since Oct 1 (backfill from AWS) as layers
+  on both sites, and a per-zone storm log on the snow site's zone tabs. Spec before code.
 
 ### Diagnosis 2026-10-11: first snow (dusting >4-5k ft, Fri 10-09 evening) not shown
 - **Bug, blocks everything:** archive `daily.json.gz` has `snodas.grids == {}` every day since 09-28 (checked 09-29, 10-01,

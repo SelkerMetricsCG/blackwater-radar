@@ -1,7 +1,10 @@
-# snow.blackwaterlabs.org: the snow-conditions page, assets only from ./web_snow (built by build_snow.py).
+# snow.blackwaterlabs.org: the snow-conditions page from ./web_snow (built by build_snow.py), served first; snow_worker.js
+# answers only what no asset matches: /r2/<region>/snow/state/*.png and /r2/<region>/dem/v<n>/... from the bucket below,
+# because the page reads their pixels (click readout) and the bucket's public domain sends no CORS header.
 # Deploy with `npx wrangler deploy --config wrangler_snow.toml` (Chris does the wrangler login).
 # The custom domain is attached by the deploy (same as taxes/ and roaring/). Keep `routes` above the first [table].
 name = "snow"
+main = "snow_worker.js"
 compatibility_date = "2026-09-13"
 routes = [
   { pattern = "snow.blackwaterlabs.org", custom_domain = true }
@@ -9,3 +12,8 @@ routes = [
 
 [assets]
 directory = "./web_snow"
+binding = "ASSETS"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "radar"

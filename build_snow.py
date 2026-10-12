@@ -2,7 +2,8 @@
 Build the snow-conditions site into web_snow/ for the Cloudflare Worker "snow"
 (publish with `npx wrangler deploy --config wrangler_snow.toml`).
 
-  web_snow/index.html   snow.html with the R2 public URL baked into its snow-base meta tag
+  web_snow/index.html   snow.html with the R2 public URL baked into its snow-base meta tag and the pnw map window's
+                        bounds (S,W,N,E, where the radar job's SNODAS frames sit) into snow-window
   web_snow/terms.html   terms and privacy notice (a copy of terms.html)
   web_snow/favicon.ico  copied from web/ when present (with icon-192.png)
   web_snow/vendor/      Leaflet, copied from web/vendor/ when that folder exists (web/ is gitignored
@@ -18,6 +19,15 @@ import shutil
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MARKER = '<meta name="snow-base" content="">'
+WINDOW_MARKER = '<meta name="snow-window" content="">'
+
+
+def window_bounds(region_key="pnw"):
+    """S, W, N, E (degrees) of a region's map window, as build_web.py bounds the radar map's frames (SNODAS among them)"""
+    os.environ.setdefault("REGION", region_key)
+    import region
+    z, x0, x1, y0, y1 = region.window()
+    return region.tile_lat(y1 + 1), region.tile_lon(x0), region.tile_lat(y0), region.tile_lon(x1 + 1)
 
 
 def build(base=None, out=None, log=print):
@@ -35,6 +45,9 @@ def build(base=None, out=None, log=print):
     if MARKER not in html:
         raise SystemExit("snow.html is missing the snow-base meta tag")
     html = html.replace(MARKER, '<meta name="snow-base" content="%s">' % base)
+    if WINDOW_MARKER not in html:
+        raise SystemExit("snow.html is missing the snow-window meta tag")
+    html = html.replace(WINDOW_MARKER, '<meta name="snow-window" content="%s">' % ",".join("%.5f" % v for v in window_bounds()))
 
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as f:
