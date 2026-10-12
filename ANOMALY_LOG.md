@@ -114,3 +114,18 @@ One entry per anomaly, per `~/.claude/verification-protocol.md` (colleague mode)
 - **Decision:** released. Re-run `smoke_check.py` on a smoky day (several sites ≥ 35.5 µg/m³) to get a real skill
   number; if the smoke-affected correlation is then negative or the shift test picks a direction, treat it as a defect.
 - **Status:** explained (hypothesis 1), open until a smoky-day check.
+
+## 2026-10-11: NOAA's 24 h Pass 2 total after its 21 h outage (snow model precipitation for 2026-10-10)
+- **Seen:** NOAA's `MultiSensor_QPE_01H_Pass2` was not posted 2026-10-09 19Z to 2026-10-10 15Z (AWS `noaa-mrms-pds` has
+  hours 01-18Z on 10-09, then only 04, 05, 06 and 16Z on 10-10; Pass 1 and radar-only complete). The 24 h Pass 2 total
+  valid 2026-10-11 06Z (what the model used for 10-10) read 0.00 in at Snoqualmie Pass, Sasse Ridge and Colchuck where
+  the 24 hourly grids (Pass 1 for the missing hours, `snow/backfill.py`) sum to 0.19, 0.13 and 0.11 in, and it carried
+  3.01 in offshore at 47.0 N 124.9 W (hours: 0.23 in) and 3.40 in at 50.2 N 119.4 W (hours: 0.47 in).
+- **Hypotheses:** (1) NOAA built the 24 h total from the Pass 2 hours it had, so the skipped hours count as dry; predicts
+  zeros where only skipped hours were wet (SNOTEL Sasse Ridge gained 0.2-0.4 in on Sat 10-10). (2) a fringe artefact of
+  the 24 h product (offshore, north of the border); predicts large values the hours do not support. (3) Pass 1 reads high;
+  predicts hourly sums above the 24 h total everywhere, but on 10-09 (Pass 2 mostly present) the sums run at or below it
+  (Lyman Lake 0.42 vs 0.61 in). (1) and (2) fit; (3) does not.
+- **Decision:** a day with all 24 hourly grids uses their sum (`state.day_forcing`); `snow.yml` backfills yesterday's
+  missing hours first, so that is the normal case. Re-run 10-10 locally: new snow above 4,500 ft in 53 % of Stevens,
+  100 % of Snoqualmie, 24-51 % of the east-side zones (before: 0 %).

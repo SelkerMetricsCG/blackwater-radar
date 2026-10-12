@@ -308,9 +308,13 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     end_utc = _iso_utc((daily_next.get("mrms24") or {}).get("valid_utc")) or (dt.datetime.combine(day + dt.timedelta(days=1), dt.time())
                                                                            - dt.timedelta(hours=tz_offset_h))
     wet = precip_hours(hourlies, backfill, end_utc)
-    # precipitation: the next day's 24 h MRMS (valid at that day's first run) covers this day; else the sum of the 1 h
-    # grids, each valid hour once (when NOAA stops posting, the archive repeats the last hour)
-    if daily_next.get("mrms24"):
+    # precipitation: the sum of the 1 h grids when all 24 hours of the window are there (each valid hour once; the
+    # nightly job backfills the gaps first), else the next day's 24 h MRMS (valid at that day's first run), else the
+    # hours there are. NOAA's 24 h Pass 2 total drops hours its own feed skipped: 2026-10-10 it read 0 at Snoqualmie
+    # and Sasse Ridge where the hours (Pass 1) held 0.13-0.19 in
+    if len(wet) >= 24:
+        f["precip_in"] = sum(np.nan_to_num(forcing.sample(g, latg, long_), nan=0.0) for _, g in wet).astype(np.float32)
+    elif daily_next.get("mrms24"):
         f["precip_in"] = forcing.sample(daily_next["mrms24"], latg, long_).astype(np.float32)
     elif wet:
         f["precip_in"] = sum(np.nan_to_num(forcing.sample(g, latg, long_), nan=0.0) for _, g in wet).astype(np.float32)
@@ -414,9 +418,10 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     svf = lat["svf"].astype(np.float32) / 100.0 if "svf" in lat else 1.0
     f["solar_mj"] = solar.terrain_irradiance(parts, tf, svf, cfg=scfg)
     f["solar_mj"][lat["elev"] == -32768] = 0
-    log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, %d wet hours for the snow fraction (%d backfilled), "
+    log("state: forcing for %s: %d hourlies, precip max %.2f in (%s), fzl %s ft, %d wet hours for the snow fraction (%d backfilled), "
         "snodas %s, solar %.0f s"
         % (d, len(hourlies), np.nanmax(f["precip_in"]) if np.isfinite(f["precip_in"]).any() else 0,
+           "24 hourly grids" if len(wet) >= 24 else "24 h grid" if daily_next.get("mrms24") else "%d hourly grids" % len(wet),
            "%.0f-%.0f" % (np.nanmin(f["fzl_ft"]), np.nanmax(f["fzl_ft"])) if np.isfinite(f["fzl_ft"]).any() else "none",
            f["phase_hours"], len((backfill or {}).get("hours") or {}), "yes" if sd.get("depth") else "none", time.time() - t0))
     return f

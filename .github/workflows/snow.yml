@@ -39,7 +39,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install numpy pyyaml boto3 pyproj pillow anthropic
+      - run: pip install numpy pyyaml boto3 pyproj pillow anthropic eccodes cfgrib xarray scipy
+      - name: ${{ matrix.region }} fill archive gaps (SNODAS, MRMS hours NOAA's feed skipped)
+        continue-on-error: true
+        run: python -m snow.backfill --upload ${{ inputs.date && format('--start {0}', inputs.date) || '' }}
       - name: ${{ matrix.region }} surface state
         run: python -m snow.state ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
       - name: ${{ matrix.region }} ledger and brief

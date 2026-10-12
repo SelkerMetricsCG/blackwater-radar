@@ -10,6 +10,8 @@ Fill gaps in the season archive from the agencies' own archives; every file is n
 
   python -m snow.backfill --start 2026-09-28 --end 2026-10-11              local files only (regions/<r>/snow/archive/)
   python -m snow.backfill --start 2026-09-28 --end 2026-10-11 --upload     and to R2 (immutable), skipping files there
+  python -m snow.backfill --upload                                          yesterday (snow.yml runs this before the model)
+A day's MRMS file is written only once its window has ended 2 h ago (NOAA posts Pass 2 about an hour after the hour).
 """
 import argparse
 import datetime as dt
@@ -115,8 +117,10 @@ def run(start, end, upload=False, log=print):
                     done.append("snodas %dK" % (n // 1024))
                     if upload:
                         put_new("archive/%s/snodas.json.gz" % d, log)
-            if "mrms1h.json.gz" not in names:
-                end_utc = window_end(day, tz, log)
+            end_utc = window_end(day, tz, log)
+            if end_utc > dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(hours=2):
+                done.append("mrms: the day's window is not over (an archive file is never rewritten)")
+            elif "mrms1h.json.gz" not in names:
                 gaps = mrms_gaps(day, sorted(names), end_utc, log)
                 hours, products = {}, {}
                 for v in gaps:
@@ -142,8 +146,9 @@ def run(start, end, upload=False, log=print):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--start", required=True)
-    ap.add_argument("--end", required=True)
+    ap.add_argument("--start", default=None, help="YYYY-MM-DD (default: yesterday, local)")
+    ap.add_argument("--end", default=None, help="YYYY-MM-DD (default: --start)")
     ap.add_argument("--upload", action="store_true")
     a = ap.parse_args()
-    run(dt.date.fromisoformat(a.start), dt.date.fromisoformat(a.end), a.upload)
+    start = dt.date.fromisoformat(a.start) if a.start else dt.date.today() - dt.timedelta(days=1)
+    run(start, dt.date.fromisoformat(a.end) if a.end else start, a.upload)

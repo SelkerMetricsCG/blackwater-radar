@@ -282,7 +282,7 @@ def test_snow_fraction_follows_the_hour_the_precipitation_fell(tmp_path, monkeyp
     _write_gz(str(a15 / "mrms1h.json.gz"), {"hours": {"2026-01-16T06:00": grid(25, 256, 0.01), "2026-01-16T04:00": grid(90, 256, 0.01)}})
     p, scfg = state.load_params()
     f = state.day_forcing(dt.date(2026, 1, 15), lat, meta, latlon, -8, scfg, p, lambda *a: None)
-    assert f["phase_hours"] == 3
+    assert f["phase_hours"] == 3 and f["precip_in"][1, 0] == pytest.approx(0.75)          # 7 of 24 hours: the 24 h grid
     # the day-mean freezing level (~9,300 ft) would call it all rain at 1,500 m (4,921 ft); the evening hours say snow
     assert f["fzl_ft"][1, 0] > 9000 and state.snow_fraction(np.float32(4921), f["fzl_ft"][1, 0], p) == 0
     assert f["snow_frac"][1, 0] == pytest.approx(1.0) and f["snow_frac"][0, 0] == pytest.approx(0.14, abs=0.01)   # 500 m
@@ -290,3 +290,25 @@ def test_snow_fraction_follows_the_hour_the_precipitation_fell(tmp_path, monkeyp
     s = state.new_state(lat["elev"].shape, np.zeros((4, 4)), p["min_depth_in"], lat["elev"] != -32768)
     s = state.step(s, f, lat, p, scfg)
     assert s["cls"][1, 0] == state.CID["fresh"] and s["hn24_cm"][1, 0] > 10
+
+
+def test_a_complete_day_of_hours_beats_the_24_h_grid(tmp_path, monkeypatch):
+    # 2026-10-10: NOAA's 24 h Pass 2 total read 0 where the hours it never posted (Pass 1, backfilled) held 0.1-0.2 in
+    pytest.importorskip("pyproj")
+    import r2sync
+    from snow import forcing, store
+    monkeypatch.setattr(r2sync, "load_env", lambda: None)
+    monkeypatch.setattr(store, "_ENV", None)
+    monkeypatch.setattr(store, "SNOW_DIR", str(tmp_path))
+    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0], "zones": {}}
+    lat = _lattice()
+    grid = lambda v, n=64, scale=1: {"n": n, "scale": scale, "unit": "x", "data": [v] * (n * n)}  # noqa: E731
+    a15, a16 = tmp_path / "archive" / "2026-01-15", tmp_path / "archive" / "2026-01-16"
+    _write_gz(str(a16 / "daily.json.gz"), {"mrms24": dict(grid(0, 256, 0.01), valid_utc="2026-01-16T08:00")})
+    _write_gz(str(a15 / "00.json.gz"), {"fz0": dict(grid(300, 64, 10), run_utc="2026-01-15T08:00")})
+    end = dt.datetime(2026, 1, 16, 8)
+    hours = {(end - dt.timedelta(hours=k)).strftime("%Y-%m-%dT%H:%M"): grid(1, 256, 0.01) for k in range(24)}
+    _write_gz(str(a15 / "mrms1h.json.gz"), {"hours": hours})
+    p, scfg = state.load_params()
+    f = state.day_forcing(dt.date(2026, 1, 15), lat, meta, forcing.lattice_latlon(meta), -8, scfg, p, lambda *a: None)
+    assert f["precip_in"][1, 0] == pytest.approx(0.24, abs=1e-4)

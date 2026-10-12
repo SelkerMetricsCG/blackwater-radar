@@ -351,8 +351,13 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   its middle, deduped by valid time; replay cache keyed by the rain/snow line too). (d) `mrms.choose`: Pass2, else Pass1,
   then RadarOnly when 2 h behind (`STALE_H`, judgment call); `source` in `mrms.js` and the archive's `mrms1`.
   `python -m snow.state --start D1 --date D2` re-runs a range from a fresh state; day PNG links carry `?v=`.
-- Next: local check (backfill + re-run 10-08..10-10, no upload) vs SNOTEL; ff-merge to main; Chris pushes; backfill
-  `--upload` 09-28..10-11; re-run the model 09-28..10-11 on R2; check the live page.
+  Also: NOAA's 24 h Pass 2 total dropped the hours its feed skipped (10-10 read 0.00 where the hours held 0.11-0.19 in),
+  so a day with all 24 hourly grids uses their sum; `snow.yml` now backfills yesterday first (`continue-on-error`).
+- Local check (no upload; scratch `verify_local.py`, `compare_local.py`): 10-09 above 4,500 ft: fresh in 47 % of Stevens
+  (median 0.9, p90 2.7 cm), 56 % Snoqualmie, 49 % W Central, 28 % W North, 13-16 % E North/Central; Lyman Lake 5.2 cm.
+  Before: 0 % everywhere. Enchantments ~0: MRMS saw 0.04-0.07 in there (radar shadow east of the crest).
+- Next: ff-merge to main; Chris pushes; backfill `--upload` 09-28..10-10; re-run the model 09-28..10-10 on R2 (the
+  10-11 run comes from the nightly job); check the live page.
 - Then (Chris 2026-10-11): design the season record: hourly snowfall grids (radar x hourly snow fraction) giving a
   12/24 h new-snow view (where, how much), totals since Oct 1 (backfill from AWS), and the per-zone storm log; all three,
   storm log first. Architectural: spec before code.
