@@ -26,7 +26,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   regions with `"snow": True` in `region.py`, `pnw` only), full avalanche.org products (`snow/avyproducts.py`), NAC
   observations gated on `NAC_OBS_ORIGIN` (`snow/observations.py`; never send an origin we were not given). Archive layout:
   `<region>/snow/archive/<local date>/HH.json.gz` (stations, HRRR freezing level f0, MRMS 1 h, zone danger), `daily.json.gz`
-  (74 h SNOTEL series, NDFD grids, freezing f0..f18, MRMS 24 h, SNODAS, full station records), `products/`, `obs/`; every
+  (74 h SNOTEL series, NDFD grids, freezing f0..f18, MRMS 24 h, full station records; its SNODAS was always empty), `snodas.json.gz`
+  (SNODAS for the folder's date, filed by the run that downloads it, from 2026-10-11), `mrms1h.json.gz` (only from
+  `snow/backfill.py`: MRMS 1 h for hours the hourly files missed, from NOAA's AWS archive), `products/`, `obs/`; every
   file is written once and never rewritten (`r2sync` uploads it immutable). Grids are the click-anywhere grids
   (`values.read_grid`) at 64 px (smooth fields) or 256 px (precipitation), nodata -1. Static: the 100 m terrain lattice
   (`snow/lattice.py`, built by the `snow static` workflow into `<region>/snow/static/`), the solar term (`snow/solar.py`),
@@ -36,7 +38,9 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
   repository variable of the same name), `score.py`, `assimilate.py`; writes `<region>/snow/ledger/` and `brief/`),
   parameters in `snow/snow_config.yaml` (same protocol as `snotel_config.yaml`; nothing approved yet). The site: `snow.html`,
   `python build_snow.py` -> `web_snow/` (gitignored), `npx wrangler deploy --config wrangler_snow.toml` (Worker `snow`).
-  Trip log: `snow/trips.json`. Offline: `snow/replay.py` (re-run a date range on a subset of cells), `snow/fit.py`
+  Trip log: `snow/trips.json`. Offline: `snow/backfill.py` (fill archive gaps: SNODAS from NSIDC, MRMS hours from AWS;
+  new files only), `python -m snow.state --start <d> --date <d>` (re-run the full model over a range from a fresh state
+  after a fix), `snow/replay.py` (re-run a date range on a subset of cells), `snow/fit.py`
   (bounded parameter fit on the ledger's residuals; `snow_fit.yml` by hand proposes, `--apply` from a session changes
   `snow_config.yaml` and writes `param` ledger records), `snow/sunhours.py` (sunrise and sunset on terrain at a point, from
   the lattice's 16-direction horizons). `snow/tfield.py` builds each day's temperature field from the station network.
@@ -47,7 +51,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | Workflow | When | Does |
 |---|---|---|
 | `capture.yml` | every 15 min, started by Worker `radar-cron` | `REGION=<r> python cloud.py radar` for each region: radar/satellite frames, accumulation overlays, alerts, air quality (`airquality.py`), fires (`fires.py`), `<r>/frames.js` |
-| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS, freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
+| `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS (Pass 2; Pass 1, then radar-only, when Pass 2 is 2 h behind), freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
 | `snow.yml` | 09:20 UTC daily, started by `radar-cron` | `python -m snow.state` then `python -m snow.daily` (each skips a day already done, `--force` overrides): the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |

@@ -12,7 +12,7 @@ agreed (from the residual) and tier_weight is TIER_WEIGHT for the report's sourc
 spatial precision (residual `precision_m`, else the report's `spatial_precision_m`) is a region that size, not a
 point: the search radius grows by it and the decay starts at its edge, so a report placed to 1500 m nudges every
 similar cell within 1500 m at full weight. A report that matched nudges nothing. Nudged fields:
-  fresh          days 0, hn24 fresh_cm, solar 0, wind hours 0, rain 0
+  fresh          days 0, hn24 bury_cm, solar 0, wind hours 0, rain 0
   settled / old  solar below the crust threshold, wind hours below wind_hours, rain 0, melt_days 0
   sun_crust      solar to solar_crust_mj      rain_crust   rain 1, refrozen 1   rain_wet  rain 1, refrozen 0   wind*  wind hours to wind_hours
   melt_freeze    refreeze to refreeze_good, melt_days 0   isothermal   melt_days to isothermal_days
@@ -79,7 +79,7 @@ def nudge(s, m, w, cls_name, p):
 
     if cls_name == "fresh":
         blend(s["days"], 0.0)
-        setmin(s["hn24_cm"], p["fresh_cm"])
+        setmin(s["hn24_cm"], p["bury_cm"])
         blend(s["solar_mj"], 0.0)
         blend(s["wind_h"], 0.0)
         blend(s["wind_lee_h"], 0.0)

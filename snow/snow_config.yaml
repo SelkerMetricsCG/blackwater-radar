@@ -58,8 +58,8 @@ solar:
 # Surface-state model (snow/state.py). Every value is a first-season placeholder (judgment call) until the
 # residual ledger exists; bounds and max_step are what the fit may do to it later.
 state:
-  fresh_cm: {value: 10, bounds: [5, 25], max_step: 2, source: judgment call, note: "hn24 at or above this makes the surface 'fresh'"}
-  dust_cm: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "hn24 between this and fresh_cm on a crust is 'dust on crust'"}
+  fresh_cm: {value: 1, bounds: [0.5, 3], max_step: 0.5, source: "Chris 2026-10-11: any new snow counts (was 10); 1 cm floor is a judgment call to keep radar speckle out", note: "hn24 at or above this is new snow: fresh, or dust_on_crust when under bury_cm on a crust"}
+  bury_cm: {value: 10, bounds: [5, 25], max_step: 2, source: judgment call, note: "new snow at or above this buries a crust (fresh, clocks restart); under it on a crust is dust_on_crust and the crust's clocks keep running (was fresh_cm's role until 2026-10-11)"}
   settle_days: {value: 2, bounds: [1, 5], max_step: 1, source: judgment call, note: "fresh becomes settled powder after this many days"}
   solar_crust_mj: {value: 12, bounds: [6, 30], max_step: 2, source: judgment call, note: "cumulative MJ/m2 on the cell since the last fresh snow that makes a sun crust (Jan 15 south 30 deg gets ~14 a day clear)"}
   wind_mph_dry: {value: 18, bounds: [10, 30], max_step: 2, source: literature, note: "NDFD 10 m wind (exposure-scaled) that transports dry snow: Li & Pomeroy 1997 mean threshold 7.7 m/s (17 mph) for dry loose snow, Guyomarc'h & Merindol 1998 down to 4 m/s for very fresh snow; ridgetop winds run higher, revisit with NWAC telemetry"}

@@ -4,7 +4,8 @@ Surface-state model: one day per cell of the terrain lattice, from the season ar
 State (per cell, carried day to day in <region>/snow/state/latest.npz):
   cls        surface class (CLASSES index; 255 off the lattice)
   days       days since the last fresh snowfall (capped at 250)
-  hn24_cm    yesterday's new snow on the cell (MRMS liquid x snow fraction from the freezing level x SLR from temperature)
+  hn24_cm    yesterday's new snow on the cell (MRMS liquid x snow fraction x SLR from temperature); the snow fraction is
+             taken hour by hour from the HRRR freezing level, weighted by each hour's MRMS 1 h precipitation (day_forcing)
   solar_mj   MJ/m2 on the cell since the last fresh snow (snow/solar.py, NDFD sky cover)
   wind_h     hours of NDFD 10 m wind above the surface's transport threshold since the last fresh snow (wind_mph_dry
              for dry snow, wind_mph_wet for a wet or melt-freeze surface; crusts never transport)
@@ -19,6 +20,8 @@ State (per cell, carried day to day in <region>/snow/state/latest.npz):
   depth_in   SNODAS snow depth
 
 Rules and parameters: snow_config.yaml `state` (all placeholders until the residual ledger exists; see the spec).
+Any new snow of fresh_cm or more shows (fresh), even where SNODAS, dated the evening before, still calls the ground
+bare; under bury_cm on a crust it is dust_on_crust and the crust's clocks keep running.
 Class priority, first match wins: no_snow, fresh, dust_on_crust, tree_debris, isothermal, melt_freeze, rain_crust,
 rain_wet, sun_crust, wind_scoured, wind_loaded, wind (direction unknown), fresh (the storm day and the next),
 settled (powder 2-7 days old), settled_late (8-14 days), old (over 14 days with no crust trigger: the north-facing
@@ -31,6 +34,7 @@ Per cell before the rules: the band temperatures are lapsed from the band's site
 proportion to how warm the day was (crust_tmin_c..crust_tfull_c); the refreeze index is reduced under canopy.
 
   python -m snow.state --date 2026-01-15      run one day (yesterday by default); reads and writes R2 through snow/store.py
+  python -m snow.state --start 2026-09-28 --date 2026-10-10    re-run a range from a fresh state (after a fix)
 """
 import argparse
 import datetime as dt
@@ -98,13 +102,21 @@ def albedo_aged(days, cls, tmax_c, p):
     return (p["albedo_fresh"] * a ** (t ** b)).astype(np.float32)
 
 
+def snow_fraction(elev_ft, fzl_ft, p):
+    """share of precipitation falling as snow at elev_ft under a freezing level: the snow level sits rain_line_margin_ft
+    below it, mixed rain and snow within rain_mix_ft of the snow level"""
+    snow_level = fzl_ft - p["rain_line_margin_ft"]
+    return np.clip((elev_ft - snow_level + p["rain_mix_ft"]) / (2.0 * p["rain_mix_ft"]), 0, 1)
+
+
 def step(s, f, lat, p, scfg):
     """advance one day. f: forcing dict of per-cell arrays (see day_forcing); lat: dict of lattice arrays"""
     valid = lat["elev"] != -32768
     elev_ft = lat["elev"].astype(np.float32) * 3.28084
-    snow_level = f["fzl_ft"] - p["rain_line_margin_ft"]
-    snowfrac = np.clip((elev_ft - snow_level + p["rain_mix_ft"]) / (2.0 * p["rain_mix_ft"]), 0, 1)
+    snowfrac = snow_fraction(elev_ft, f["fzl_ft"], p)
     snowfrac = np.where(np.isnan(f["fzl_ft"]), 1.0, snowfrac)          # no freezing level: assume snow (winter default)
+    if "snow_frac" in f:                                                # hour by hour, weighted by when the precipitation fell
+        snowfrac = np.where(np.isfinite(f["snow_frac"]), f["snow_frac"], snowfrac)
     precip = np.nan_to_num(f["precip_in"], nan=0.0)
     # temperatures lapsed from the band's sites to the cell (only where the band value came from sites)
     dz_km = np.nan_to_num(f.get("site_elev_m", np.full(precip.shape, np.nan)) - lat["elev"].astype(np.float32), nan=0.0) / 1000.0
@@ -123,7 +135,10 @@ def step(s, f, lat, p, scfg):
     slr = np.clip(p["slr_at_0c"] + p["slr_per_c"] * np.maximum(-t_mean, 0), p["slr_at_0c"], p["slr_max"])
     hn24 = precip * snowfrac * slr * 2.54
     rain_in = precip * (1 - snowfrac)
-    fresh = hn24 >= p["fresh_cm"]
+    prev = s["cls"]
+    new_snow = hn24 >= p["fresh_cm"]                                   # any measurable new snow
+    dust = new_snow & (hn24 < p["bury_cm"]) & np.isin(prev, CRUSTS)    # thin new snow on a crust: the crust's history stands
+    fresh = new_snow & ~dust                                           # a fresh surface: the clocks restart
     days = np.where(fresh, 0, np.minimum(s["days"].astype(np.int32) + 1, 250))
     solar_mj = np.where(fresh, 0, s["solar_mj"] + solar_crusting)
     # the day's transporting hours depend on yesterday's surface: dry snow moves at wind_mph_dry, a wet or melt-freeze
@@ -154,7 +169,6 @@ def step(s, f, lat, p, scfg):
     load = np.clip(carried + np.where(sticky, hn24 / p["tree_load_full_cm"], 0.0) * (canopy > 0.1), 0, 1)
     release = (load >= p["tree_release_load"]) & ((np.nan_to_num(f["wind_h"], nan=0.0) >= p["tree_release_wind_h"]) | (tmax > p["tree_release_tmax_c"]))
     load = np.where(release, 0.0, load)
-    prev = s["cls"]
     cls = np.full(prev.shape, CID["old"], np.uint8)
     cls[days <= OLD_DAYS] = CID["settled_late"]
     cls[days <= p["settled_days"]] = CID["settled"]
@@ -167,11 +181,11 @@ def step(s, f, lat, p, scfg):
     cls[(rain == 1) & (refrozen == 1)] = CID["rain_crust"]
     cls[corn] = CID["melt_freeze"]
     cls[melt_days >= p["isothermal_days"]] = CID["isothermal"]
-    cls[release & (canopy >= p["tree_debris_canopy"]) & ~fresh] = CID["tree_debris"]
-    dust = (hn24 >= p["dust_cm"]) & ~fresh & np.isin(prev, CRUSTS)
+    cls[release & (canopy >= p["tree_debris_canopy"]) & ~new_snow] = CID["tree_debris"]
     cls[dust] = CID["dust_on_crust"]
     cls[fresh] = CID["fresh"]
-    cls[depth < p["min_depth_in"]] = CID["no_snow"]
+    # SNODAS is dated the evening before the day, so it cannot know about the day's own snow: that shows regardless
+    cls[(depth < p["min_depth_in"]) & ~new_snow] = CID["no_snow"]
     cls[~valid] = 255
     return {"cls": cls, "days": days.astype(np.uint8), "hn24_cm": hn24.astype(np.float32), "solar_mj": solar_mj.astype(np.float32),
             "wind_h": wind_h.astype(np.float32), "wind_lee_h": wind_lee_h.astype(np.float32), "wind_wwd_h": wind_wwd_h.astype(np.float32),
@@ -253,6 +267,30 @@ def fill_by_band(values, zone, band, fallback):
     return out
 
 
+def _iso_utc(s):
+    """naive UTC datetime from an archive time string ('2026-10-09T18:00'), or None"""
+    try:
+        return dt.datetime.fromisoformat(s) if isinstance(s, str) and s else None
+    except ValueError:
+        return None
+
+
+def precip_hours(hourlies, backfill, end_utc):
+    """[(valid time, MRMS 1 h grid)] in the 24 h ending at end_utc, each valid hour once: the archive's hourly files
+    first (a stalled feed repeats its last hour in later files), then the hours snow/backfill.py filled in"""
+    out = {}
+    for h in hourlies:
+        g = h.get("mrms1") or {}
+        v = _iso_utc(g.get("valid_utc"))
+        if v and v not in out:
+            out[v] = g
+    for k, g in ((backfill or {}).get("hours") or {}).items():
+        v = _iso_utc(k)
+        if v and v not in out:
+            out[v] = g
+    return sorted((v, g) for v, g in out.items() if end_utc - dt.timedelta(hours=24) < v <= end_utc)
+
+
 def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=None):
     """per-cell forcing arrays for `day` from the archive (day's hourlies and daily, next day's daily). `lat` may be a
     subset of the lattice (1-D arrays, snow/replay.py); then `locate` = (zone, band) of the full lattice for site lookup"""
@@ -261,22 +299,50 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     d, dn = day.isoformat(), (day + dt.timedelta(days=1)).isoformat()
     daily = store.read_json("archive/%s/daily.json.gz" % d, log) or {}
     daily_next = store.read_json("archive/%s/daily.json.gz" % dn, log) or {}
-    hourlies = [store.read_json("archive/%s/%s" % (d, n), log) for n in sorted(store.listing("archive/%s/" % d)) if n[:2].isdigit() and n.endswith(".json.gz")]
+    names = sorted(store.listing("archive/%s/" % d))
+    hourlies = [store.read_json("archive/%s/%s" % (d, n), log) for n in names if n[:2].isdigit() and n.endswith(".json.gz")]
     hourlies = [h for h in hourlies if h]
+    backfill = store.read_json("archive/%s/mrms1h.json.gz" % d, log) if "mrms1h.json.gz" in names else None
     f = {}
-    # precipitation: the next day's 24 h MRMS (valid at that day's first run) covers this day; else the hourly 1 h sum
+    # the 24 h the day's precipitation covers: up to the next day's 24 h MRMS valid time, else local midnight
+    end_utc = _iso_utc((daily_next.get("mrms24") or {}).get("valid_utc")) or (dt.datetime.combine(day + dt.timedelta(days=1), dt.time())
+                                                                           - dt.timedelta(hours=tz_offset_h))
+    wet = precip_hours(hourlies, backfill, end_utc)
+    # precipitation: the next day's 24 h MRMS (valid at that day's first run) covers this day; else the sum of the 1 h
+    # grids, each valid hour once (when NOAA stops posting, the archive repeats the last hour)
     if daily_next.get("mrms24"):
         f["precip_in"] = forcing.sample(daily_next["mrms24"], latg, long_).astype(np.float32)
+    elif wet:
+        f["precip_in"] = sum(np.nan_to_num(forcing.sample(g, latg, long_), nan=0.0) for _, g in wet).astype(np.float32)
     else:
-        acc, n = np.zeros(latg.shape, np.float32), 0
-        for h in hourlies:
-            if h.get("mrms1"):
-                acc += np.nan_to_num(forcing.sample(h["mrms1"], latg, long_), nan=0.0)
-                n += 1
-        f["precip_in"] = acc if n else np.full(latg.shape, np.nan, np.float32)
-    # freezing level: mean of the day's HRRR analyses
-    fz = [forcing.sample(h["fz0"], latg, long_) for h in hourlies if h.get("fz0")]
-    f["fzl_ft"] = np.nanmean(np.stack(fz), axis=0).astype(np.float32) if fz else np.full(latg.shape, np.nan, np.float32)
+        f["precip_in"] = np.full(latg.shape, np.nan, np.float32)
+    # freezing level: mean of the day's HRRR analyses; and the snow fraction hour by hour: each wet hour's MRMS 1 h
+    # under the HRRR analysis nearest its middle, weighted by that hour's precipitation (a front that drops the freezing
+    # level from 14,000 to 5,000 ft in a day puts its evening precipitation down as snow, not as the day-mean's rain)
+    fzs = [(_iso_utc(h["fz0"].get("run_utc")), h["fz0"]) for h in hourlies if h.get("fz0")]
+    timed = [i for i, (r, _) in enumerate(fzs) if r]
+    pair = {}
+    for v, g in wet:
+        if timed and max(g.get("data") or [0]) > 0:
+            mid = v - dt.timedelta(minutes=30)
+            i = min(timed, key=lambda i: (abs((fzs[i][0] - mid).total_seconds()), fzs[i][0]))
+            pair.setdefault(i, []).append(g)
+    elev_ft = lat["elev"].astype(np.float32) * 3.28084
+    fz_sum, fz_n = np.zeros(latg.shape, np.float64), np.zeros(latg.shape, np.int32)
+    w_sum, wf_sum = np.zeros(latg.shape, np.float32), np.zeros(latg.shape, np.float32)
+    for i, (_, g) in enumerate(fzs):
+        fz = forcing.sample(g, latg, long_)
+        ok = np.isfinite(fz)
+        fz_sum[ok] += fz[ok]
+        fz_n += ok
+        for pg in pair.get(i, []):
+            w = np.nan_to_num(forcing.sample(pg, latg, long_), nan=0.0).astype(np.float32)
+            m = ok & (w > 0)
+            w_sum[m] += w[m]
+            wf_sum[m] += (w * snow_fraction(elev_ft, np.nan_to_num(fz), p))[m]
+    f["fzl_ft"] = np.where(fz_n > 0, fz_sum / np.maximum(fz_n, 1), np.nan).astype(np.float32)
+    f["snow_frac"] = np.where(w_sum > 0, wf_sum / np.maximum(w_sum, 1e-9), np.nan).astype(np.float32)
+    f["phase_hours"] = sum(len(v) for v in pair.values())
     # NDFD sky, dewpoint, wind from the day's own file
     nd = (daily.get("ndfd") or {}).get("fields") or {}
     sky, td, ws = nd.get("sky") or {}, nd.get("td") or {}, nd.get("wspd") or {}
@@ -333,8 +399,10 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
                            "pooled_lapse_min": tf.get("pooled_lapse_min"), "inversions": tf.get("inversions")}
     except Exception as e:  # noqa: BLE001
         log("state: station temperature field failed (%r); band means used" % e)
-    # snow depth: the next day's SNODAS (dated this day) else this day's
-    sd = (daily_next.get("snodas") or daily.get("snodas") or {}).get("grids") or {}
+    # snow depth: SNODAS dated this day (valid 06Z, the evening before), filed in the day's folder by the run that
+    # downloaded it (or by snow/backfill.py); the daily files' copies were empty until 2026-10-11
+    own = store.read_json("archive/%s/snodas.json.gz" % d, log) if "snodas.json.gz" in names else None
+    sd = next((g for g in (((src or {}).get("grids") or {}) for src in (own, daily_next.get("snodas"), daily.get("snodas"))) if g.get("depth")), {})
     f["depth_in"] = forcing.sample(sd["depth"], latg, long_).astype(np.float32) if sd.get("depth") else np.full(latg.shape, np.nan, np.float32)
     # solar on the cell under the day's cloud
     t0 = time.time()
@@ -346,9 +414,11 @@ def day_forcing(day, lat, meta, latlon, tz_offset_h, scfg, p, log=print, locate=
     svf = lat["svf"].astype(np.float32) / 100.0 if "svf" in lat else 1.0
     f["solar_mj"] = solar.terrain_irradiance(parts, tf, svf, cfg=scfg)
     f["solar_mj"][lat["elev"] == -32768] = 0
-    log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, solar %.0f s"
+    log("state: forcing for %s: %d hourlies, precip max %.2f in, fzl %s ft, %d wet hours for the snow fraction (%d backfilled), "
+        "snodas %s, solar %.0f s"
         % (d, len(hourlies), np.nanmax(f["precip_in"]) if np.isfinite(f["precip_in"]).any() else 0,
-           "%.0f-%.0f" % (np.nanmin(f["fzl_ft"]), np.nanmax(f["fzl_ft"])) if np.isfinite(f["fzl_ft"]).any() else "none", time.time() - t0))
+           "%.0f-%.0f" % (np.nanmin(f["fzl_ft"]), np.nanmax(f["fzl_ft"])) if np.isfinite(f["fzl_ft"]).any() else "none",
+           f["phase_hours"], len((backfill or {}).get("hours") or {}), "yes" if sd.get("depth") else "none", time.time() - t0))
     return f
 
 
@@ -450,7 +520,7 @@ def reclassify(s, lat, p):
     keep = np.isin(prev, [CID["dust_on_crust"], CID["tree_debris"], CID["melt_freeze"]])   # the day's transient calls stand
     cls[keep] = prev[keep]
     cls[days == 0] = CID["fresh"]
-    cls[s["depth_in"] < p["min_depth_in"]] = CID["no_snow"]
+    cls[(s["depth_in"] < p["min_depth_in"]) & (days != 0)] = CID["no_snow"]
     cls[~valid] = 255
     return cls
 
@@ -479,7 +549,8 @@ def rewrite_outputs(s, lat, meta, day, log=print, upload=True):
     return summ
 
 
-def run(day, log=print, upload=True, force=False):
+def run(day, log=print, upload=True, force=False, fresh=False):
+    """step one day from the saved state; fresh=True starts from SNODAS alone, as if the model began on `day`"""
     t0 = time.time()
     p, scfg = load_params()
     lp = store.fetch("static/lattice.npz", log)
@@ -492,7 +563,7 @@ def run(day, log=print, upload=True, force=False):
     tz = region.cfg().get("tz_offset_h", -8)
     latlon = forcing.lattice_latlon(meta)
     f = day_forcing(day, lat, meta, latlon, tz, scfg, p, log)
-    prev_path = store.fetch("state/latest.npz", log)
+    prev_path = None if fresh else store.fetch("state/latest.npz", log)
     if prev_path:
         prev = np.load(prev_path)
         prev_day = str(prev["day"]) if "day" in prev else None
@@ -517,7 +588,8 @@ def run(day, log=print, upload=True, force=False):
     img, bounds = class_png(s["cls"], meta, cfg_lattice())
     img.save(store.local("state/%s_cls.png" % d), "PNG", optimize=True)
     img.save(store.local("state/latest_cls.png"), "PNG", optimize=True)
-    clsmeta = {"date": d, "bounds": bounds, "palette": PALETTE, "classes": CLASSES, "file": "state/%s_cls.png" % d}
+    # the day's PNG is cached as immutable; the version keeps a re-run day (run_range) from showing the old picture
+    clsmeta = {"date": d, "bounds": bounds, "palette": PALETTE, "classes": CLASSES, "file": "state/%s_cls.png?v=%d" % (d, int(time.time()))}
     write_js("state/%s_cls" % d, "SNOW_CLS", clsmeta)
     write_js("state/latest_cls", "SNOW_CLS", dict(clsmeta, file="state/latest_cls.png"))
     update_index(d)
@@ -534,11 +606,24 @@ def run(day, log=print, upload=True, force=False):
     return summ
 
 
+def run_range(start, end, log=print, upload=True):
+    """re-run start..end in order from a fresh state on `start` (after a model or archive fix); each day's outputs and
+    the carried state are replaced, so the next scheduled run steps on from `end`"""
+    day = start
+    while day <= end:
+        run(day, log, upload, force=True, fresh=day == start)
+        day += dt.timedelta(days=1)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=None, help="YYYY-MM-DD (default: yesterday, local)")
+    ap.add_argument("--start", default=None, help="re-run from this date (fresh state) through --date")
     ap.add_argument("--no-upload", action="store_true")
     ap.add_argument("--force", action="store_true", help="step even when the saved state is already at or past this date")
     a = ap.parse_args()
     d = dt.date.fromisoformat(a.date) if a.date else dt.date.today() - dt.timedelta(days=1)
-    run(d, upload=not a.no_upload, force=a.force)
+    if a.start:
+        run_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload)
+    else:
+        run(d, upload=not a.no_upload, force=a.force)

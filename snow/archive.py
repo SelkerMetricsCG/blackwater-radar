@@ -9,6 +9,10 @@ already has in hand, written into
                         file overlaps the last), NDFD forecast grids, NDFD sky cover, dewpoint, wind speed and direction by
                         step to 48 h (forecast.snow_fields), HRRR freezing level f0..f18, MRMS 24 h, SNODAS,
                         full station records
+    snodas.json.gz      SNODAS depth and SWE (128 px) for the folder's date, written by the run that downloaded that
+                        SNODAS day (from 2026-10-11; snow/backfill.py fills earlier days from NSIDC)
+    mrms1h.json.gz      only from snow/backfill.py: MRMS 1 h grids for hours the hourly files missed or repeated
+                        (NOAA's feed stalled), from NOAA's archive on AWS
     products/*.json     every avalanche.org forecast product touching the window, saved when it changes
                         (snow/avyproducts.py)
     obs/*.json          NAC observations (snow/observations.py); only with an allow-listed Origin from NWAC/NAC
@@ -157,7 +161,8 @@ def hourly_snapshot(now_local, now_utc):
     mr = read_js(os.path.join(DATA, "mrms.js"))
     g = grid("mrms_1", 256)
     if mr and g:
-        snap["mrms1"] = dict(g, valid_utc=((mr.get("windows") or {}).get("1") or {}).get("valid_utc"))
+        w1 = (mr.get("windows") or {}).get("1") or {}
+        snap["mrms1"] = dict(g, valid_utc=w1.get("valid_utc"), source=w1.get("source", "Pass2"))
     fc = read_js(os.path.join(DATA, "forecast.js"))
     if fc:
         snap["forecast_issued_utc"] = fc.get("issued_utc")
@@ -223,6 +228,34 @@ def daily_snapshot(now_utc, log):
     return snap
 
 
+def snodas_snapshot():
+    """{date, grids} of the SNODAS day on disk, or None. The value grids are on disk only in the run that downloaded a
+    new SNODAS day (snodas.py skips an unchanged day and the hourly job restores only snodas.js), so the daily file,
+    written just after local midnight, never had them: this file is how SNODAS reaches the archive"""
+    sd = read_js(os.path.join(DATA, "snodas.js"))
+    if not sd or not sd.get("date"):
+        return None
+    grids = {}
+    for k in ("depth", "swe"):
+        g = grid("snodas_" + k, SNODAS_N)
+        if g:
+            grids[k] = g
+    return {"date": sd["date"], "grids": grids} if grids.get("depth") else None
+
+
+def file_snodas(day, have, log):
+    """write <SNODAS date>/snodas.json.gz once, from the run that has the grids"""
+    snap = snodas_snapshot()
+    if not snap:
+        return []
+    sday = snap["date"]
+    have_s = have if sday == day else existing(sday, log)
+    if have_s is None or "snodas.json.gz" in have_s:
+        return []
+    n = write_gz(os.path.join(ARCHIVE, sday, "snodas.json.gz"), snap)
+    return ["snodas %s:%dK" % (sday, n // 1024)]
+
+
 def build(log=print):
     now_local = dt.datetime.now().replace(second=0, microsecond=0)
     now_utc = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
@@ -246,6 +279,10 @@ def build(log=print):
             done.append("products +%d" % avyproducts.build(day_dir, have, log))
         except Exception as e:  # noqa: BLE001
             log("archive: products failed: %r" % e)
+        try:
+            done.extend(file_snodas(day, have, log))
+        except Exception as e:  # noqa: BLE001
+            log("archive: snodas file failed: %r" % e)
     log("archive %s: %s" % (day, ", ".join(done)))
     return " ".join(done)
 

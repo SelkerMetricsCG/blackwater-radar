@@ -342,6 +342,35 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   layers keyed by `buried` + CAAML `grain` (`ledger.layer_key`); `score.py` uses the record's precision as the
   neighbourhood radius; `assimilate.py` weights by tier (`TIER_WEIGHT`, to move into `snow_config.yaml` once fitted).
 
+### First-snow fixes 2026-10-11 (branch `fix/snow-first-snow`, built in a radar worktree; Chris approved all four)
+- Done (371 tests pass): (a) `archive.file_snodas` writes `<SNODAS date>/snodas.json.gz` from the run that downloaded it;
+  `day_forcing` reads it first; `snow/backfill.py` fills SNODAS (NSIDC) and missing MRMS 1 h hours (AWS, Pass2 else
+  Pass1) as new files. (b) Chris: any new snow counts: `fresh_cm` 10 -> 1 (floor against radar speckle), new `bury_cm` 10
+  (under it on a crust = dust_on_crust, crust clocks keep running), `dust_cm` removed; the SNODAS mask no longer hides the
+  day's own new snow. (c) snow fraction hour by hour (`f["snow_frac"]`, each wet MRMS hour under the HRRR analysis nearest
+  its middle, deduped by valid time; replay cache keyed by the rain/snow line too). (d) `mrms.choose`: Pass2, else Pass1,
+  then RadarOnly when 2 h behind (`STALE_H`, judgment call); `source` in `mrms.js` and the archive's `mrms1`.
+  `python -m snow.state --start D1 --date D2` re-runs a range from a fresh state; day PNG links carry `?v=`.
+- Next: local check (backfill + re-run 10-08..10-10, no upload) vs SNOTEL; ff-merge to main; Chris pushes; backfill
+  `--upload` 09-28..10-11; re-run the model 09-28..10-11 on R2; check the live page.
+- Then (Chris 2026-10-11): design the season record: hourly snowfall grids (radar x hourly snow fraction) giving a
+  12/24 h new-snow view (where, how much), totals since Oct 1 (backfill from AWS), and the per-zone storm log; all three,
+  storm log first. Architectural: spec before code.
+
+### Diagnosis 2026-10-11: first snow (dusting >4-5k ft, Fri 10-09 evening) not shown
+- **Bug, blocks everything:** archive `daily.json.gz` has `snodas.grids == {}` every day since 09-28 (checked 09-29, 10-01,
+  10-10, 10-11). `cloud.py STATE_FILES` restores `snodas.js` but not `data/values/snodas_*.js`; `snodas.build` returns
+  "already current" without writing them, and only the ~13:11 UTC run (new SNODAS) has them; the daily file is written
+  by the local-midnight run. So `depth_in` stays 0 and `state.py:174` (`depth < min_depth_in` -> no_snow) paints every
+  cell no_snow: 10-09 and 10-10 are 100 % no_snow although hn24 reached 37 cm (W North, 10-09), 28 cm (Olympics, 10-10).
+- **Design:** phase split uses the day-mean HRRR freezing level. 10-09: fzl 14,000 ft at 00 PDT -> ~5,000 ft by 21 PDT,
+  mean 9,000-10,800 ft, so hn24 = 0 at Stevens/Colchuck/Lyman/Mission; precip-weighted hourly split gives 2.9 / 0.5 /
+  11.6 / 0.7 cm. No class for a dusting on bare ground (fresh needs 10 cm; dust_on_crust needs a crust).
+- **Upstream:** NOAA MRMS `MultiSensor_QPE_01H_Pass2` missing 10-09 19Z -> 10-10 15Z on AWS (Pass1 and RadarOnly
+  complete); `mrms.py` reads Pass2 `latest` only, so the map's hourly totals and the archive's `mrms1` froze meanwhile.
+- SNOTEL ground truth (archive 10-11 daily): 0.1-0.4 in water Fri evening-Sat, 30-34 F at 4,200-5,500 ft, depth 0-1 in.
+- Scripts used (scratch, rerunnable): point forcing vs SNOTEL, hn24 by zone above 4,500 ft; outputs quoted in chat.
+
 ### Next, in order (from `snow_research/lit_review.md`, "Ranked adoptions"; items 1-8 done above)
 0. Look at the first real `state` runs (Nov): does `hn24_cm` agree with `snotel_hn24_in` by band (the forcing carries
    both); does the freezing-level phase split put rain where SNOTEL depth fell.

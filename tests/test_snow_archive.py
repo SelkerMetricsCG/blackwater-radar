@@ -166,3 +166,27 @@ def test_build_survives_missing_inputs(tmp_path, monkeypatch):
     day = dt.datetime.now().strftime("%Y-%m-%d")
     d = json.load(gzip.open(tmp_path / "archive" / day / "daily.json.gz", "rt"))
     assert "stations" not in d and "freezing" not in d
+
+
+def test_snodas_grids_saved_once_under_their_own_date(tmp_path, monkeypatch):
+    # the grids are on disk only in the run that downloaded a new SNODAS; that run files them under SNODAS's date
+    import r2sync
+    data = str(tmp_path / "data")
+    vdir = os.path.join(data, "values")
+    _fake_data(data, vdir, monkeypatch)                              # snodas.js says 2026-01-04, depth 30 in on disk
+    monkeypatch.setattr(archive, "DATA", data)
+    monkeypatch.setattr(archive, "ARCHIVE", str(tmp_path / "archive"))
+    monkeypatch.setattr(r2sync, "load_env", lambda: None)
+    monkeypatch.setattr(avyproducts, "zones", lambda log: [])
+    monkeypatch.delenv("NAC_OBS_ORIGIN", raising=False)
+    out = archive.build(lambda *a: None)
+    f = tmp_path / "archive" / "2026-01-04" / "snodas.json.gz"
+    assert f.exists() and "snodas 2026-01-04" in out
+    s = json.load(gzip.open(f, "rt"))
+    assert s["date"] == "2026-01-04" and s["grids"]["depth"]["n"] == 128 and s["grids"]["depth"]["data"][0] == 300
+    assert "swe" not in s["grids"]                                   # the fixture has no SWE grid
+    assert "snodas" not in archive.build(lambda *a: None)           # already filed: never rewritten
+    # a run that found SNODAS already current has no grids on disk: nothing to file, no error
+    os.remove(os.path.join(vdir, "snodas_depth.js"))
+    os.remove(f)
+    assert "snodas" not in archive.build(lambda *a: None) and not f.exists()

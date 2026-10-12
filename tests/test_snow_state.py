@@ -222,3 +222,71 @@ def test_rain_is_wet_until_it_refreezes():
     assert s["cls"][2, 0] == state.CID["rain_crust"] and s["rain_refrozen"][2, 0] == 1
     s = state.step(s, _forcing((4, 4), precip_in=1.5, tmax_c=-4.0, tmin_c=-9.0), lat, p, scfg)
     assert s["cls"][2, 0] == state.CID["fresh"] and s["rain"][2, 0] == 0
+
+
+def test_any_new_snow_shows_even_on_bare_ground():
+    # 2026-10-09: a first dusting above 4-5k ft on bare ground; SNODAS is dated the evening before, so it cannot know yet
+    p, scfg = state.load_params()
+    lat = _lattice()
+    valid = lat["elev"] != -32768
+    s = state.new_state(lat["elev"].shape, np.zeros((4, 4)), p["min_depth_in"], valid)
+    assert (s["cls"][valid] == state.CID["no_snow"]).all()
+    speckle = state.step(s, _forcing((4, 4), precip_in=0.01, depth_in=0.0), lat, p, scfg)      # ~0.4 cm: radar noise
+    assert (speckle["cls"][valid] == state.CID["no_snow"]).all()
+    s = state.step(s, _forcing((4, 4), precip_in=0.05, depth_in=0.0), lat, p, scfg)            # SLR 15.5 at -7.5 C: ~2 cm
+    assert s["hn24_cm"][2, 0] == pytest.approx(0.05 * 15.5 * 2.54, rel=1e-3)
+    assert (s["cls"][valid] == state.CID["fresh"]).all() and s["days"][2, 0] == 0
+    # next day SNODAS (now including the dusting) is still under min_depth_in: bare again
+    s = state.step(s, _forcing((4, 4), depth_in=1.0), lat, p, scfg)
+    assert (s["cls"][valid] == state.CID["no_snow"]).all()
+
+
+def test_thin_new_snow_on_a_crust_keeps_the_crust_history():
+    p, scfg = state.load_params()
+    lat = _lattice()
+    s = state.new_state(lat["elev"].shape, np.full((4, 4), 40.0), p["min_depth_in"], lat["elev"] != -32768)
+    s = state.step(s, _forcing((4, 4), solar_mj=20.0, tmax_c=2.0), lat, p, scfg)
+    assert s["cls"][2, 1] == state.CID["sun_crust"]
+    solar_before = s["solar_mj"][2, 1]
+    s = state.step(s, _forcing((4, 4), precip_in=0.1), lat, p, scfg)                          # ~4 cm: under bury_cm
+    assert s["cls"][2, 1] == state.CID["dust_on_crust"] and s["solar_mj"][2, 1] == solar_before and s["days"][2, 1] > 0
+    s = state.step(s, _forcing((4, 4), precip_in=0.5), lat, p, scfg)                          # ~20 cm buries it
+    assert s["cls"][2, 1] == state.CID["fresh"] and s["solar_mj"][2, 1] == 0 and s["days"][2, 1] == 0
+
+
+def test_snow_fraction_follows_the_hour_the_precipitation_fell(tmp_path, monkeypatch):
+    pytest.importorskip("pyproj")
+    import r2sync
+    from snow import forcing, store
+    monkeypatch.setattr(r2sync, "load_env", lambda: None)
+    monkeypatch.setattr(store, "_ENV", None)
+    monkeypatch.setattr(store, "SNOW_DIR", str(tmp_path))
+    meta = {"crs": "EPSG:26910", "shape": [4, 4], "transform": [1000.0, 0.0, 670000.0, 0.0, -1000.0, 5280000.0], "zones": {}}
+    lat = _lattice()
+    latlon = forcing.lattice_latlon(meta)
+    grid = lambda v, n=64, scale=1: {"n": n, "scale": scale, "unit": "x", "data": [v] * (n * n)}  # noqa: E731
+    a15, a16 = tmp_path / "archive" / "2026-01-15", tmp_path / "archive" / "2026-01-16"
+    _write_gz(str(a16 / "daily.json.gz"), {"mrms24": dict(grid(75, 256, 0.01), valid_utc="2026-01-16T08:00"),
+                                           "snodas": {"grids": {"depth": grid(300, 128, 0.1)}}})
+    _write_gz(str(a15 / "snodas.json.gz"), {"date": "2026-01-15", "grids": {"depth": grid(120, 128, 0.1)}})
+    # warm and dry all morning (freezing level 14,000 ft), then 0.75 in fell in the evening behind a front at 3,000 ft;
+    # file 22 repeats hour 05Z (NOAA stopped posting): counted once
+    hours = (("01", "2026-01-15T09:00", 0, 14000), ("02", "2026-01-15T10:00", 0, 14000), ("03", "2026-01-15T11:00", 0, 14000),
+             ("04", "2026-01-15T12:00", 0, 14000), ("20", "2026-01-16T04:00", 25, 3000), ("21", "2026-01-16T05:00", 25, 3000),
+             ("22", "2026-01-16T05:00", 25, 3000))
+    for hh, valid, p_in, fz in hours:
+        run = (dt.datetime.fromisoformat(valid) - dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+        _write_gz(str(a15 / ("%s.json.gz" % hh)), {"fz0": dict(grid(fz // 10, 64, 10), run_utc=run),
+                                                    "mrms1": dict(grid(p_in, 256, 0.01), valid_utc=valid)})
+    # hour 06Z never reached the archive; the backfill file has it (and a different 04Z, which the archive's own wins over)
+    _write_gz(str(a15 / "mrms1h.json.gz"), {"hours": {"2026-01-16T06:00": grid(25, 256, 0.01), "2026-01-16T04:00": grid(90, 256, 0.01)}})
+    p, scfg = state.load_params()
+    f = state.day_forcing(dt.date(2026, 1, 15), lat, meta, latlon, -8, scfg, p, lambda *a: None)
+    assert f["phase_hours"] == 3
+    # the day-mean freezing level (~9,300 ft) would call it all rain at 1,500 m (4,921 ft); the evening hours say snow
+    assert f["fzl_ft"][1, 0] > 9000 and state.snow_fraction(np.float32(4921), f["fzl_ft"][1, 0], p) == 0
+    assert f["snow_frac"][1, 0] == pytest.approx(1.0) and f["snow_frac"][0, 0] == pytest.approx(0.14, abs=0.01)   # 500 m
+    assert f["depth_in"][1, 0] == pytest.approx(12.0)                               # SNODAS from the day's own file
+    s = state.new_state(lat["elev"].shape, np.zeros((4, 4)), p["min_depth_in"], lat["elev"] != -32768)
+    s = state.step(s, f, lat, p, scfg)
+    assert s["cls"][1, 0] == state.CID["fresh"] and s["hn24_cm"][1, 0] > 10
