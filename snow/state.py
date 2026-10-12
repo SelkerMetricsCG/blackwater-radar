@@ -57,8 +57,9 @@ WET = CID["rain_wet"]
 WET_SURFACE = (CID["rain_wet"], CID["melt_freeze"], CID["isothermal"])          # transport only above wind_mph_wet
 NO_TRANSPORT = (CID["sun_crust"], CID["rain_crust"])                             # a crust does not blow around
 OLD_DAYS = 14
-PALETTE = {"no_snow": "transparent", "fresh": "#e0f3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
-           "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#dadaeb", "old": "#2171b5",
+# fresh and dust_on_crust were near-white until 2026-10-11 and vanished on the site's light topo basemap (judgment call)
+PALETTE = {"no_snow": "transparent", "fresh": "#00c3ff", "settled": "#6baed6", "wind": "#969696", "sun_crust": "#fdae6b",
+           "rain_crust": "#e6550d", "melt_freeze": "#fee08b", "isothermal": "#a63603", "dust_on_crust": "#9e9ac8", "old": "#2171b5",
            "wind_loaded": "#636363", "wind_scoured": "#bdbdbd", "tree_debris": "#74c476", "rain_wet": "#a1d99b", "settled_late": "#4292c6"}
 PNG_WIDTH = 1200
 FIELDS = {"cls": np.uint8, "days": np.uint8, "hn24_cm": np.float32, "solar_mj": np.float32, "wind_h": np.float32,
@@ -468,10 +469,11 @@ def summary(s, lat, meta, day, new_cm=1.0):
     return out
 
 
-def resummarize_range(start, end, log=print, upload=True):
+def resummarize_range(start, end, log=print, upload=True, png=False):
     """rebuild the zone summaries (state/<d>.json/.js, and latest.* for the newest day) from each day's class snapshot
     (<d>_cls.npz: class and hn24 per cell) after summary() gained a field; days since snowfall are not in the snapshot and
-    are kept from the old summary, as are prev_day, tfield and the assimilation flag. The model is not stepped."""
+    are kept from the old summary, as are prev_day, tfield and the assimilation flag. The model is not stepped.
+    png=True also redraws each day's class PNG (and its _cls.js) in the current PALETTE, under a new ?v= so caches let go."""
     p, _ = load_params()
     lp = store.fetch("static/lattice.npz", log)
     meta = store.read_json("static/lattice.json", log)
@@ -503,6 +505,17 @@ def resummarize_range(start, end, log=print, upload=True):
         if d == latest:
             write_js("state/latest", "SNOW_STATE", summ)
             rels += [("state/latest.json", "no-cache"), ("state/latest.js", "no-cache")]
+        if png:
+            img, bounds = class_png(s["cls"], meta, cfg_lattice())
+            img.save(store.local("state/%s_cls.png" % d), "PNG", optimize=True)
+            clsmeta = {"date": d, "bounds": bounds, "palette": PALETTE, "classes": CLASSES, "file": "state/%s_cls.png?v=%d" % (d, int(time.time()))}
+            write_js("state/%s_cls" % d, "SNOW_CLS", clsmeta)
+            rels += [("state/%s_cls.png" % d, "public, max-age=31536000, immutable"), ("state/%s_cls.js" % d, "public, max-age=31536000, immutable"),
+                     ("state/%s_cls.json" % d, "public, max-age=31536000, immutable")]
+            if d == latest:
+                img.save(store.local("state/latest_cls.png"), "PNG", optimize=True)
+                write_js("state/latest_cls", "SNOW_CLS", dict(clsmeta, file="state/latest_cls.png"))
+                rels += [("state/latest_cls.png", "no-cache"), ("state/latest_cls.js", "no-cache"), ("state/latest_cls.json", "no-cache")]
         if upload:
             for rel, cache in rels:
                 store.put(rel, cache, log)
@@ -679,12 +692,13 @@ if __name__ == "__main__":
     ap.add_argument("--date", default=None, help="YYYY-MM-DD (default: yesterday, local)")
     ap.add_argument("--start", default=None, help="re-run from this date (fresh state) through --date")
     ap.add_argument("--resummarize", action="store_true", help="with --start: only rebuild the zone summaries from the class snapshots")
+    ap.add_argument("--png", action="store_true", help="with --resummarize: also redraw the class PNGs in the current palette")
     ap.add_argument("--no-upload", action="store_true")
     ap.add_argument("--force", action="store_true", help="step even when the saved state is already at or past this date")
     a = ap.parse_args()
     d = dt.date.fromisoformat(a.date) if a.date else dt.date.today() - dt.timedelta(days=1)
     if a.start and a.resummarize:
-        resummarize_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload)
+        resummarize_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload, png=a.png)
     elif a.start:
         run_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload)
     else:

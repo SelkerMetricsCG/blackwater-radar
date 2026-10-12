@@ -357,7 +357,7 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
   10-09 fresh in 46 % of Stevens (median 0.9, p90 2.9 cm), 56 % Snoqualmie, 41 % W Central; 10-10 53 % Stevens, 100 %
   Snoqualmie, 24-51 % of the east-side zones (Colchuck 2.2 cm, Sasse Ridge 2.6 cm). Before: 0 % everywhere.
 - Live (from this PC, credentials in-process): backfill uploaded 09-28..10-10 (SNODAS every day; MRMS 10-09 10 hours,
-  10-10 21 hours); model re-run 09-29..10-10 with uploads (`state.run_range`) STARTED 18:52 PDT, not yet confirmed done. The 10-10 brief predates
+  10-10 21 hours); model re-run 09-29..10-10 with uploads (`state.run_range`), done 19:38 PDT. The 10-10 brief predates
   the fix ("still no snow"); snow.daily skips a day whose brief exists, so it stays until a `--force` run; 10-11's brief
   (tonight) is the first from the fixed state. Check after 09:20 UTC: `snow.yml` log has `backfill 2026-10-11:` and
   `state: forcing for 2026-10-11: ... (24 hourly grids)`.
@@ -374,7 +374,11 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Band stats (branch `feat/snow-band-stats`, `cddcadf`): Chris saw East Central at "0.0 cm" after it snowed on him; the
   zone-mean tile averaged a dusting above 4,500 ft down to the valleys. `summary()` now has `by_band` (mean, p90, max,
   share >= fresh_cm per band); the zone tab shows a table, the zone list a line; `--resummarize` rebuilt 09-29..10-10
-  from the class snapshots (see the log line below once run); `snow.yml` input `rebrief` rewrites a day's brief.
+  from the class snapshots and uploaded (19:45); `snow.yml` input `rebrief` rewrites a day's brief.
+  Fresh (#e0f3ff) and dust_on_crust (#dadaeb) were near-white and invisible on the light Topo basemap: now #00c3ff and
+  #9e9ac8 (judgment call); `--resummarize --png` redrew 09-29..10-10's class PNGs (new ?v=). Live 10-10 East Central:
+  1 cm+ on 22 % above / 23 % near / 6 % below treeline, max 2.6-5.3 cm.
+- Live re-run DONE 19:38 PDT: 10-09 no_snow 99 % fresh 1 %; 10-10 no_snow 96 % fresh 4 % (24 hourly grids, 21 backfilled).
 - Next (phase 2, Chris 2026-10-11 "all three, storm log first", option C): spec the season record: hourly snowfall
   grids (MRMS 1 h x hourly snow fraction x SLR) -> 12/24 h new snow and totals since Oct 1 (backfill from AWS) as layers
   on both sites, and a per-zone storm log on the snow site's zone tabs. Spec before code.
