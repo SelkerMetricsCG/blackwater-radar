@@ -356,8 +356,8 @@ snow-surface model for skiing that will be its own site (snow.blackwaterlabs.org
 - Local check (no upload; scratch `verify_local.py`, `compare_local.py`), hourly-sum rule included: above 4,500 ft
   10-09 fresh in 46 % of Stevens (median 0.9, p90 2.9 cm), 56 % Snoqualmie, 41 % W Central; 10-10 53 % Stevens, 100 %
   Snoqualmie, 24-51 % of the east-side zones (Colchuck 2.2 cm, Sasse Ridge 2.6 cm). Before: 0 % everywhere.
-- Live (19:00-19:45 PDT, from this PC, credentials in-process): backfill uploaded 09-28..10-10 (SNODAS every day; MRMS
-  10-09 10 hours, 10-10 21 hours); model re-run 09-29..10-10 with uploads (`state.run_range`). The 10-10 brief predates
+- Live (from this PC, credentials in-process): backfill uploaded 09-28..10-10 (SNODAS every day; MRMS 10-09 10 hours,
+  10-10 21 hours); model re-run 09-29..10-10 with uploads (`state.run_range`) STARTED 18:52 PDT, not yet confirmed done. The 10-10 brief predates
   the fix ("still no snow"); snow.daily skips a day whose brief exists, so it stays until a `--force` run; 10-11's brief
   (tonight) is the first from the fixed state. Check after 09:20 UTC: `snow.yml` log has `backfill 2026-10-11:` and
   `state: forcing for 2026-10-11: ... (24 hourly grids)`.
