@@ -54,7 +54,7 @@ Northwest window, R2 paths without a region prefix, and drag-and-drop deploys). 
 | `hourly.yml` | minute 4 each hour, started by `radar-cron`; one job per region | `python cloud.py hourly`: snotel, stations, rivers, forecast, MRMS (Pass 2; Pass 1, then radar-only, when Pass 2 is 2 h behind), freezing level, smoke forecast (`smoke.py`, only when a new HRRR run is posted), SNODAS, webcams, avalanche, basins |
 | `rivers.yml` | 15:30 UTC daily | `python rivers/run_rivers.py` → `rivers/<key>/`, `rivers/index.js` |
 | `tests.yml` | every push/PR | `python -m pytest tests/ -v` |
-| `snow.yml` | 09:20 UTC daily, started by `radar-cron` | `python -m snow.state` then `python -m snow.daily` (each skips a day already done, `--force` overrides): the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
+| `snow.yml` | 09:20 UTC daily, started by `radar-cron` | `python -m snow.backfill --upload` (yesterday's archive gaps: SNODAS, MRMS hours NOAA's feed skipped), `python -m snow.state`, then `python -m snow.daily` (each skips a day already done, `--force` overrides): the surface-state model for the previous local day, then extraction, scoring and the brief through the Claude API; `<r>/snow/state/`, `ledger/`, `brief/` |
 | `snow_fit.yml` | by hand | `python -m snow.fit`: replays the model around every scored report, proposes bounded parameter moves to `<r>/snow/fit/` |
 | `snow_static.yml` | by hand | `python -m snow.lattice --upload`: the snow model's terrain lattice (20 USGS DEM tiles) to `<r>/snow/static/` |
 
