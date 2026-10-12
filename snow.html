@@ -72,6 +72,11 @@
   .nums span { background:var(--panel2); border-radius:8px; padding:6px 8px; display:flex; flex-direction:column; line-height:1.2; }
   .nums b { font-size:18px; font-weight:650; }
   .nums small { color:var(--muted); font-size:11px; }
+  table.bt { width:100%; border-collapse:collapse; margin:8px 0 12px; font-variant-numeric:tabular-nums; font-size:13px; }
+  table.bt th { text-align:left; font-size:11px; color:var(--muted); font-weight:600; padding:4px 6px; border-bottom:1px solid var(--line); }
+  table.bt td { padding:5px 6px; border-bottom:1px solid var(--line); }
+  table.bt td.n { text-align:right; } table.bt th.n { text-align:right; }
+  table.bt b { font-weight:650; }
   .roses { display:flex; gap:8px; justify-content:space-between; }
   .rose { flex:1 1 0; min-width:0; text-align:center; }
   .rose svg { width:100%; max-width:110px; height:auto; display:block; margin:0 auto; overflow:visible; }
@@ -424,6 +429,16 @@
 
   const ROSE_NOTE = '<div class="note" style="margin-top:8px">Each rose is one elevation band; a wedge is the surface class the model gives most of that band\'s cells on that aspect (N at top, clockwise), the centre is flat ground. Hover or tap a wedge for the top three classes.</div>';
 
+  function newSnowLine(z) {                      // one line for the zone list: where the day's new snow is, from the band stats
+    const bb = z.by_band;
+    if (!bb || bb.length !== 3) return z.hn24_cm != null ? 'new snow ' + (+z.hn24_cm).toFixed(1) + ' cm (zone mean)' : '';
+    const hit = [2, 1, 0].map(i => [i, bb[i] || {}]).filter(([, b]) => (b.new_share || 0) >= 0.005);
+    if (!hit.length) return 'no new snow';
+    const [i, b] = hit.reduce((x, y) => ((y[1].new_share || 0) > (x[1].new_share || 0) ? y : x));
+    const top = Math.max(...hit.map(([, b]) => b.hn24_max || 0));
+    return 'new snow on ' + pct(b.new_share) + ' ' + BAND_LABEL[BANDS[i]] + ', up to ' + top.toFixed(0) + ' cm';
+  }
+
   function allView() {
     const color = paletteFor(CLS);
     let h = '<h2>Brief</h2>' + overviewHtml();
@@ -431,7 +446,7 @@
     zoneList().forEach(z => {
       const has = z.frac && z.frac.length;
       h += '<button type="button" class="zrow" data-z="' + esc(z.id) + '"><span><span class="zn">' + esc(z.name || z.id) + '</span><br><span class="zs">' +
-           (z.hn24_cm != null ? 'new snow ' + (+z.hn24_cm).toFixed(1) + ' cm (zone mean)' : '') + '</span></span>' +
+           esc(newSnowLine(z)) + '</span></span>' +
            '<span class="mini">' + (has ? BANDS.map((bn, bi) => '<span class="rose" title="' + esc(BAND_LABEL[bn]) + '">' + roseSvg(z, bi, color, true) + '</span>').join('') : '<span class="note">no model output</span>') + '</span></button>';
     });
     h += '</div><div class="note" style="margin-top:6px">Small roses: below, near and above treeline. Pick a zone for its brief and detail.</div>';
@@ -448,7 +463,14 @@
       if (b.text) h += '<p class="txt">' + esc(b.text) + '</p>';
     } else h += '<p class="note">' + (BRIEF && BRIEF.zones ? 'No brief for this zone.' : 'No brief for this day.') + '</p>';
     const n1 = v => isFinite(+v) && v != null ? (+v).toFixed(1) : '–';
-    if (z.hn24_cm != null || z.days != null) {
+    if (z.by_band && z.by_band.length === 3) {
+      // the day's new snow by elevation band: a dusting high up shows here instead of vanishing into a zone-wide mean
+      h += '<h2>New snow, model day</h2><table class="bt"><tr><th></th><th class="n">mean</th><th class="n">top 10 %</th><th class="n">max</th><th class="n">1 cm or more</th></tr>' +
+        [2, 1, 0].map(bi => { const b = z.by_band[bi] || {};
+          return '<tr><td>' + esc(BAND_LABEL[BANDS[bi]]) + '</td>' + (b.cells ? '<td class="n">' + n1(b.hn24_mean) + ' cm</td><td class="n">' + n1(b.hn24_p90) + ' cm</td><td class="n">' +
+            n1(b.hn24_max) + ' cm</td><td class="n"><b>' + pct(b.new_share || 0) + '</b></td>' : '<td colspan="4" class="n muted">no cells</td>') + '</tr>'; }).join('') + '</table>';
+      if (z.days != null) h += '<div class="note">Days since the last snowfall: ' + n1(z.days) + ' (zone mean).</div>';
+    } else if (z.hn24_cm != null || z.days != null) {
       h += '<div class="nums"><span><b>' + n1(z.hn24_cm) + ' cm</b><small>new snow, 24 h (zone mean)</small></span>' +
            '<span><b>' + n1(z.days) + ' d</b><small>since snowfall (zone mean)</small></span></div>';
     }

@@ -145,3 +145,10 @@ def test_build_bakes_the_map_window(tmp_path):
     m = re.search(r'<meta name="snow-window" content="([-0-9.,]+)">', built)
     s, w, n, e = map(float, m.group(1).split(","))
     assert 42 < s < 46 and -127 < w < -122 and 49 < n < 53 and -118 < e < -110     # the pnw window around the NWAC area
+
+
+def test_zone_tab_shows_new_snow_by_band(html):
+    # the zone-wide mean hid a dusting above 4,500 ft (2026-10-10); the summary's by_band drives the table and the zone list
+    assert "z.by_band && z.by_band.length === 3" in html and "function newSnowLine(z)" in html
+    for k in ("hn24_mean", "hn24_p90", "hn24_max", "new_share"):
+        assert k in html, k

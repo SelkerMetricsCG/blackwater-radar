@@ -312,3 +312,47 @@ def test_a_complete_day_of_hours_beats_the_24_h_grid(tmp_path, monkeypatch):
     p, scfg = state.load_params()
     f = state.day_forcing(dt.date(2026, 1, 15), lat, meta, forcing.lattice_latlon(meta), -8, scfg, p, lambda *a: None)
     assert f["precip_in"][1, 0] == pytest.approx(0.24, abs=1e-4)
+
+
+def test_summary_gives_new_snow_by_band():
+    # a dusting high up must not vanish into a zone mean taken down to the valley floors
+    lat = _lattice()
+    p, scfg = state.load_params()
+    s = state.new_state(lat["elev"].shape, np.zeros((4, 4)), p["min_depth_in"], lat["elev"] != -32768)
+    s["hn24_cm"][2:, :3] = 3.0                          # the two top rows (above treeline) got 3 cm
+    s["cls"][2:, :3] = state.CID["fresh"]
+    out = state.summary(s, lat, {}, dt.date(2026, 10, 10), new_cm=1.0)
+    b = out["zones"]["1130"]["by_band"]
+    assert [x["cells"] for x in b] == [3, 3, 6]
+    assert b[0]["new_share"] == 0 and b[2]["new_share"] == 1.0 and b[2]["hn24_mean"] == 3.0 and b[2]["hn24_p90"] == 3.0
+    assert out["zones"]["1130"]["hn24_cm"] == 1.5           # the zone mean the page used to show
+
+
+def test_resummarize_rebuilds_a_day_from_its_class_snapshot(tmp_path, monkeypatch):
+    import r2sync
+    from snow import store
+    monkeypatch.setattr(r2sync, "load_env", lambda: None)
+    monkeypatch.setattr(store, "_ENV", None)
+    monkeypatch.setattr(store, "SNOW_DIR", str(tmp_path))
+    lat = _lattice()
+    os.makedirs(tmp_path / "static")
+    np.savez_compressed(tmp_path / "static" / "lattice.npz", **lat)
+    with open(tmp_path / "static" / "lattice.json", "w") as f:
+        json.dump({"zones": {"1130": {"name": "Stevens Pass"}}}, f)
+    os.makedirs(tmp_path / "state")
+    cls = np.zeros((4, 4), np.uint8)
+    cls[:, 3] = 255
+    cls[3, :3] = state.CID["fresh"]
+    hn = np.zeros((4, 4), np.float16)
+    hn[3, :3] = 2.0
+    np.savez_compressed(tmp_path / "state" / "2026-10-10_cls.npz", cls=cls, hn24_cm=hn)
+    old = {"date": "2026-10-10", "prev_day": "2026-10-09", "tfield": {"n": 5}, "zones": {"1130": {"name": "Stevens Pass", "days": 12.5}}}
+    for name in ("2026-10-10.json", "index.json"):
+        with open(tmp_path / "state" / name, "w") as f:
+            json.dump(old if name != "index.json" else {"dates": ["2026-10-10"], "latest": "2026-10-10"}, f)
+    state.resummarize_range(dt.date(2026, 10, 10), dt.date(2026, 10, 10), log=lambda *a: None, upload=False)
+    new = json.load(open(tmp_path / "state" / "latest.json"))
+    z = new["zones"]["1130"]
+    assert new["prev_day"] == "2026-10-09" and new["tfield"] == {"n": 5} and z["days"] == 12.5
+    assert z["by_band"][2]["new_share"] == 0.5 and z["by_band"][2]["hn24_max"] == 2.0
+    assert open(tmp_path / "state" / "2026-10-10.js").read().startswith("window.SNOW_STATE = ")

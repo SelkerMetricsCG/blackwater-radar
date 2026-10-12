@@ -433,8 +433,9 @@ def octants(aspect):
     return np.where(aspect < 0, 8, ((aspect + 22.5) // 45) % 8).astype(np.int64)
 
 
-def summary(s, lat, meta, day):
-    """class fractions by zone x band x aspect octant, for the site"""
+def summary(s, lat, meta, day, new_cm=1.0):
+    """class fractions by zone x band x aspect octant, for the site; and per zone and band (by_band: below, near, above
+    treeline) the day's new snow: mean, 90th percentile and max cm, and the share of cells with new_cm or more"""
     valid = s["cls"] != 255
     zone = lat["zone"] if "zone" in lat else np.full(s["cls"].shape, -1, np.int32)
     uz, inv = np.unique(zone, return_inverse=True)
@@ -454,7 +455,60 @@ def summary(s, lat, meta, day):
         out["zones"][str(z)] = {"name": (names.get(str(z)) or {}).get("name"), "cells": int(c.sum()),
                                 "frac": np.round(frac, 3).tolist(), "hn24_cm": round(float(np.nanmean(s["hn24_cm"][ok & (zone == z)])), 1),
                                 "days": round(float(np.mean(s["days"][ok & (zone == z)])), 1)}
+    hn = np.nan_to_num(np.asarray(s["hn24_cm"], np.float32), nan=0.0)
+    for z in zs:
+        zm = ok & (zone == z)
+        bands = []
+        for b in range(3):
+            h = hn[zm & (lat["band"] == b)]
+            bands.append({"cells": int(h.size)} if not h.size else
+                         {"cells": int(h.size), "hn24_mean": round(float(h.mean()), 1), "hn24_p90": round(float(np.percentile(h, 90)), 1),
+                          "hn24_max": round(float(h.max()), 1), "new_share": round(float((h >= new_cm).mean()), 3)})
+        out["zones"][str(z)]["by_band"] = bands
     return out
+
+
+def resummarize_range(start, end, log=print, upload=True):
+    """rebuild the zone summaries (state/<d>.json/.js, and latest.* for the newest day) from each day's class snapshot
+    (<d>_cls.npz: class and hn24 per cell) after summary() gained a field; days since snowfall are not in the snapshot and
+    are kept from the old summary, as are prev_day, tfield and the assimilation flag. The model is not stepped."""
+    p, _ = load_params()
+    lp = store.fetch("static/lattice.npz", log)
+    meta = store.read_json("static/lattice.json", log)
+    if not lp or not meta:
+        raise SystemExit("resummarize: no lattice")
+    lat = dict(np.load(lp))
+    if "zone" not in lat:
+        lat["zone"] = np.full(lat["elev"].shape, -1, np.int32)
+    latest = (store.read_json("state/index.json", log) or {}).get("latest")
+    day = start
+    while day <= end:
+        d = day.isoformat()
+        snap = store.fetch("state/%s_cls.npz" % d, log)
+        if not snap:
+            log("resummarize %s: no class snapshot" % d)
+            day += dt.timedelta(days=1)
+            continue
+        z = np.load(snap)
+        s = {"cls": z["cls"], "hn24_cm": z["hn24_cm"].astype(np.float32), "days": np.zeros(z["cls"].shape, np.uint8)}
+        old = store.read_json("state/%s.json" % d, log) or {}
+        summ = summary(s, lat, meta, day, p["fresh_cm"])
+        for k, v in old.items():
+            if k not in summ:
+                summ[k] = v
+        for zid, zz in summ["zones"].items():
+            zz["days"] = ((old.get("zones") or {}).get(zid) or {}).get("days", zz["days"])
+        write_js("state/%s" % d, "SNOW_STATE", summ)
+        rels = [("state/%s.json" % d, "public, max-age=31536000, immutable"), ("state/%s.js" % d, "public, max-age=31536000, immutable")]
+        if d == latest:
+            write_js("state/latest", "SNOW_STATE", summ)
+            rels += [("state/latest.json", "no-cache"), ("state/latest.js", "no-cache")]
+        if upload:
+            for rel, cache in rels:
+                store.put(rel, cache, log)
+        top = max(((zz["name"] or zid, zz["by_band"][2].get("new_share", 0)) for zid, zz in summ["zones"].items()), key=lambda t: t[1], default=("-", 0))
+        log("resummarize %s: %d zones%s; most new snow above treeline: %s %.0f %%" % (d, len(summ["zones"]), " (latest)" if d == latest else "", top[0], 100 * top[1]))
+        day += dt.timedelta(days=1)
 
 
 def write_js(rel, var, obj):
@@ -537,7 +591,7 @@ def rewrite_outputs(s, lat, meta, day, log=print, upload=True):
     d = day.isoformat()
     np.savez_compressed(store.local("state/latest.npz"), day=d, **{k: v for k, v in s.items() if k in FIELDS})
     np.savez_compressed(store.local("state/%s_cls.npz" % d), cls=s["cls"], hn24_cm=s["hn24_cm"].astype(np.float16))
-    summ = summary(s, lat, meta, day)
+    summ = summary(s, lat, meta, day, p["fresh_cm"])
     summ["assimilated"] = True
     write_js("state/%s" % d, "SNOW_STATE", summ)
     write_js("state/latest", "SNOW_STATE", summ)
@@ -583,7 +637,7 @@ def run(day, log=print, upload=True, force=False, fresh=False):
     os.makedirs(store.local("state"), exist_ok=True)
     np.savez_compressed(store.local("state/latest.npz"), day=day.isoformat(), **s)
     np.savez_compressed(store.local("state/%s_cls.npz" % day.isoformat()), cls=s["cls"], hn24_cm=s["hn24_cm"].astype(np.float16))
-    summ = summary(s, lat, meta, day)
+    summ = summary(s, lat, meta, day, p["fresh_cm"])
     summ["prev_day"] = prev_day
     if f.get("tfield"):
         summ["tfield"] = f["tfield"]                    # the station field's daily check (leave-one-out MAE, lapses, inversions)
@@ -624,11 +678,14 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", default=None, help="YYYY-MM-DD (default: yesterday, local)")
     ap.add_argument("--start", default=None, help="re-run from this date (fresh state) through --date")
+    ap.add_argument("--resummarize", action="store_true", help="with --start: only rebuild the zone summaries from the class snapshots")
     ap.add_argument("--no-upload", action="store_true")
     ap.add_argument("--force", action="store_true", help="step even when the saved state is already at or past this date")
     a = ap.parse_args()
     d = dt.date.fromisoformat(a.date) if a.date else dt.date.today() - dt.timedelta(days=1)
-    if a.start:
+    if a.start and a.resummarize:
+        resummarize_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload)
+    elif a.start:
         run_range(dt.date.fromisoformat(a.start), d, upload=not a.no_upload)
     else:
         run(d, upload=not a.no_upload, force=a.force)
