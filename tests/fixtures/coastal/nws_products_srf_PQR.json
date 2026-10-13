@@ -1,0 +1,31 @@
+{
+ "@graph": [
+  {
+   "@id": "https://api.weather.gov/products/e0906b70-a983-40ea-8757-1fa7a09c5e05",
+   "id": "e0906b70-a983-40ea-8757-1fa7a09c5e05",
+   "wmoCollectiveId": "FZUS56",
+   "issuingOffice": "KPQR",
+   "issuanceTime": "2026-10-13T13:02:00+00:00",
+   "productCode": "SRF",
+   "productName": "Surf Forecast"
+  },
+  {
+   "@id": "https://api.weather.gov/products/28f53da9-a5f6-48dc-91b2-e12bb34e3c1c",
+   "id": "28f53da9-a5f6-48dc-91b2-e12bb34e3c1c",
+   "wmoCollectiveId": "FZUS56",
+   "issuingOffice": "KPQR",
+   "issuanceTime": "2026-10-12T13:02:00+00:00",
+   "productCode": "SRF",
+   "productName": "Surf Forecast"
+  },
+  {
+   "@id": "https://api.weather.gov/products/29fd82ba-b64b-48f9-80a8-56167724cac2",
+   "id": "29fd82ba-b64b-48f9-80a8-56167724cac2",
+   "wmoCollectiveId": "FZUS56",
+   "issuingOffice": "KPQR",
+   "issuanceTime": "2026-10-11T13:02:00+00:00",
+   "productCode": "SRF",
+   "productName": "Surf Forecast"
+  }
+ ]
+}

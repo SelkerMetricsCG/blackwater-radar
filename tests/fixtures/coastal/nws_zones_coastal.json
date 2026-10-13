@@ -1,0 +1,121 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/zones/forecast/PZZ150",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/zones/forecast/PZZ150",
+    "@type": "wx:Zone",
+    "id": "PZZ150",
+    "type": "coastal",
+    "name": "Coastal Waters From Cape Flattery To James Island Out 10 Nm",
+    "effectiveDate": "2026-04-16T18:00:00+00:00",
+    "expirationDate": "2200-01-01T00:00:00+00:00",
+    "state": null,
+    "forecastOffice": "https://api.weather.gov/offices/SEW",
+    "gridIdentifier": "SEW",
+    "awipsLocationIdentifier": "SEW",
+    "cwa": [
+     "SEW"
+    ],
+    "forecastOffices": [
+     "https://api.weather.gov/offices/SEW"
+    ],
+    "timeZone": [
+     "America/Los_Angeles"
+    ],
+    "observationStations": [],
+    "radarStation": null
+   }
+  },
+  {
+   "id": "https://api.weather.gov/zones/forecast/PZZ153",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/zones/forecast/PZZ153",
+    "@type": "wx:Zone",
+    "id": "PZZ153",
+    "type": "coastal",
+    "name": "Coastal Waters From James Island To Point Grenville Out 10 Nm",
+    "effectiveDate": "2026-04-16T18:00:00+00:00",
+    "expirationDate": "2200-01-01T00:00:00+00:00",
+    "state": null,
+    "forecastOffice": "https://api.weather.gov/offices/SEW",
+    "gridIdentifier": "SEW",
+    "awipsLocationIdentifier": "SEW",
+    "cwa": [
+     "SEW"
+    ],
+    "forecastOffices": [
+     "https://api.weather.gov/offices/SEW"
+    ],
+    "timeZone": [
+     "America/Los_Angeles"
+    ],
+    "observationStations": [],
+    "radarStation": null
+   }
+  },
+  {
+   "id": "https://api.weather.gov/zones/forecast/PZZ210",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/zones/forecast/PZZ210",
+    "@type": "wx:Zone",
+    "id": "PZZ210",
+    "type": "coastal",
+    "name": "Columbia River Bar",
+    "effectiveDate": "2026-04-16T18:00:00+00:00",
+    "expirationDate": "2200-01-01T00:00:00+00:00",
+    "state": null,
+    "forecastOffice": "https://api.weather.gov/offices/PQR",
+    "gridIdentifier": "PQR",
+    "awipsLocationIdentifier": "PQR",
+    "cwa": [
+     "PQR"
+    ],
+    "forecastOffices": [
+     "https://api.weather.gov/offices/PQR"
+    ],
+    "timeZone": [
+     "America/Los_Angeles"
+    ],
+    "observationStations": [],
+    "radarStation": null
+   }
+  },
+  {
+   "id": "https://api.weather.gov/zones/forecast/PZZ251",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/zones/forecast/PZZ251",
+    "@type": "wx:Zone",
+    "id": "PZZ251",
+    "type": "coastal",
+    "name": "Coastal waters from Cape Shoalwater WA to Cape Falcon OR out 10 nm",
+    "effectiveDate": "2026-04-16T18:00:00+00:00",
+    "expirationDate": "2200-01-01T00:00:00+00:00",
+    "state": null,
+    "forecastOffice": "https://api.weather.gov/offices/PQR",
+    "gridIdentifier": "PQR",
+    "awipsLocationIdentifier": "PQR",
+    "cwa": [
+     "PQR"
+    ],
+    "forecastOffices": [
+     "https://api.weather.gov/offices/PQR"
+    ],
+    "timeZone": [
+     "America/Los_Angeles"
+    ],
+    "observationStations": [],
+    "radarStation": null
+   }
+  }
+ ]
+}

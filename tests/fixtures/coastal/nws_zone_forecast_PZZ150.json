@@ -1,0 +1,60 @@
+{
+ "type": "Feature",
+ "geometry": null,
+ "properties": {
+  "zone": "https://api.weather.gov/zones/forecast/PZZ150",
+  "updated": "2026-10-13T01:22:00-07:00",
+  "periods": [
+   {
+    "number": 1,
+    "name": "Today",
+    "detailedForecast": "SE wind 5 to 10 kt, rising to 10 to 15 kt late this morning and afternoon. Seas 4 to 6 ft. Wave Detail: S 4 ft at 5 seconds, W 4 ft at 14 seconds and SW 2 ft at 16 seconds. A chance of rain."
+   },
+   {
+    "number": 2,
+    "name": "Tonight",
+    "detailedForecast": "S wind 10 to 15 kt. Seas 5 to 6 ft. Wave Detail: S 4 ft at 5 seconds, W 4 ft at 14 seconds and SW 2 ft at 15 seconds. A chance of rain in the evening, then rain likely after midnight."
+   },
+   {
+    "number": 3,
+    "name": "Wed",
+    "detailedForecast": "SE wind 10 to 15 kt. Seas 5 to 7 ft. Wave Detail: S 4 ft at 5 seconds, W 6 ft at 13 seconds and SW 2 ft at 18 seconds. Rain likely, mainly in the morning."
+   },
+   {
+    "number": 4,
+    "name": "Wed Night",
+    "detailedForecast": "E wind 5 to 10 kt. Seas 5 to 6 ft. Wave Detail: W 6 ft at 12 seconds and SW 2 ft at 17 seconds."
+   },
+   {
+    "number": 5,
+    "name": "Thu",
+    "detailedForecast": "E wind 5 to 10 kt. Seas 4 to 5 ft. Wave Detail: W 4 ft at 12 seconds and SW 2 ft at 16 seconds."
+   },
+   {
+    "number": 6,
+    "name": "Thu Night",
+    "detailedForecast": "E wind 5 to 10 kt. Seas 3 to 4 ft. Wave Detail: E 2 ft at 4 seconds, W 4 ft at 11 seconds and SW 2 ft at 15 seconds."
+   },
+   {
+    "number": 7,
+    "name": "Fri",
+    "detailedForecast": "SE wind around 5 kt. Seas 4 to 6 ft. Wave Detail: W 5 ft at 11 seconds and SW 2 ft at 15 seconds."
+   },
+   {
+    "number": 8,
+    "name": "Fri Night",
+    "detailedForecast": "S wind 5 to 10 kt. Seas 5 to 7 ft. Wave Detail: SW 7 ft at 11 seconds and SW 2 ft at 15 seconds. Rain."
+   },
+   {
+    "number": 9,
+    "name": "Sat",
+    "detailedForecast": "W wind 5 to 10 kt. Seas 6 to 8 ft. Wave Detail: W 7 ft at 12 seconds and SW 2 ft at 14 seconds. A chance of rain in the morning."
+   },
+   {
+    "number": 10,
+    "name": "Sat Night",
+    "detailedForecast": "W wind around 5 kt, backing to S after midnight. Seas 7 to 8 ft. Wave Detail: W 8 ft at 14 seconds and SW 2 ft at 14 seconds."
+   }
+  ]
+ }
+}
