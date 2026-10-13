@@ -1,0 +1,10 @@
+# STATION_ID | OWNER | TTYPE | HULL | NAME | PAYLOAD | LOCATION | TIMEZONE | FORECAST | NOTE
+#
+46026|N|3-meter foam buoy|3DV40|SAN FRANCISCO - 18NM West of San Francisco, CA|SCOOP payload|37.750 N 122.838 W (37&#176;45'0" N 122&#176;50'18" W)|P|FZUS56.KMTR |
+46041|N|3-meter discus buoy w/ seal cage|3D19|CAPE ELIZABETH - 45NM NW of Aberdeen, WA|SCOOP payload|47.351 N 124.741 W (47&#176;21'2" N 124&#176;44'28" W)|P|FZUS56.KSEW |LINK TO PMEL's pCO2 SITE for their data on this Station: <a title="Cape Elizabeth (46041)" href="https://www.pmel.noaa.gov/co2/story/Cape+Elizabeth">https://www.pmel.noaa.gov/co2/story/Cape+Elizabeth</a>
+46050|N|3-meter foam buoy|3D62|STONEWALL BANK - 20NM West of Newport, OR|SCOOP payload|44.679 N 124.535 W (44&#176;40'46" N 124&#176;32'6" W)|P|FZUS56.KPQR |
+46119|NA|Buoy||Cha'Ba La Push||47.967 N 124.950 W (47&#176;58'2" N 124&#176;57'1" W)|P|FZUS56.KSEW |
+46146|C|3-meter discus buoy||Halibut Bank||49.340 N 123.730 W (49&#176;20'24" N 123&#176;43'48" W)|P| |
+46206|C|3-meter discus buoy||La Perouse Bank||48.840 N 126.000 W (48&#176;50'24" N 126&#176;0'0" W)|P| |
+46211|R|Waverider Buoy||Grays Harbor, WA (036)||46.857 N 124.243 W (46&#176;51'24" N 124&#176;14'34" W)|P|FZUS56.KSEW |
+wptw1|O|Water Level Observation Network||9441102 - Westport, WA||46.904 N 124.105 W (46&#176;54'16" N 124&#176;6'18" W)|P| |
