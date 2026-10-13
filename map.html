@@ -1016,7 +1016,7 @@
   const WTEMP_BINS = [[40, '#3e5482'], [45, '#5d81a4'], [50, '#83a3b8'], [55, '#b6c0bc'], [60, '#cd9f7f'], [65, '#ba7660'], [70, '#a04b46']];
   // marine zones by the first period's strongest wind in kt (spec ledger 6): NWS Small Craft 25-33, Gale 34-47, Storm 48+
   const ZONE_BINS = [[0, '#8fa3b8'], [15, '#5b8fc7'], [25, '#d6a44a'], [34, '#c0504d'], [48, '#7b5ea7']];
-  const ZONE_NAMES = ['under 15', '15-24', '25-33 small craft', '34-47 gale', '48+ storm'];
+  const ZONE_NAMES = ['<15', '15-24', '25-33', '34-47', '48+'];
   const TIDE_COL = { rising: '#2563eb', falling: '#b45309', slack: '#6b7280' };
   const SLACK_S = 20 * 60;          // a tide station reads "slack" within 20 min of a predicted extreme (spec ledger 5)
   const BUOY_STALE_S = 6 * 3600;    // hollow after 6 h without a report (spec ledger 1)
@@ -1321,7 +1321,7 @@
       marineLayer.addLayer(lyr);
     }
     $('marineInfo').innerHTML = '<div class="muted">' + zones.length + ' zones · updated ' + esc(marineData.updated || '') + '</div>' + legendHtml(ZONE_BINS.map((b, i) => [ZONE_NAMES[i], b[1]]), x => x) +
-      '<div class="note" style="margin-top:18px">kt, the strongest wind forecast for the first period; grey where the text gives no wind. Source: NOAA NWS coastal waters and surf zone forecasts.</div>';
+      '<div class="note" style="margin-top:18px">kt, the strongest wind forecast for the first period (25-33 small craft, 34-47 gale, 48+ storm); grey where the text gives no wind. Source: NOAA NWS coastal waters and surf zone forecasts.</div>';
   }
   function loadMarine() { loadScript('data/marine.js', () => { marineData = window.MARINE || marineData; renderMarine(); }, () => { $('marineInfo').innerHTML = '<div class="muted">marine forecast not available yet</div>'; }); }
   $('lyMarine').onchange = e => { if (e.target.checked) { marineLayer.addTo(map); if (!marineData) loadMarine(); else renderMarine(); } else map.removeLayer(marineLayer); };
