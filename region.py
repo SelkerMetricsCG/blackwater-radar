@@ -22,6 +22,8 @@ REGIONS = {
         "cocorahs_states": ["WA"], "ndfd": "pacnwest", "avy": "NWAC",     # "avy": avalanche layer title (default generic)
         "snow": True,             # keeps the snow-conditions season archive (snow/archive.py); the others can follow
         "tz_offset_h": -8,        # snow model: standard-time offset of the archive's local dates (Pacific)
+        "coastal": True,          # Coastal group: buoys, tides, marine forecast, SST, PZ alerts (only pnw so far)
+        "marine_cwa": ["SEW", "PQR", "MFR", "EKA"],   # NWS offices whose coastal-waters zones marine.py draws
         "asos": ["KEAT", "KSEA", "KPAE", "KYKM", "KELN", "KGEG", "KPUW", "KALW", "KPDT", "KMWH", "KEPH", "KOMK", "KBFI",
                  "KOLM", "KPDX", "KTTD", "KDLS", "KBLI", "KS52", "KAWO", "KRNT", "KTIW", "KHQM", "KSMP", "KCOE", "KLWS", "KBOI"],
     },

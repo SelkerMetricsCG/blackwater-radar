@@ -1,9 +1,11 @@
 """
-Active NWS watches, warnings and advisories for WA, OR, ID, MT as map polygons.
+Active NWS watches, warnings and advisories for the region's states as map polygons.
 
 Most alerts reference forecast zones rather than carrying their own shape, so
 zone outlines are fetched once from api.weather.gov and cached in
-data/zone_cache.json. Output: data/alerts.js -> window.ALERTS = {updated, features:[...]}
+data/zone_cache.json. Regions with a coast (region.cfg()["coastal"]) also ask for
+the marine zones (area PZ, the whole Pacific); shapes wholly outside the window
+are dropped. Output: data/alerts.js -> window.ALERTS = {updated, features:[...]}
 
 Run standalone:  python alerts.py
 """
@@ -20,7 +22,15 @@ DATA = region.data_dir()
 OUT = os.path.join(DATA, "alerts.js")
 ZONES = os.path.join(DATA, "zone_cache.json")
 UA = "RadarTracker/1.0 (personal weather map; chris.gabrielli@gmail.com)"
-URL = "https://api.weather.gov/alerts/active?area=%s&status=actual&message_type=alert,update" % ",".join(region.cfg()["states"])
+
+
+def alert_url(states, coastal):
+    """The active-alerts query: the region's states plus PZ (Pacific marine zones) when it has a coast."""
+    area = list(states) + (["PZ"] if coastal else [])
+    return "https://api.weather.gov/alerts/active?area=%s&status=actual&message_type=alert,update" % ",".join(area)
+
+
+URL = alert_url(region.cfg()["states"], bool(region.cfg().get("coastal")))
 
 
 def fetch(url, timeout=30, tries=2):
@@ -42,6 +52,29 @@ def _round(coords):
     return [_round(c) for c in coords]
 
 
+def _extent(coords, ext):
+    """Grow ext = [lon0, lon1, lat0, lat1] over every position in a GeoJSON coordinate array, any nesting."""
+    if isinstance(coords[0], (int, float)):
+        lon, lat = coords[0], coords[1]
+        ext[0], ext[1] = min(ext[0], lon), max(ext[1], lon)
+        ext[2], ext[3] = min(ext[2], lat), max(ext[3], lat)
+    else:
+        for c in coords:
+            _extent(c, ext)
+    return ext
+
+
+def in_window(geometry, bbox):
+    """True when the geometry's extent overlaps bbox = (lat0, lat1, lon0, lon1) as region.bbox() gives it.
+    An extent test, not a true intersection: a shape that only crosses a corner is kept, which is the safe side."""
+    coords = (geometry or {}).get("coordinates")
+    if not coords:
+        return False
+    lon0, lon1, lat0, lat1 = _extent(coords, [180.0, -180.0, 90.0, -90.0])
+    blat0, blat1, blon0, blon1 = bbox
+    return lon1 >= blon0 and lon0 <= blon1 and lat1 >= blat0 and lat0 <= blat1
+
+
 def build(log=print):
     try:
         with open(ZONES, encoding="utf-8") as f:
@@ -49,6 +82,7 @@ def build(log=print):
     except (OSError, ValueError):
         zones = {}
     alerts = json.loads(fetch(URL))
+    bbox = region.bbox()
     feats = []
     fetched = 0
     keep = ("id", "event", "severity", "urgency", "certainty", "headline", "description", "instruction",
@@ -73,7 +107,10 @@ def build(log=print):
                         zones[zurl] = None
                 if zones.get(zurl):
                     geoms.append(zones[zurl])
+        # PZ marine zones run the whole coast; a shape with nothing in the window is dropped (land zones all overlap)
         for g in geoms:
+            if not in_window(g, bbox):
+                continue
             feats.append({"type": "Feature", "properties": props,
                           "geometry": {"type": g["type"], "coordinates": _round(g["coordinates"])}})
     if fetched:

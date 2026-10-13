@@ -241,6 +241,17 @@ def capture_all():
             ok.append("rivers %d" % rivers.build(log))
         except Exception as e:  # noqa: BLE001
             log("rivers FAILED: %r" % e)
+        if region.cfg().get("coastal"):       # coastal group: buoys and shore stations, then tides
+            try:
+                import buoys
+                ok.append("buoys %d" % buoys.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("buoys FAILED: %r" % e)
+            try:
+                import tides
+                ok.append("tides %d" % tides.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("tides FAILED: %r" % e)
     # station totals: once an hour (first cycle after the top of the hour), or if missing
     st_file = os.path.join(region.data_dir(), "stations.js")
     hourly_due = FORCE_HOURLY if FORCE_HOURLY is not None else (dt.datetime.now().minute < 15 or not os.path.exists(st_file))
@@ -261,6 +272,12 @@ def capture_all():
             ok.append("forecast")
         except Exception as e:  # noqa: BLE001
             log("forecast FAILED: %r" % e)
+        if region.cfg().get("coastal"):       # NWS coastal-waters zone forecasts and surf-zone products
+            try:
+                import marine
+                ok.append("marine %d" % marine.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("marine FAILED: %r" % e)
         try:
             import mrms
             mrms.build(log)
@@ -284,6 +301,12 @@ def capture_all():
             ok.append("snodas %s" % snodas.build(log))
         except Exception as e:  # noqa: BLE001
             log("snodas FAILED: %r" % e)
+        if region.cfg().get("coastal"):       # sea surface temperature: downloads only when a newer analysis day is posted
+            try:
+                import sst
+                ok.append("sst %s" % sst.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("sst FAILED: %r" % e)
         try:
             import webcams
             ok.append("webcams %d" % webcams.build(log))
