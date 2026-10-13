@@ -191,6 +191,22 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   traces terrain shadows on the GPU (`SUN_FS`) and the click readout runs the same walk in JavaScript (`// BEGIN sunShade`,
   tested by `tests/test_map_sunshade.py`). Method card `terrain/METHOD.md`, parameters `terrain/terrain_config.yaml`,
   checks and gotchas `terrain/README.md`, spec `docs/superpowers/specs/2026-09-30-sun-shade-layer-design.md`.
+- Coastal (2026-10-13, pnw only: `"coastal": True` and `"marine_cwa"` in `region.py`; other regions can turn it on, the
+  sources are national): `buoys.py` and `tides.py` run in the half-hour slot, `marine.py` and `sst.py` in the hourly
+  slot (`data/buoys.js`, `tides.js`, `marine.js`, `sst.js` + `frames/sst/sst.webp` + `values/sst.js`; state
+  `tides_cache.json` holds station lists and a day's predictions, refreshed 60 stations per run). Sources and credits
+  the page must keep: NOAA NDBC (public domain; the 3 m buoys' waves come from `realtime2/<id>.spec`, not
+  `latest_obs.txt`), CDIP ("Data courtesy of CDIP"), Environment and Climate Change Canada buoys from the Datamart
+  SWOB-ML (NDBC's relay drops their direction and period), NANOOS / UW APL (Cha'ba, the Sound met buoys), Backyard
+  Buoys (Quileute Tribe / Quinault Indian Nation, **CC BY-NC 4.0**: non-commercial only, Chris accepted 2026-10-13),
+  NOAA CO-OPS tides and current predictions (no live current meter in the window works), Canadian Hydrographic
+  Service tides (licence: **not for navigation, no commercial derivatives**; accepted 2026-10-13, notice in the popup),
+  NWS coastal-waters zones and surf-zone forecasts (SEW issues none), NOAA CoastWatch Geo-Polar Blended SST (5 km,
+  two days behind). Marine (`PZ`) alerts are pulled with the state alerts and clipped to the window (`alerts.in_window`).
+  Tide curves between predicted extremes are a cosine (judgment call; the extremes are exact). Spec and parameter
+  ledger: `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; sources and the deferred list (HF radar
+  currents, GFS-Wave swell raster, NWPS, HRDPS, biotoxin layers, the spot table): `coastal_research/CATALOG.md`;
+  checks: `coastal_research/CHECKS.md`. No name or email goes into a header these modules send.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -224,3 +240,6 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   `docs/superpowers/specs/2026-09-28-hrrr-smoke-layer-design.md`. Built and released in one session without review stops.
 - 2026-09-30: Sun & shade layer (Terrain group): GPU terrain shadows for any date and time, click readout of sun windows;
   elevation tiles in `terrain/`, served by the new `site_worker.js`. Built in one session after Chris approved the design.
+- 2026-10-13: Coastal group (pnw): buoys and shore stations (waves, wind, water temperature), tides and tidal currents,
+  NWS marine and surf-zone forecasts, satellite SST; marine alerts; 23 ocean-facing webcams. Spec
+  `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; research `coastal_research/`.

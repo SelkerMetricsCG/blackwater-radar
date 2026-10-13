@@ -299,6 +299,39 @@
     </div>
   </div>
 
+  <div class="sec grp" data-grp="coastal" id="coastalGrp">
+    <h2 class="grph"><span class="chev"></span>Coastal <span class="n"></span></h2>
+    <div class="body">
+    <label class="opt"><input type="checkbox" id="lyBuoys"> Buoys &amp; shore stations
+      <button type="button" class="help" aria-label="About the buoys layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Offshore buoys and shore stations: wave height and period, wind, and water temperature, as each one last reported. Waves are the significant height (the average of the highest third). Hollow dots have no value for the chosen reading or have not reported for 6 h. Click a station for its last 24 h of wave height.</span></label>
+    <div class="subwrap" data-for="lyBuoys">
+      <div class="sub" id="buoyModes">
+        <button type="button" class="chip on" data-mode="waves">Waves</button>
+        <button type="button" class="chip" data-mode="wind">Wind</button>
+        <button type="button" class="chip" data-mode="wtemp">Water temp</button>
+      </div>
+      <div class="sub" id="buoyInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lyTides"> Tides &amp; currents
+      <button type="button" class="help" aria-label="About the tides layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Tide stations coloured by whether the water is rising or falling now, and tidal current stations as arrows pointing with the flow, sized by speed. Click a station for the tide curve, the next highs and lows, or the day's slack and maximum currents. Predictions, not observations, except where a station also measures the water level. Not for navigation.</span></label>
+    <div class="subwrap" data-for="lyTides">
+      <div class="sub" id="tideInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lyMarine"> Marine forecast
+      <button type="button" class="help" aria-label="About the marine forecast layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">NWS coastal-waters forecast zones, shaded by the strongest wind forecast for the first period. Click a zone for the forecast periods and, where the office issues one, the surf zone forecast.</span></label>
+    <div class="subwrap" data-for="lyMarine">
+      <div class="sub" id="marineInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lySst"> Sea surface temperature</label>
+    <div class="subwrap" data-for="lySst">
+      <div class="sub" id="sstInfo" style="display:block"></div>
+    </div>
+    </div>
+  </div>
+
   <div class="sec grp" data-grp="air">
     <h2 class="grph"><span class="chev"></span>Air quality <span class="n"></span></h2>
     <div class="body">
@@ -974,6 +1007,339 @@
   $('lyRivers').onchange = e => { if (e.target.checked) { rvLayer.addTo(map); if (!rvData) loadRivers(); else renderRivers(); } else map.removeLayer(rvLayer); };
   setInterval(() => { if (map.hasLayer(rvLayer)) loadRivers(); }, 15 * 60 * 1000);
   map.on('zoomend', () => { if (map.hasLayer(rvLayer)) renderRivers(); });
+
+  // ---------- Coastal: helpers ----------
+  // BEGIN coastalHelpers (tests/test_map_coastal.py runs this block under node)
+  // wave height in ft (spec ledger 2: knee, waist, head, overhead, double), a muted blue-to-purple ramp after the rain one
+  const WAVE_BINS = [[0, '#c9dbe6'], [2, '#a3c3da'], [4, '#7ea8cc'], [6, '#5d8bbb'], [8, '#4a6fa8'], [10, '#4b5797'], [13, '#544386'], [16, '#583373'], [20, '#4a2358']];
+  // water temperature in °F (spec ledger 3); colours from the SST overlay's ramp so dots and raster agree
+  const WTEMP_BINS = [[40, '#3e5482'], [45, '#5d81a4'], [50, '#83a3b8'], [55, '#b6c0bc'], [60, '#cd9f7f'], [65, '#ba7660'], [70, '#a04b46']];
+  // marine zones by the first period's strongest wind in kt (spec ledger 6): NWS Small Craft 25-33, Gale 34-47, Storm 48+
+  const ZONE_BINS = [[0, '#8fa3b8'], [15, '#5b8fc7'], [25, '#d6a44a'], [34, '#c0504d'], [48, '#7b5ea7']];
+  const ZONE_NAMES = ['under 15', '15-24', '25-33 small craft', '34-47 gale', '48+ storm'];
+  const TIDE_COL = { rising: '#2563eb', falling: '#b45309', slack: '#6b7280' };
+  const SLACK_S = 20 * 60;          // a tide station reads "slack" within 20 min of a predicted extreme (spec ledger 5)
+  const BUOY_STALE_S = 6 * 3600;    // hollow after 6 h without a report (spec ledger 1)
+  const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  function binOf(v, bins) { if (v == null || isNaN(v)) return -1; let i = 0; for (let k = 1; k < bins.length; k++) if (v >= bins[k][0]) i = k; return i; }
+  function waveBin(ft) { return binOf(ft, WAVE_BINS); }
+  function tempBin(f) { return binOf(f, WTEMP_BINS); }          // below 40 °F takes the coldest colour
+  function windBinKt(kt) { return binOf(kt, ZONE_BINS); }
+  function compass(deg) { return deg == null || isNaN(deg) ? '' : COMPASS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16]; }
+  function fmtAge(sec) {
+    if (sec == null || isNaN(sec)) return '';
+    const m = Math.max(0, Math.round(sec / 60));
+    return m < 90 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days';
+  }
+  function fmtMins(mins) { const m = Math.max(0, Math.round(mins)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); }
+  // height between the bracketing predicted extremes, cosine-shaped (spec ledger 4); exact at the extremes, null outside.
+  // h(t) = (h1 + h2)/2 + (h1 - h2)/2 * cos(pi (t - t1)/(t2 - t1)): h1 at t1, h2 at t2
+  function tideAt(hilo, t) {
+    const l = hilo || [];
+    for (let i = 0; i + 1 < l.length; i++) {
+      const t1 = l[i][0], h1 = l[i][1], t2 = l[i + 1][0], h2 = l[i + 1][1];
+      if (t >= t1 && t <= t2) return (h1 + h2) / 2 + (h1 - h2) / 2 * Math.cos(Math.PI * (t - t1) / ((t2 - t1) || 1));
+    }
+    return null;
+  }
+  // {dir: rising | falling | slack, next: the next extreme, mins: minutes to it, at: the extreme within 20 min or null}
+  function tideStage(hilo, t) {
+    const l = hilo || [], k = l.findIndex(e => e[0] > t);
+    if (k < 0) return null;
+    const next = l[k], prev = k > 0 ? l[k - 1] : null;
+    const at = next[0] - t <= SLACK_S ? next : prev && t - prev[0] <= SLACK_S ? prev : null;
+    return { dir: at ? 'slack' : next[2] === 'H' ? 'rising' : 'falling', next: next, mins: Math.round((next[0] - t) / 60), at: at };
+  }
+  function tideSentence(st) {
+    if (!st) return '';
+    const word = e => (e[2] === 'H' ? 'high ' : 'low ') + e[1].toFixed(1) + ' ft';
+    if (st.dir !== 'slack') return (st.dir === 'rising' ? 'Rising: ' : 'Falling: ') + word(st.next) + ' in ' + fmtMins(st.mins);
+    if (st.at[0] === st.next[0]) return 'Slack: ' + word(st.at) + ' in ' + fmtMins(st.mins);
+    return 'Slack: ' + word(st.at) + ' ' + fmtMins((st.next[0] - st.at[0]) / 60 - st.mins) + ' ago; next ' + word(st.next) + ' in ' + fmtMins(st.mins);
+  }
+  // stations without predictions: the observed change over the last hour; under 0.1 ft reads slack (judgment call)
+  function obsTrend(obs) {
+    const o = (obs || []).filter(p => p[1] != null);
+    if (o.length < 2) return null;
+    const last = o[o.length - 1], first = o.find(p => p[0] >= last[0] - 3600);
+    if (first === last) return null;
+    const d = last[1] - first[1];
+    return Math.abs(d) < 0.1 ? 'slack' : d > 0 ? 'rising' : 'falling';
+  }
+  // current now between the bracketing events (flood +, ebb -, slack 0), cosine-shaped like the tide curve; kt to 0.1
+  function currentAt(events, t) {
+    const l = events || [], sv = e => e[1] === 'flood' ? e[2] : e[1] === 'ebb' ? -e[2] : 0;
+    for (let i = 0; i + 1 < l.length; i++) {
+      const a = l[i], b = l[i + 1];
+      if (t >= a[0] && t <= b[0]) {
+        const f = (t - a[0]) / ((b[0] - a[0]) || 1), v = sv(a) + (sv(b) - sv(a)) * (1 - Math.cos(Math.PI * f)) / 2;
+        const kt = Math.round(Math.abs(v) * 10) / 10;
+        return { kind: kt === 0 ? 'slack' : v > 0 ? 'flood' : 'ebb', kt: kt };
+      }
+    }
+    return null;
+  }
+  function buoyStale(s, nowSec) { return !!s.stale || !s.t || nowSec - s.t > BUOY_STALE_S; }
+  function buoyValue(s, mode) {
+    if (mode === 'wind') return s.gust_mph != null ? s.gust_mph : s.wspd_mph != null ? s.wspd_mph : null;
+    if (mode === 'wtemp') return s.wtmp_f != null ? s.wtmp_f : null;
+    return s.hs_ft != null ? s.hs_ft : null;
+  }
+  function buoyLabel(s, mode) {
+    if (mode === 'wind') return !s.wspd_mph && !s.gust_mph ? 'calm' : (s.wspd_mph != null ? String(Math.round(s.wspd_mph)) : '') + (s.gust_mph ? 'g' + Math.round(s.gust_mph) : '');
+    if (mode === 'wtemp') return Math.round(s.wtmp_f) + '°';
+    return s.hs_ft.toFixed(1) + ' ft' + (s.dpd_s != null ? ' ' + Math.round(s.dpd_s) + ' s' : '');
+  }
+  // NWS surf zone product: from its title on, at most 2,500 characters
+  function srfText(text) {
+    const t = String(text || ''), i = t.indexOf('SURF ZONE FORECAST'), s = (i >= 0 ? t.slice(i) : t).trim();
+    return s.length > 2500 ? s.slice(0, 2500) + '…' : s;
+  }
+  // END coastalHelpers
+
+  // ---------- Coastal: buoys & shore stations, tides & currents, marine forecast, sea surface temperature ----------
+  const coastalOn = !!REG.coastal;
+  if (!coastalOn) { const g = $('coastalGrp'); g.style.display = 'none'; g.querySelectorAll('.opt, .subwrap').forEach(o => { o.hidden = true; }); }
+  const COAST_TRK = '<g class="trk" style="display:none"><line y1="2" y2="H" stroke="#333" stroke-dasharray="2 2"/><circle r="3.5" fill="#fff" stroke="#333" stroke-width="1.5"/><rect rx="3" fill="#111" opacity=".85" height="16"/><text fill="#fff" font-size="11" font-family="system-ui" dy="11.5"></text></g>';
+  const coTime = t => new Date(t * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const coDayTime = t => new Date(t * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const coLink = (url, text) => url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + text + '</a>' : '';
+  const CHS_NOTE = '<div style="font-size:11px;color:#b45309;margin-top:4px">Canadian Hydrographic Service data. Not for navigation: use the official CHS tide and current tables and charts.</div>';
+  // labels from zoom 8, only for markers in view, drawn like the weather-station labels
+  function coRelabel(lab, layer) {
+    const show = map.hasLayer(layer) && map.getZoom() >= 8, b = map.getBounds().pad(.1);
+    for (const l of lab.items) {
+      const on = show && b.contains(l[0]);
+      if (on && !l[2]) lab.layer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
+      else if (!on && l[2]) { lab.layer.removeLayer(l[2]); l[2] = null; }
+    }
+  }
+  // a small line chart with the river charts' hover tracker: series [{pts: [[t, v]], color, width}], hover [[t, v, label]]
+  function coChart(series, hover, nowT, w, h, lo, hi) {
+    const all = [].concat(...series.map(s => s.pts));
+    if (all.length < 2) return '';
+    const ts = all.map(p => p[0]), x0 = Math.min(...ts), x1 = Math.max(...ts);
+    const X = t => ((t - x0) / ((x1 - x0) || 1)) * (w - 4) + 2, Y = v => h - 4 - ((v - lo) / ((hi - lo) || 1)) * (h - 10);
+    const line = s => s.pts.length > 1 ? '<polyline fill="none" stroke="' + s.color + '" stroke-width="' + (s.width || 2) + '" points="' + s.pts.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ') + '"/>' : '';
+    const data = hover.map(p => [+X(p[0]).toFixed(1), +Y(p[1]).toFixed(1), 0, 0, '', p[2]]);
+    const nowL = nowT >= x0 && nowT <= x1 ? '<line x1="' + X(nowT).toFixed(1) + '" y1="2" x2="' + X(nowT).toFixed(1) + '" y2="' + (h - 2) + '" stroke="#bbb"/>' : '';
+    return '<svg class="rvchart" width="' + w + '" height="' + h + '" style="display:block;margin:6px 0;cursor:crosshair;overflow:visible" data-pts=\'' + JSON.stringify(data).replace(/'/g, '&#39;') + '\'>' +
+      nowL + series.map(line).join('') + COAST_TRK.replace('y2="H"', 'y2="' + (h - 2) + '"') + '</svg>';
+  }
+
+  // buoys & shore stations
+  const buoyLayer = L.layerGroup(), buoyLabels = { layer: L.layerGroup(), items: [] };
+  let buoyData = null, buoyMode = 'waves';
+  function buoyColor(v) { return buoyMode === 'wind' ? binColor(v, WIND_BINS) : buoyMode === 'wtemp' ? WTEMP_BINS[tempBin(v)][1] : WAVE_BINS[waveBin(v)][1]; }
+  function waveRow(ft, s, deg) { return '<b>' + ft.toFixed(1) + ' ft</b>' + (s != null ? ' at ' + Math.round(s) + ' s' : '') + (deg != null ? ' from ' + compass(deg) + ' (' + Math.round(deg) + '°)' : ''); }
+  function waveTrace(s) {
+    if (!s.trace || s.trace_t0 == null) return '';
+    const now = Date.now() / 1000, pts = s.trace.map((v, i) => v == null ? null : [s.trace_t0 + i * 3600, v]).filter(Boolean);
+    if (pts.length < 2) return '';
+    const svg = coChart([{ pts: pts, color: '#2563eb' }], pts.map(p => [p[0], p[1], p[1].toFixed(1) + ' ft · ' + fmtAge(now - p[0]) + ' ago']), now, 240, 60, 0, Math.max(1, ...pts.map(p => p[1])));
+    return svg ? svg + '<div style="font-size:11px;color:#666">wave height, last 24 h, hourly · hover for values</div>' : '';
+  }
+  function buoyCard(s) {
+    const now = Date.now() / 1000;
+    let html = '<div style="font:13px system-ui;min-width:240px"><b>' + esc(s.name) + '</b> <span style="color:#666">' + esc(s.owner || s.src) + '</span>' +
+      '<div style="color:#666;font-size:12px">' + (s.t ? 'reported ' + fmtAge(now - s.t) + ' ago' + (buoyStale(s, now) ? ' (stale)' : '') : 'no report time') + '</div>';
+    if (s.hs_ft != null) {
+      html += '<div style="margin-top:4px">Waves: ' + waveRow(s.hs_ft, s.dpd_s, s.mwd_deg) + (s.apd_s != null ? ' <span style="color:#666">· average period ' + s.apd_s.toFixed(1) + ' s</span>' : '') + '</div>';
+      if (s.swh_ft != null) html += '<div>Swell: ' + waveRow(s.swh_ft, s.swp_s, s.swd_deg) + '</div>';
+      if (s.wwh_ft != null) html += '<div>Wind waves: ' + waveRow(s.wwh_ft, s.wwp_s, s.wwd_deg) + '</div>';
+      if (s.steep && s.steep !== 'N/A') html += '<div style="color:#666;font-size:12px">steepness: ' + esc(String(s.steep).toLowerCase().replace(/_/g, ' ')) + '</div>';
+    }
+    html += waveTrace(s);
+    if (s.wspd_mph != null || s.gust_mph != null) html += '<div>Wind: <b>' + (s.wspd_mph != null ? Math.round(s.wspd_mph) + ' mph' : '–') + '</b>' + (s.gust_mph != null ? ', gusting ' + Math.round(s.gust_mph) : '') + (s.wdir_deg != null ? ', from ' + compass(s.wdir_deg) + ' (' + Math.round(s.wdir_deg) + '°)' : '') + '</div>';
+    const env = [s.wtmp_f != null ? 'Water <b>' + s.wtmp_f.toFixed(1) + '°F</b>' : '', s.atmp_f != null ? 'Air ' + s.atmp_f.toFixed(1) + '°F' : '', s.pres_mb != null ? s.pres_mb.toFixed(1) + ' mb' : ''].filter(Boolean);
+    if (env.length) html += '<div>' + env.join(' · ') + '</div>';
+    if (s.credit) html += '<div style="font-size:11px;color:#666;margin-top:4px">' + esc(s.credit) + '</div>';
+    html += '<div style="color:#666;margin-top:4px">' + esc(s.src) + ' ' + esc(s.id) + (s.link ? ' · ' + coLink(s.link, 'station page') : '') + '</div></div>';
+    return html;
+  }
+  function renderBuoys() {
+    buoyLayer.clearLayers(); buoyLabels.layer.clearLayers(); buoyLayer.addLayer(buoyLabels.layer); buoyLabels.items = [];
+    document.querySelectorAll('#buoyModes .chip').forEach(c => c.classList.toggle('on', c.dataset.mode === buoyMode));
+    if (!buoyData) return;
+    const now = Date.now() / 1000, list = buoyData.stations || [];
+    let n = 0;
+    for (const s of list) {
+      const v = buoyStale(s, now) ? null : buoyValue(s, buoyMode);
+      let m;
+      if (v == null) {
+        m = L.circleMarker([s.lat, s.lon], { radius: 4, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+        m.bindTooltip(esc(s.name), { direction: 'top', offset: [0, -6], opacity: .95 });
+      } else {
+        n++;
+        if (buoyMode === 'wind' && s.wdir_deg != null) m = L.marker([s.lat, s.lon], { icon: windIcon(s.wdir_deg, buoyColor(v)) });
+        else m = L.circleMarker([s.lat, s.lon], { radius: 6, color: '#111', weight: 1, fillColor: buoyColor(v), fillOpacity: .9 });
+        const lbl = buoyLabel(s, buoyMode);
+        m.bindTooltip(esc(s.name) + ': ' + lbl, { direction: 'top', offset: [0, -10], opacity: .95 });
+        buoyLabels.items.push([m.getLatLng(), lbl, null]);
+      }
+      m.bindPopup(() => buoyCard(s), { maxWidth: 300 });
+      buoyLayer.addLayer(m);
+    }
+    coRelabel(buoyLabels, buoyLayer);
+    const leg = buoyMode === 'wind' ? legendHtml(WIND_BINS, x => String(x)) : buoyMode === 'wtemp' ? legendHtml(WTEMP_BINS, x => String(x)) : legendHtml(WAVE_BINS, x => String(x));
+    const unit = buoyMode === 'wind' ? 'mph, gust if reported; arrows point downwind' : buoyMode === 'wtemp' ? '°F, water temperature' : 'feet, significant wave height; labels add the dominant period';
+    $('buoyInfo').innerHTML = '<div class="muted">' + n + ' of ' + list.length + ' stations report this · hollow dots: no value or no report for 6 h · updated ' + esc(buoyData.updated || '') + '</div>' + leg +
+      '<div class="note" style="margin-top:18px">' + unit + '. Sources: NOAA NDBC; CDIP (Data courtesy of CDIP); Environment and Climate Change Canada; NANOOS / UW Applied Physics Laboratory; Quileute Tribe and Quinault Indian Nation (Backyard Buoys, CC BY-NC 4.0); NOAA CO-OPS.</div>';
+  }
+  function loadBuoys() { loadScript('data/buoys.js', () => { buoyData = window.BUOYS || buoyData; renderBuoys(); }, () => { $('buoyInfo').innerHTML = '<div class="muted">buoy data not available yet</div>'; }); }
+  function setBuoyMode(v) { if (!['waves', 'wind', 'wtemp'].includes(v)) return; buoyMode = v; renderBuoys(); }
+  document.querySelectorAll('#buoyModes .chip').forEach(c => c.onclick = () => setBuoyMode(c.dataset.mode));
+  $('lyBuoys').onchange = e => { if (e.target.checked) { buoyLayer.addTo(map); if (!buoyData) loadBuoys(); else renderBuoys(); } else map.removeLayer(buoyLayer); };
+  setInterval(() => { if (map.hasLayer(buoyLayer)) loadBuoys(); }, 15 * 60 * 1000);
+
+  // tides & currents
+  const tideLayer = L.layerGroup(), tideLabels = { layer: L.layerGroup(), items: [] };
+  let tideData = null;
+  const CUR_COL = { flood: '#3f74b3', ebb: '#b45309', slack: '#6b7280' };
+  const flowIcon = (dir, kt, color) => {
+    const z = Math.round(14 + Math.min(14, kt * 3));
+    return L.divIcon({ className: '', iconSize: [z, z], iconAnchor: [z / 2, z / 2], popupAnchor: [0, -z / 2],
+      html: '<div style="width:' + z + 'px;height:' + z + 'px;transform:rotate(' + dir + 'deg)"><svg viewBox="0 0 20 20" width="' + z + '" height="' + z + '"><path d="M10 1 L17 11 L12 9.5 L12 19 L8 19 L8 9.5 L3 11 Z" fill="' + color + '" stroke="#111" stroke-width="1"/></svg></div>' });
+  };
+  function tideNow(s, now) {      // the height to show now: a fresh observation, else the predicted curve
+    if (s.wl_ft != null && s.wl_t && now - s.wl_t < 3600) return s.wl_ft;
+    return tideAt(s.hilo, now);
+  }
+  function tideDir(s, now) { const st = tideStage(s.hilo, now); return st ? st.dir : obsTrend(s.obs); }
+  function tideCurve(s, now) {
+    const t0 = now - 12 * 3600, t1 = now + 24 * 3600, pred = [], hov = [];
+    const hl = s.hilo || [];
+    if (hl.length > 1) for (let t = Math.max(t0, hl[0][0]); t <= Math.min(t1, hl[hl.length - 1][0]); t += 600) { const v = tideAt(hl, t); if (v != null) pred.push([t, v]); }
+    const obs = (s.obs || []).filter(p => p[1] != null && p[0] >= t0);
+    pred.forEach((p, i) => { if (i % 3 === 0) hov.push([p[0], p[1], p[1].toFixed(1) + ' ft · ' + coTime(p[0]) + ' (predicted)']); });
+    obs.forEach(p => hov.push([p[0], p[1], p[1].toFixed(1) + ' ft · ' + coTime(p[0]) + ' (observed)']));
+    const vs = pred.concat(obs).map(p => p[1]);
+    if (vs.length < 2) return '';
+    const svg = coChart([{ pts: pred, color: '#6b7280', width: 1.5 }, { pts: obs, color: '#2563eb' }], hov, now, 260, 80, Math.min(...vs), Math.max(...vs));
+    return svg + '<div style="font-size:11px;color:#666">' + (pred.length ? 'grey: predicted, curve drawn between predicted highs and lows' : 'no predictions for this station in this run') + (obs.length ? ' · blue: observed' : '') + ' · line: now · hover for values</div>';
+  }
+  function tideCard(s) {
+    const now = Date.now() / 1000, st = tideStage(s.hilo, now);
+    const trend = st ? null : obsTrend(s.obs);
+    let html = '<div style="font:13px system-ui;min-width:260px"><b>' + esc(s.name.trim()) + '</b> <span style="color:#666">' + (s.src === 'CHS' ? 'CHS' : 'NOAA CO-OPS') + (s.kind === 'subordinate' ? ' · subordinate station' : '') + '</span>';
+    html += '<div style="margin:4px 0"><b>' + (st ? tideSentence(st) : trend ? trend.charAt(0).toUpperCase() + trend.slice(1) + ' (observed, last hour)' : 'No prediction for now') + '</b></div>';
+    const p = tideAt(s.hilo, now), rows = [];
+    if (p != null) rows.push('predicted now ' + p.toFixed(1) + ' ft');
+    if (s.wl_ft != null) rows.push('observed ' + s.wl_ft.toFixed(1) + ' ft' + (s.wl_t ? ', ' + fmtAge(now - s.wl_t) + ' ago' : ''));
+    if (rows.length) html += '<div>' + rows.join(' · ') + '</div>';
+    html += tideCurve(s, now);
+    const next = (s.hilo || []).filter(e => e[0] > now).slice(0, 4);
+    if (next.length) html += '<table style="border-collapse:collapse;font-variant-numeric:tabular-nums;margin:4px 0">' + next.map(e => '<tr><td style="padding:1px 8px 1px 0">' + (e[2] === 'H' ? 'High' : 'Low') + '</td><td style="padding:1px 8px 1px 0">' + coDayTime(e[0]) + '</td><td style="text-align:right"><b>' + e[1].toFixed(1) + ' ft</b></td></tr>').join('') + '</table>';
+    const env = [s.wtmp_f != null ? 'Water ' + s.wtmp_f.toFixed(1) + '°F' : '', s.wspd_mph != null ? 'wind ' + Math.round(s.wspd_mph) + (s.gust_mph ? 'g' + Math.round(s.gust_mph) : '') + ' mph' + (s.wdir_deg != null ? ' from ' + compass(s.wdir_deg) : '') : ''].filter(Boolean);
+    if (env.length) html += '<div>' + env.join(' · ') + '</div>';
+    html += '<div style="font-size:11px;color:#666;margin-top:4px">heights in feet above ' + (s.datum === 'CD' ? 'chart datum' : 'mean lower low water (MLLW)') + '</div>';
+    if (s.src === 'CHS') html += CHS_NOTE;
+    html += '<div style="color:#666;margin-top:4px">' + esc(s.src) + ' ' + esc(s.id) + (s.link ? ' · ' + coLink(s.link, 'station page') : '') + '</div></div>';
+    return html;
+  }
+  function currentCard(s) {
+    const now = Date.now() / 1000, c = currentAt(s.events, now);
+    const dir = c && c.kind === 'flood' ? s.flood_dir : c && c.kind === 'ebb' ? s.ebb_dir : null;
+    let html = '<div style="font:13px system-ui;min-width:250px"><b>' + esc(s.name.trim()) + '</b> <span style="color:#666">tidal current · ' + (s.src === 'CHS' ? 'CHS' : 'NOAA CO-OPS') + '</span>';
+    html += '<div style="margin:4px 0">Now: <b>' + (!c ? 'no prediction' : c.kind === 'slack' ? 'slack' : c.kind + ' ' + c.kt.toFixed(1) + ' kt') + '</b>' + (dir != null ? ' toward ' + compass(dir) + ' (' + Math.round(dir) + '°)' : '') + '</div>';
+    if (c) html += '<div style="font-size:11px;color:#666">between the predicted slack and maximum currents</div>';
+    const ev = s.events || [];
+    if (ev.length) {
+      const k = ev.findIndex(e => e[0] > now);
+      html += '<div style="max-height:180px;overflow:auto;margin:4px 0"><table style="border-collapse:collapse;font-variant-numeric:tabular-nums">' + ev.map((e, i) =>
+        '<tr style="' + (e[0] <= now ? 'color:#999' : i === k ? 'font-weight:600' : '') + '"><td style="padding:1px 8px 1px 0">' + coDayTime(e[0]) + '</td><td style="padding:1px 8px 1px 0">' + (e[1] === 'slack' ? 'slack' : 'max ' + e[1]) + '</td><td style="text-align:right">' + (e[1] === 'slack' ? '' : e[2].toFixed(1) + ' kt') + '</td></tr>').join('') + '</table></div>';
+    }
+    const dirs = [s.flood_dir != null ? 'flood toward ' + Math.round(s.flood_dir) + '°' : '', s.ebb_dir != null ? 'ebb toward ' + Math.round(s.ebb_dir) + '°' : '', s.bin_depth_ft != null ? 'at ' + Math.round(s.bin_depth_ft) + ' ft depth' : ''].filter(Boolean);
+    if (dirs.length) html += '<div style="font-size:12px;color:#666">' + dirs.join(' · ') + '</div>';
+    if (s.src === 'CHS') html += CHS_NOTE;
+    html += '<div style="color:#666;margin-top:4px">' + esc(s.src) + ' ' + esc(s.id) + (s.link ? ' · ' + coLink(s.link, 'station page') : '') + '</div></div>';
+    return html;
+  }
+  function renderTides() {
+    tideLayer.clearLayers(); tideLabels.layer.clearLayers(); tideLayer.addLayer(tideLabels.layer); tideLabels.items = [];
+    if (!tideData) return;
+    const now = Date.now() / 1000, st = tideData.stations || [], cu = tideData.currents || [];
+    for (const s of st) {
+      const dir = tideDir(s, now), h = tideNow(s, now);
+      const m = dir ? L.circleMarker([s.lat, s.lon], { radius: 5, color: '#111', weight: 1, fillColor: TIDE_COL[dir], fillOpacity: .9 })
+        : L.circleMarker([s.lat, s.lon], { radius: 4, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+      const lbl = (dir === 'rising' ? '↑ ' : dir === 'falling' ? '↓ ' : '') + (h != null ? h.toFixed(1) + ' ft' : '');
+      m.bindTooltip(esc(s.name.trim()) + (lbl ? ': ' + lbl : ''), { direction: 'top', offset: [0, -8], opacity: .95 });
+      if (dir && h != null) tideLabels.items.push([m.getLatLng(), lbl, null]);
+      m.bindPopup(() => tideCard(s), { maxWidth: 320 });
+      tideLayer.addLayer(m);
+    }
+    for (const s of cu) {
+      const c = currentAt(s.events, now), dir = c && c.kind === 'flood' ? s.flood_dir : c && c.kind === 'ebb' ? s.ebb_dir : null;
+      let m;
+      if (c && c.kind !== 'slack' && dir != null) m = L.marker([s.lat, s.lon], { icon: flowIcon(dir, c.kt, CUR_COL[c.kind]) });
+      else m = L.circleMarker([s.lat, s.lon], c ? { radius: 4, color: '#111', weight: 1, fillColor: CUR_COL[c.kind], fillOpacity: .9 } : { radius: 3, color: '#6b7280', weight: 1, fillColor: '#0b1220', fillOpacity: .35 });
+      const lbl = !c ? '' : c.kind === 'slack' ? 'slack' : c.kt.toFixed(1) + ' kt ' + (c.kind === 'flood' ? 'F' : 'E');
+      m.bindTooltip(esc(s.name.trim()) + (lbl ? ': ' + lbl : ''), { direction: 'top', offset: [0, -8], opacity: .95 });
+      if (lbl) tideLabels.items.push([m.getLatLng(), lbl, null]);
+      m.bindPopup(() => currentCard(s), { maxWidth: 320 });
+      tideLayer.addLayer(m);
+    }
+    coRelabel(tideLabels, tideLayer);
+    $('tideInfo').innerHTML = '<div class="muted">' + st.length + ' tide stations · ' + cu.length + ' current stations · updated ' + esc(tideData.updated || '') + '</div>' +
+      legendHtml([['rising', TIDE_COL.rising], ['falling', TIDE_COL.falling], ['slack', TIDE_COL.slack], ['flood', CUR_COL.flood], ['ebb', CUR_COL.ebb]], x => x) +
+      '<div class="note" style="margin-top:18px">Tide dots: rising, falling, or slack within 20 min of a high or low. Current arrows point with the flow and grow with speed (F flood, E ebb). Curves are drawn between predicted highs and lows. Sources: NOAA CO-OPS; Canadian Hydrographic Service (not for navigation).</div>';
+  }
+  function loadTides() { loadScript('data/tides.js', () => { tideData = window.TIDES || tideData; renderTides(); }, () => { $('tideInfo').innerHTML = '<div class="muted">tide data not available yet</div>'; }); }
+  $('lyTides').onchange = e => { if (e.target.checked) { tideLayer.addTo(map); if (!tideData) loadTides(); else renderTides(); } else map.removeLayer(tideLayer); };
+  setInterval(() => { if (map.hasLayer(tideLayer)) loadTides(); }, 15 * 60 * 1000);
+  map.on('moveend', () => { coRelabel(buoyLabels, buoyLayer); coRelabel(tideLabels, tideLayer); });
+
+  // marine forecast zones
+  map.createPane('coastZones'); map.getPane('coastZones').style.zIndex = 350;     // under every marker
+  const marineLayer = L.layerGroup();
+  let marineData = null;
+  function zoneColor(z) { const p = (z.periods || [])[0], i = windBinKt(p ? p.wind_kt_max : null); return i < 0 ? '#9aa4b1' : ZONE_BINS[i][1]; }
+  function marineCard(z) {
+    const now = Date.now() / 1000, per = (z.periods || []).slice(0, 6);
+    let html = '<div style="font:13px system-ui;min-width:260px;max-width:340px"><b>' + esc(z.name) + '</b> <span style="color:#666">' + esc(z.id) + ' · NWS ' + esc(z.cwa) + '</span>' +
+      (z.issued ? '<div style="color:#666;font-size:12px">issued ' + fmtAge(now - z.issued) + ' ago</div>' : '');
+    html += per.length ? '<div style="max-height:240px;overflow:auto;margin-top:4px">' + per.map(p => '<div style="margin:4px 0"><b>' + esc(p.name) + '</b>: ' + esc(p.text) + '</div>').join('') + '</div>'
+      : '<div style="margin:4px 0;color:#666">no forecast periods in this run</div>';
+    const f = ((marineData && marineData.srf) || {})[z.cwa];
+    if (f && f.text) html += '<div style="margin-top:6px;color:#666">Surf zone forecast (NWS ' + esc(z.cwa) + (f.issued ? ', issued ' + fmtAge(now - f.issued) + ' ago' : '') + ')</div>' +
+      '<div style="max-height:180px;overflow:auto;white-space:pre-wrap;font-size:11px;border:1px solid #ddd;padding:4px;margin-top:2px">' + esc(srfText(f.text)) + '</div>' + (f.link ? '<div style="font-size:12px">' + coLink(f.link, 'full surf zone product') + '</div>' : '');
+    html += '<div style="color:#666;margin-top:4px">' + coLink(z.link, 'NWS zone forecast') + '</div></div>';
+    return html;
+  }
+  function renderMarine() {
+    marineLayer.clearLayers();
+    if (!marineData) return;
+    const zones = marineData.zones || [];
+    for (const z of zones) {
+      if (!z.geometry) continue;
+      const c = zoneColor(z), p = (z.periods || [])[0];
+      const lyr = L.geoJSON(z.geometry, { pane: 'coastZones', style: { color: c, weight: 1, opacity: .8, fillColor: c, fillOpacity: .25 } });
+      const head = p ? esc(p.name) + ': ' + esc((String(p.text || '').match(/^[^.]*\./) || [String(p.text || '').slice(0, 120)])[0]) : 'no forecast periods';
+      lyr.bindTooltip('<div style="white-space:normal;max-width:260px"><b>' + esc(z.name) + '</b><br>' + head + '</div>', { sticky: true });
+      lyr.bindPopup(() => marineCard(z), { maxWidth: 360 });
+      marineLayer.addLayer(lyr);
+    }
+    $('marineInfo').innerHTML = '<div class="muted">' + zones.length + ' zones · updated ' + esc(marineData.updated || '') + '</div>' + legendHtml(ZONE_BINS.map((b, i) => [ZONE_NAMES[i], b[1]]), x => x) +
+      '<div class="note" style="margin-top:18px">kt, the strongest wind forecast for the first period; grey where the text gives no wind. Source: NOAA NWS coastal waters and surf zone forecasts.</div>';
+  }
+  function loadMarine() { loadScript('data/marine.js', () => { marineData = window.MARINE || marineData; renderMarine(); }, () => { $('marineInfo').innerHTML = '<div class="muted">marine forecast not available yet</div>'; }); }
+  $('lyMarine').onchange = e => { if (e.target.checked) { marineLayer.addTo(map); if (!marineData) loadMarine(); else renderMarine(); } else map.removeLayer(marineLayer); };
+  setInterval(() => { if (map.hasLayer(marineLayer)) loadMarine(); }, 15 * 60 * 1000);
+
+  // sea surface temperature (satellite analysis, image overlay like SNODAS)
+  const sstOv = L.imageOverlay('', bounds(), { opacity: .75, interactive: false, zIndex: 387 });
+  let sstData = null;
+  function renderSst() {
+    if (!sstData) return;
+    sstOv.setUrl(BASE + sstData.file);
+    $('sstInfo').innerHTML = '<div class="muted">analysis for ' + esc(sstData.date) + ' · ' + sstData.min_f + ' to ' + sstData.max_f + ' °F in window</div>' +
+      legendHtml((sstData.legend || []).map(x => [x.min, x.color]), x => x % 4 === 0 ? String(x) : '') +
+      '<div class="note" style="margin-top:18px">°F · NOAA Geo-Polar Blended 5 km, via NOAA CoastWatch; about two days behind; buoys show today\'s water. Land and cloud are clear.</div>';
+  }
+  function loadSst() { loadScript('data/sst.js', () => { sstData = window.SST || sstData; renderSst(); }, () => { $('sstInfo').innerHTML = '<div class="muted">sea surface temperature not available yet</div>'; }); }
+  $('lySst').onchange = e => { if (e.target.checked) { sstOv.addTo(map); if (!sstData) loadSst(); else renderSst(); } else map.removeLayer(sstOv); };
+  setInterval(() => { if (map.hasLayer(sstOv)) loadSst(); }, 15 * 60 * 1000);
 
   // ---------- webcams ----------
   const camLayer = L.featureGroup(), wedgeLayer = L.layerGroup();
@@ -2166,6 +2532,29 @@ void main() {
     }
     await new Promise(res => rvData ? res() : loadScript('data/rivers.js', () => { rvData = window.RIVERS || rvData; res(); }, res));
     if (rvData) { const g = nearest(rvData.sites, ll, s => s.flow != null); if (g && g.km < 40) sec.push('<div style="margin-top:6px;color:#666">Nearest gauge</div><div>' + g.s.name.replace(/, (WA|OR|ID|MT)$/, '') + ' <span style="color:#666">(' + g.km.toFixed(0) + ' km)</span>: <b>' + g.s.flow.toLocaleString() + ' cfs</b>' + (g.s.pctmed != null ? ', ' + g.s.pctmed + '% of normal' : '') + (g.s.chg24 != null ? ', ' + (g.s.chg24 > 0 ? '+' : '') + g.s.chg24 + '% / 24 h' : '') + '</div>'); }
+    // coastal regions: satellite sea surface temperature, nearest buoy within 60 km, nearest tide station within 40 km (spec ledger 7)
+    if (coastalOn) {
+      const rows = [], nowS = Date.now() / 1000;
+      await new Promise(res => sstData ? res() : loadScript('data/sst.js', () => { sstData = window.SST || sstData; res(); }, res));
+      if (sstData) { const v = sample(await getGrid('sst'), ll); if (v != null) rows.push('<div>Sea surface temp: <b>' + Math.round(v) + '°F</b> <span style="color:#666">(satellite, ' + esc(sstData.date) + ')</span></div>'); }
+      await new Promise(res => buoyData ? res() : loadScript('data/buoys.js', () => { buoyData = window.BUOYS || buoyData; res(); }, res));
+      if (buoyData) {
+        const b = nearest(buoyData.stations, ll, s => !buoyStale(s, nowS) && (s.hs_ft != null || s.wspd_mph != null || s.wtmp_f != null));
+        if (b && b.km <= 60) {
+          const s = b.s, parts = [s.hs_ft != null ? '<b>' + s.hs_ft.toFixed(1) + ' ft</b>' + (s.dpd_s != null ? ' at ' + Math.round(s.dpd_s) + ' s' : '') : '', s.wspd_mph != null ? 'wind ' + buoyLabel(s, 'wind') + ' mph' + (s.wdir_deg != null ? ' from ' + compass(s.wdir_deg) : '') : '', s.wtmp_f != null ? 'water ' + Math.round(s.wtmp_f) + '°F' : ''].filter(Boolean);
+          rows.push('<div>Nearest buoy: ' + esc(s.name) + ' <span style="color:#666">(' + b.km.toFixed(0) + ' km)</span>: ' + parts.join(', ') + '</div>');
+        }
+      }
+      await new Promise(res => tideData ? res() : loadScript('data/tides.js', () => { tideData = window.TIDES || tideData; res(); }, res));
+      if (tideData) {
+        const t = nearest(tideData.stations, ll, s => tideStage(s.hilo, nowS) || obsTrend(s.obs));
+        if (t && t.km <= 40) {
+          const st = tideStage(t.s.hilo, nowS), tr = st ? null : obsTrend(t.s.obs);
+          rows.push('<div>Nearest tide station: ' + esc(t.s.name.trim()) + ' <span style="color:#666">(' + t.km.toFixed(0) + ' km)</span>: ' + (st ? tideSentence(st) + ' (' + coTime(st.next[0]) + ')' : tr + ', observed') + '</div>');
+        }
+      }
+      if (rows.length) sec.push('<div style="margin-top:6px;color:#666">Coastal</div>' + rows.join(''));
+    }
     await new Promise(res => window.AVALANCHE ? res() : loadScript('data/avalanche.js', res, res));
     if (window.AVALANCHE) { const z = window.AVALANCHE.features.find(f => f.geometry && pointInPoly([ll.lng, ll.lat], f.geometry)); if (z) sec.push('<div style="margin-top:6px;color:#666">Avalanche zone</div><div>' + z.properties.name + ': <b>' + (z.properties.danger || 'no rating') + '</b>' + (z.properties.link ? ' · <a href="' + z.properties.link + '" target="_blank" rel="noopener">' + (z.properties.center_id || 'forecast') + '</a>' : '') + '</div>'); }
     // air quality: nearest reporting station within 100 km (judgment call, spec ledger); AirNow's grid when that layer is on
@@ -2274,7 +2663,7 @@ void main() {
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun', 'lyBuoys', 'lyTides', 'lyMarine', 'lySst'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
@@ -2290,7 +2679,7 @@ void main() {
     d.checks = {}; DEF_CHECKS.forEach(id => { if ($(id)) d.checks[id] = $(id).checked; });
     d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
     d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
-    d.stWin = stWin; d.stMode = stMode; d.skiWin = skiWin;
+    d.stWin = stWin; d.stMode = stMode; d.skiWin = skiWin; d.buoyMode = buoyMode;
     d.snMode = snMode; d.snEl = snEl; d.snWin = snWin; d.snDepth = snDepth;
     d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
@@ -2306,6 +2695,7 @@ void main() {
     if (d.skiWin && SKI_WINS.some(([k]) => k === d.skiWin)) skiWin = String(d.skiWin);
     const sm = d.stMode || (d.selects || {}).stModeSel;     // older saves kept the mode in a dropdown
     if (sm && sm !== stMode) setStMode(sm);
+    if (d.buoyMode) setBuoyMode(d.buoyMode);
     if (d.snMode) snMode = d.snMode;
     if (d.snEl) setSnEl(d.snEl);
     if (d.snWin) snWin = String(d.snWin);

@@ -108,7 +108,7 @@ window.TIDES = {updated, updated_t, stations: [
    events: [[epoch s, "slack"|"flood"|"ebb", kt], ...]   // today and tomorrow, MAX_SLACK (CO-OPS) or wcp1-events (CHS)
   }]}
 ```
-The page interpolates between highs and lows with a cosine (`h(t) = (h1 + h2)/2 - (h1 - h2)/2 * cos(pi * (t - t1)/(t2 - t1))`),
+The page interpolates between highs and lows with a cosine (`h(t) = (h1 + h2)/2 + (h1 - h2)/2 * cos(pi * (t - t1)/(t2 - t1))`),
 the standard sketch of a mixed semidiurnal tide between extremes, and says "curve drawn between predicted highs and
 lows" in the popup. The extremes are exact; the curve between them is a judgment call (decision 4).
 
@@ -195,6 +195,9 @@ stage sentence, current state between events, wave and temperature bins, compass
 | 8 | SST ramp | 40-70 °F, muted blue to red, 2 °F steps in the legend; nodata transparent | Chris's muted palette preference; the range covers PNW water year-round |
 | 9 | Prediction horizon | 12 h back, 36 h ahead | the "deciding whether to go" window from the user walkthroughs |
 | 10 | Prediction refresh | once a day per station, at most 60 stations per run | keeps the half-hour job short; predictions do not change |
+| 11 | Trend for a tide station without predictions yet | from the observed change over the last hour; slack under 0.1 ft | the first day's cache fills 60 stations a run; observed trend bridges the gap |
+| 12 | Current speed between slack and max | same cosine shape as the tide curve | smooth and exact at the events; the true curve is asymmetric in the Narrows |
+| 13 | Marine zone outlines | simplified to 0.002° (~200 m) | the raw outlines were 800 KB; nothing visible changes at the layer's zoom |
 
 ## 7. Testing
 
