@@ -1,19 +1,28 @@
-# Handoff: Coastal section research (2026-10-13 13:25)
+# Handoff: Coastal section (2026-10-13 14:50)
 
 ## State now
-Research done, nothing built. Chris asked (2026-10-13) for a new "Coastal" section of the radar map for PNW surfers
-and kiters. Start with `CATALOG.md` (merged catalogue, first-build recommendation, open questions), then the
-per-topic files for endpoints and station tables: `waves_buoys.md`, `tides_currents_sst.md`, `wind.md`,
-`nanoos_ioos.md`, `webcams.md`, `user_needs.md` (gaps, walkthroughs, draft spot table). All untracked, not committed.
+Built, merged to `main` (commits `deab3b1`..`f0be997` plus the handoff), **not yet pushed or deployed**. Local check in
+the in-app browser passed (four layers, cards, click-anywhere rows, phone sheet, no console errors). Spec and ledger:
+`docs/superpowers/specs/2026-10-13-coastal-section-design.md`; plan `docs/superpowers/plans/2026-10-13-coastal-section.md`;
+catalogue `CATALOG.md`; checks `CHECKS.md` (three headline numbers match their sources; two rows open for the live check).
 
-## Next steps
-1. Chris answers the open questions in `CATALOG.md` section 4 (licences, Gorge, spots vs layers, owner asks).
-2. Brainstorm and spec the section (`docs/superpowers/specs/`), then build in a radar worktree with the usual
-   conventions (one module per source, `data/*.js`, tests with network blocked).
-3. Quick wins that need no design: fix the Kalaloch cam URL, prune the dead Cannon Beach CBCC cam, add the Yaquina
-   bar still and the ranked YouTube ids in `webcams.md` (verify thumbnails with `cams_research/youtube_enrich.py`).
+## Next steps, in order
+1. Chris pushes `main` (9 commits). Then the first runs: buoys and tides in the next radar job whose minute is :00-:14 or
+   :30-:44; marine and SST in the next hourly job (minute 4). Check R2: `pnw/data/buoys.js`, `tides.js`, `marine.js`, `sst.js`.
+   Tide predictions fill 60 stations per run, so the tide layer is complete about 3 h after the first run.
+2. `python build_web.py` is done; Chris runs the deploy; diff the live page against `web/index.html`.
+3. Live check: the two open rows in `CHECKS.md` (CDIP 46211 against cdip.ucsd.edu, Tofino's next high against CHS),
+   the Westport tide curve against CO-OPS's plot, and the marine zone colours against the CWF text.
+4. Chris's judgment calls to confirm: spec §6 rows 1-13 (bins, stale thresholds, the cosine curve, the 60-per-run refresh).
+
+## Deferred (catalogued with endpoints in `CATALOG.md`)
+Spot table with per-spot checklist (needs Chris's review of `user_needs.md`), HF radar surface currents, GFS-Wave swell
+raster, NWPS nearshore waves, HRDPS wind for the Strait, biotoxin and beach-closure layers, Canadian marine areas,
+per-spot wind timelines, other regions (`coastal` flag in `region.py`).
 
 ## Gotchas
-- Free tier only; no scraping where forbidden; no Synoptic/iKitesurf/Windy/Windguru; YouTube only via `youtube.py`.
-- Agents sent a generic User-Agent and no personal data; keep it that way in any module.
-- Several coordinates in the spot table and webcam list are best-effort; check on the map before use.
+- `tides.py` takes about 100 s while the prediction cache fills; steady state is far shorter.
+- The marine zone outlines are simplified to 0.002 deg for the page; the raw ones stay in `zone_cache.json`.
+- The scratch preview (`build_scratch.py`, `serve_scratch.py`, launch entry `coastal-scratch`) lives in this session's
+  scratchpad and dies with it; `.claude/launch.json` in radar still names it (harmless; remove the entry if it bothers).
+- Worktree `scratchpad/radar-coastal` (branch `coastal`) can be removed: `git worktree remove <path>; git branch -d coastal`.
