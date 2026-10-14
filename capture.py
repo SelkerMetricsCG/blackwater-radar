@@ -307,6 +307,11 @@ def capture_all():
                 ok.append("sst %s" % sst.build(log))
             except Exception as e:  # noqa: BLE001
                 log("sst FAILED: %r" % e)
+            try:
+                import currents
+                ok.append("currents %s" % currents.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("currents FAILED: %r" % e)
         try:
             import webcams
             ok.append("webcams %d" % webcams.build(log))

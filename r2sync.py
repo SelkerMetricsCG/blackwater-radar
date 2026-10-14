@@ -6,6 +6,7 @@ Reads credentials from r2.env (next to this file):
 
 What gets uploaded, mirroring the local layout (all under the region's prefix):
   frames/{radar,sat,dbz,...}/*                                           (once each, immutable)
+  frames/currents/<cycle>/*.png                                          (once each, immutable; cloud.py prunes)
   frames/{accum,interp,forecast,mrms,freezing,snodas,aq,smoke}/*.webp,
   data/values/*.js, data/*.js, frames.js                                 (whenever the job rewrote them)
 A rewritten file goes up only if its bytes differ from R2's copy: cloud.py lists the region's frames/ and data/
@@ -159,6 +160,22 @@ def sync(log=print):
             for fn in os.listdir(acc):
                 if fn.endswith((".jpg", ".webp")) and ".tmp" not in fn:
                     sent.append(publish(s3, bucket, PREFIX + "frames/%s/%s" % (sub, fn), os.path.join(acc, fn), "public, max-age=60"))
+
+    # surface-current flow fields (currents.py): frames/currents/<cycle>/hNN.png, written once per cycle, never rewritten;
+    # before the data files so data/currents.js never lists a PNG that is not up yet (cloud.py prunes old cycles)
+    cur = os.path.join(region.frames_dir(), "currents")
+    if os.path.isdir(cur):
+        for root, _, files in os.walk(cur):
+            for fn in files:
+                if not fn.endswith(".png"):
+                    continue
+                p = os.path.join(root, fn)
+                key = PREFIX + "frames/currents/" + os.path.relpath(p, cur).replace(os.sep, "/")
+                if key in done or key in REMOTE:
+                    continue
+                put(s3, bucket, key, p, "public, max-age=31536000, immutable")
+                done.add(key)
+                n_new += 1
 
     # click-anywhere value grids: rewritten hourly
     vdir = os.path.join(region.data_dir(), "values")

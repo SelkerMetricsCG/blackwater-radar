@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog xmlns="http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.2">
+  <service name="seRvices" serviceType="compound" base="">
+    <service name="dapService" serviceType="OpenDAP" base="/thredds/dodsC/" />
+    <service name="httpService" serviceType="HTTPServer" base="/thredds/fileServer/" />
+    <service name="wms" serviceType="WMS" base="/thredds/wms/" />
+  </service>
+  <dataset name="2026/10/13/">
+    <property name="DatasetScan" value="true" />
+    <metadata inherited="true">
+      <serviceName>seRvices</serviceName>
+    </metadata>
+    <dataset name="sscofs.t15z.20261013.stations.forecast.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.stations.forecast.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.stations.forecast.nc">
+      <dataSize units="Mbytes">49.35</dataSize>
+      <date type="modified">2026-10-13T16:43:02Z</date>
+    </dataset>
+    <dataset name="sscofs.t15z.20261013.regulargrid.n006.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.n006.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.n006.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T18:27:00.523Z</date>
+    </dataset>
+    <dataset name="sscofs.t15z.20261013.regulargrid.f010.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.f010.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.f010.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T18:27:55.893Z</date>
+    </dataset>
+    <dataset name="sscofs.t15z.20261013.regulargrid.f009.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.f009.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.regulargrid.f009.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T18:27:50.620Z</date>
+    </dataset>
+    <dataset name="sscofs.t15z.20261013.fields.f024.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.fields.f024.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t15z.20261013.fields.f024.nc">
+      <dataSize units="Mbytes">210.5</dataSize>
+      <date type="modified">2026-10-13T16:43:04Z</date>
+    </dataset>
+    <dataset name="sscofs.t09z.20261013.regulargrid.f024.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t09z.20261013.regulargrid.f024.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t09z.20261013.regulargrid.f024.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T12:30:41.489Z</date>
+    </dataset>
+    <dataset name="sscofs.t09z.20261013.regulargrid.f023.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t09z.20261013.regulargrid.f023.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t09z.20261013.regulargrid.f023.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T12:30:36.795Z</date>
+    </dataset>
+    <dataset name="sscofs.t03z.20261013.regulargrid.f024.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t03z.20261013.regulargrid.f024.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t03z.20261013.regulargrid.f024.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T06:34:28.710Z</date>
+    </dataset>
+    <dataset name="sscofs.t03z.20261013.regulargrid.f023.nc" ID="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t03z.20261013.regulargrid.f023.nc" urlPath="NOAA/SSCOFS/MODELS/2026/10/13/sscofs.t03z.20261013.regulargrid.f023.nc">
+      <dataSize units="Gbytes">1.682</dataSize>
+      <date type="modified">2026-10-13T06:34:23.695Z</date>
+    </dataset>
+  </dataset>
+</catalog>
