@@ -1,4 +1,4 @@
-# Handoff: Coastal section (2026-10-13 17:45)
+# Handoff: Coastal section (2026-10-13 19:15)
 
 ## State now
 **Live.** Pushed as `b95c603` (tests green), first data on R2 at 15:07-15:12, page deployed 15:2x (Worker version
@@ -6,14 +6,14 @@
 rows, phone sheet, no console errors). Spec and ledger:
 `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; plan `docs/superpowers/plans/2026-10-13-coastal-section.md`;
 catalogue `CATALOG.md`; checks `CHECKS.md` (three headline numbers match their sources; two rows open for the live check).
-Surface currents flow layer built on branch `currents` (spec `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`), merged to `main`, awaiting push and deploy; the deploy must include the Worker (`site_worker.js` route) and the page.
+Surface currents flow layer **live** since 19:10 (pushed `aa3e2c0`, CI green, deploy version `30243ce8` with the Worker route; first cycle sscofs t21z + wcofs t03z on R2; live page identical to `web/index.html`). Spec `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.
 
 ## Next steps, in order
 1. Tide predictions fill 60 stations per run; the tide layer is complete by about 18:00 on 2026-10-13.
 2. Live check still to do: the two open rows in `CHECKS.md` (CDIP 46211 against cdip.ucsd.edu, Tofino's next high against CHS),
    the Westport tide curve against CO-OPS's plot, and the marine zone colours against the CWF text.
 3. Chris's judgment calls to confirm: spec §6 rows 1-13 (bins, stale thresholds, the cosine curve, the 60-per-run refresh).
-4. After the push, the first hourly run fetches the newest SSCOFS/WCOFS cycle (about 2 min) and uploads 24 PNGs; then deploy.
+4. Live check of the currents layer still to do: particle direction at Admiralty Inlet against the Tides & currents layer's flood/ebb for the same hour (`CHECKS.md`); the spec's judgment calls (§5) await Chris.
 
 ## Deferred (catalogued with endpoints in `CATALOG.md`)
 Spot table with per-spot checklist (needs Chris's review of `user_needs.md`), HF radar surface currents, GFS-Wave swell
