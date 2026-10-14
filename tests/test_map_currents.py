@@ -85,4 +85,5 @@ def test_speed_and_direction_toward():
 
 def test_cycle_label_and_same_origin_url():
     assert run("curModels('sscofs t15z 2026-10-13 + wcofs t03z')") == "SSCOFS t15z + WCOFS t03z"
+    assert run("curModels('sscofs_t15z_20261013-wcofs_t03z_20261013')") == "SSCOFS t15z + WCOFS t03z"   # the real cycle string
     assert run("curUrl('pnw', 'frames/currents/s2026101315_w2026101303/h07.png')") == "/pnw/currents/s2026101315_w2026101303/h07.png"

@@ -1391,7 +1391,7 @@
   // [u, v] cm/s -> {kt, deg}: speed in knots and the direction the water moves toward, degrees clockwise from north
   function curSpeedDir(u, v) { return { kt: Math.hypot(u, v) * CUR_KT, deg: (Math.atan2(u, v) * 180 / Math.PI + 360) % 360 }; }
   // "sscofs t15z 2026-10-13 + wcofs t03z" -> "SSCOFS t15z + WCOFS t03z"
-  function curModels(cycle) { return (String(cycle || '').match(/(sscofs|wcofs)\s+t\d\dz/gi) || []).map(s => s.replace(/^\w+/, m => m.toUpperCase())).join(' + '); }
+  function curModels(cycle) { return (String(cycle || '').match(/(sscofs|wcofs)[\s_]+t\d\dz/gi) || []).map(s => s.replace(/[\s_]+/, ' ').replace(/^\w+/, m => m.toUpperCase())).join(' + '); }
   // the same-origin path the Worker serves: "frames/currents/<cycle>/h01.png" -> "/<region>/currents/<cycle>/h01.png"
   function curUrl(region, file) { const m = String(file || '').match(/currents\/([^/]+)\/([^/]+\.png)$/); return m ? '/' + region + '/currents/' + m[1] + '/' + m[2] : null; }
   // END currentsHelpers
