@@ -64,6 +64,6 @@ def test_coastal_switches_are_saved_with_the_default():
     with open(os.path.join(ROOT, "map.html"), encoding="utf-8") as f:
         html = f.read()
     checks = re.search(r"const DEF_CHECKS = \[([^\]]*)\]", html).group(1)
-    for ident in ("lyBuoys", "lyTides", "lyMarine", "lySst"):
+    for ident in ("lyBuoys", "lyTides", "lyMarine", "lySst", "lyCurrents"):
         assert "'" + ident + "'" in checks
     assert re.search(r"d\.buoyMode = buoyMode", html) and re.search(r"if \(d\.buoyMode\)", html)

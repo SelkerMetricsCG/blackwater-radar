@@ -329,6 +329,20 @@
     <div class="subwrap" data-for="lySst">
       <div class="sub" id="sstInfo" style="display:block"></div>
     </div>
+    <label class="opt"><input type="checkbox" id="lyCurrents"> Surface currents (model)
+      <button type="button" class="help" aria-label="About the surface currents layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Moving streaks follow the modelled surface current, coloured by speed. From NOAA's operational forecast models for the Salish Sea and Columbia River (SSCOFS) and the West Coast shelf (WCOFS), hourly for the next 24 h of the newest run. Click a spot for the speed and direction there. A model forecast, not observations; not for navigation.</span></label>
+    <div class="subwrap" data-for="lyCurrents">
+      <div class="sub" id="curPlayer">
+        <button type="button" class="chip" id="curPlay">Play</button>
+        <button type="button" class="chip" id="curPrev" title="1 hour earlier">&lt;</button>
+        <button type="button" class="chip" id="curNext" title="1 hour later">&gt;</button>
+        <input type="range" id="curSlider" min="0" max="23" step="1" value="0" aria-label="Forecast hour">
+        <div id="curLabel"></div>
+      </div>
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="curOpacity" min="0" max="1" step="0.05" value="0.85"></div>
+      <div class="sub" id="curInfo" style="display:block"></div>
+    </div>
     </div>
   </div>
 
@@ -1340,6 +1354,222 @@
   function loadSst() { loadScript('data/sst.js', () => { sstData = window.SST || sstData; renderSst(); }, () => { $('sstInfo').innerHTML = '<div class="muted">sea surface temperature not available yet</div>'; }); }
   $('lySst').onchange = e => { if (e.target.checked) { sstOv.addTo(map); if (!sstData) loadSst(); else renderSst(); } else map.removeLayer(sstOv); };
   setInterval(() => { if (map.hasLayer(sstOv)) loadSst(); }, 15 * 60 * 1000);
+
+  // ---------- Coastal: surface currents (NOAA SSCOFS + WCOFS model, animated particles) ----------
+  // BEGIN currentsHelpers (tests/test_map_currents.py runs this block under node)
+  // speed in knots (spec ledger 6): 0, 0.5, 1, 1.5, 2, 3+; muted blue to amber
+  const CUR_BINS = [[0, '#8fa8bf'], [0.5, '#6f9bb8'], [1, '#6fa59a'], [1.5, '#a9ab78'], [2, '#cf9d58'], [3, '#c97842']];
+  const CUR_KT = 1.9438 / 100;          // cm/s -> kt (1 m/s = 1.9438 kt)
+  const CUR_PX = 1.5;                   // screen px a 1 m/s current moves a particle per frame (spec ledger 5)
+  // one PNG pixel: R = u, G = v as (byte - 128) * scale cm/s, B = 255 valid, 0 nodata -> [u, v] in cm/s, or null
+  function decodeUV(r, g, b, scale) { return b < 128 ? null : [(r - 128) * scale, (g - 128) * scale]; }
+  // grid = {nx, ny, scale, px}: px is the hour's PNG as RGBA bytes (getImageData order: row 0 is the north edge,
+  // 4 bytes per cell). x, y are fractional cell indices (cell centres at integers, y counted from the north row).
+  // Bilinear between the 4 surrounding cells, nodata cells left out and the weights renormalised; null where all
+  // four are nodata or the point is more than half a cell outside the grid. Returns [u, v] in cm/s.
+  function bilinearUV(grid, x, y) {
+    const nx = grid.nx, ny = grid.ny;
+    if (!(x >= -0.5 && y >= -0.5 && x <= nx - 0.5 && y <= ny - 0.5)) return null;
+    x = Math.min(Math.max(x, 0), nx - 1); y = Math.min(Math.max(y, 0), ny - 1);
+    const i0 = Math.floor(x), j0 = Math.floor(y), i1 = Math.min(i0 + 1, nx - 1), j1 = Math.min(j0 + 1, ny - 1);
+    const fx = x - i0, fy = y - j0, p = grid.px;
+    let su = 0, sv = 0, sw = 0;
+    const add = (i, j, w) => {
+      if (w <= 0) return;
+      const k = 4 * (j * nx + i), uv = decodeUV(p[k], p[k + 1], p[k + 2], grid.scale);
+      if (uv) { su += uv[0] * w; sv += uv[1] * w; sw += w; }
+    };
+    add(i0, j0, (1 - fx) * (1 - fy)); add(i1, j0, fx * (1 - fy)); add(i0, j1, (1 - fx) * fy); add(i1, j1, fx * fy);
+    return sw > 0 ? [su / sw, sv / sw] : null;
+  }
+  function speedBin(kt) { if (kt == null || isNaN(kt)) return -1; let i = 0; for (let k = 1; k < CUR_BINS.length; k++) if (kt >= CUR_BINS[k][0]) i = k; return i; }
+  // particles: 2,000 at zoom 7 to 6,000 at zoom 12, linear between, capped at both ends (spec ledger 5)
+  function particleCount(zoom) { return Math.round(Math.min(6000, Math.max(2000, 2000 + (zoom - 7) * 800))); }
+  // metres a 1 m/s current moves a particle in one frame, so that it is CUR_PX screen px at this zoom and latitude
+  // (web Mercator: 156543.034 m per px at zoom 0 on the equator, times cos(lat))
+  function stepPx(zoom, lat) { return CUR_PX * 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom); }
+  // [u, v] cm/s -> {kt, deg}: speed in knots and the direction the water moves toward, degrees clockwise from north
+  function curSpeedDir(u, v) { return { kt: Math.hypot(u, v) * CUR_KT, deg: (Math.atan2(u, v) * 180 / Math.PI + 360) % 360 }; }
+  // "sscofs t15z 2026-10-13 + wcofs t03z" -> "SSCOFS t15z + WCOFS t03z"
+  function curModels(cycle) { return (String(cycle || '').match(/(sscofs|wcofs)\s+t\d\dz/gi) || []).map(s => s.replace(/^\w+/, m => m.toUpperCase())).join(' + '); }
+  // the same-origin path the Worker serves: "frames/currents/<cycle>/h01.png" -> "/<region>/currents/<cycle>/h01.png"
+  function curUrl(region, file) { const m = String(file || '').match(/currents\/([^/]+)\/([^/]+\.png)$/); return m ? '/' + region + '/currents/' + m[1] + '/' + m[2] : null; }
+  // END currentsHelpers
+  const CUR_SSCOFS_BOX = [46.0, 50.2, -125.3, -121.9];   // spec section 2: SSCOFS wins inside this box, WCOFS outside (lat0, lat1, lon0, lon1)
+  const curState = { on: false, data: null, idx: 0, grid: null, seq: 0, timer: null, raf: 0, parts: [], water: null, view: null };
+  const curCache = new Map();          // file -> Promise of a grid; the newest 6 hours only (about 5 MB each)
+  let curDecodeCtx = null;
+  function curGeom(d) {                // grid geometry from the index: bbox = outer cell edges, cell centres half a cell in
+    const b = d.bbox; return { lat0: b[0], lat1: b[1], lon0: b[2], lon1: b[3], sx: (b[3] - b[2]) / d.nx, sy: (b[1] - b[0]) / d.ny };
+  }
+  function curGrid(d, file) {          // Promise of {nx, ny, scale, px} for one hour, or null
+    let p = curCache.get(file);
+    if (p) return p;
+    const same = curUrl(window.REGION || 'pnw', file);
+    // same origin through site_worker.js (the bucket sends no CORS header); a local copy (relative BASE) is the fallback
+    const get = u => (u ? fetch(u).then(r => (r.ok ? r.blob() : null)) : Promise.resolve(null));
+    p = get(same).catch(() => null).then(b => b || (/^[a-z]+:\/\//i.test(BASE) ? null : get(BASE + file)))
+      .then(b => b && createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then(bmp => {
+        if (!bmp) return null;
+        if (bmp.width !== d.nx || bmp.height !== d.ny) { if (bmp.close) bmp.close(); return null; }
+        if (!curDecodeCtx || curDecodeCtx.canvas.width !== d.nx || curDecodeCtx.canvas.height !== d.ny) {
+          const c = document.createElement('canvas'); c.width = d.nx; c.height = d.ny; curDecodeCtx = c.getContext('2d', { willReadFrequently: true });
+        }
+        curDecodeCtx.clearRect(0, 0, d.nx, d.ny); curDecodeCtx.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+        return { nx: d.nx, ny: d.ny, scale: d.scale_cms || 2, px: curDecodeCtx.getImageData(0, 0, d.nx, d.ny).data };
+      }).catch(() => null);
+    curCache.set(file, p);
+    while (curCache.size > 6) curCache.delete(curCache.keys().next().value);
+    p.then(g => { if (!g && curCache.get(file) === p) curCache.delete(file); });
+    return p;
+  }
+  function sampleUV(grid, d, lat, lon) {   // [u, v] cm/s at a point, bilinear between valid cells, or null
+    const G = curGeom(d);
+    return bilinearUV(grid, (lon - G.lon0) / G.sx - 0.5, (G.lat1 - lat) / G.sy - 0.5);
+  }
+  function curNearestNow(d) {
+    const now = Date.now() / 1000, l = d.hours || []; let k = 0;
+    l.forEach((h, i) => { if (Math.abs(h.t - now) < Math.abs(l[k].t - now)) k = i; });
+    return k;
+  }
+  const curHourText = t => new Date(t * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric' });
+  // the particle canvas: one <canvas> in the overlay pane, sized to the map, reset on moveend / zoomend
+  const CurrentsLayer = L.Layer.extend({
+    onAdd(m) {
+      this._c = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
+      this._c.style.pointerEvents = 'none'; this._c.style.opacity = $('curOpacity').value;
+      this.getPane().appendChild(this._c);
+      m.on('moveend zoomend resize', this._reset, this); this._reset();
+    },
+    onRemove(m) { m.off('moveend zoomend resize', this._reset, this); L.DomUtil.remove(this._c); this._c = null; },
+    _reset() {
+      const c = this._c; if (!c) return;
+      const s = map.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+      c.width = Math.round(s.x * dpr); c.height = Math.round(s.y * dpr); c.style.width = s.x + 'px'; c.style.height = s.y + 'px';
+      c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      curNewView();
+    },
+  });
+  const curLayer = new CurrentsLayer();
+  // the view: pixel origin, zoom, and the valid grid cells inside it (respawn targets)
+  function curNewView() {
+    const d = curState.data, g = curState.grid;
+    curState.parts = []; curState.water = null;
+    curState.view = { z: map.getZoom(), o: map.getPixelBounds().min, size: map.getSize() };
+    if (!d || !g) return;
+    const G = curGeom(d), b = map.getBounds();
+    const i0 = Math.max(0, Math.floor((b.getWest() - G.lon0) / G.sx)), i1 = Math.min(d.nx - 1, Math.floor((b.getEast() - G.lon0) / G.sx));
+    const j0 = Math.max(0, Math.floor((G.lat1 - b.getNorth()) / G.sy)), j1 = Math.min(d.ny - 1, Math.floor((G.lat1 - b.getSouth()) / G.sy));
+    if (i1 < i0 || j1 < j0) return;
+    const cells = new Int32Array((i1 - i0 + 1) * (j1 - j0 + 1)); let n = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * d.nx + i; if (g.px[4 * k + 2] >= 128) cells[n++] = k; }
+    curState.water = cells.subarray(0, n);
+    if (!n) return;
+    const want = particleCount(map.getZoom());
+    for (let k = 0; k < want; k++) curState.parts.push(curSpawn({}));
+  }
+  function curSpawn(p) {               // a random visible water cell, a random spot inside it, a life of 60-120 frames
+    const d = curState.data, G = curGeom(d), w = curState.water, k = w[Math.floor(Math.random() * w.length)];
+    p.lat = G.lat1 - (Math.floor(k / d.nx) + Math.random()) * G.sy; p.lon = G.lon0 + (k % d.nx + Math.random()) * G.sx;
+    p.age = 0; p.life = 60 + Math.floor(Math.random() * 61); p.x = null;
+    return p;
+  }
+  function curProject(lat, lon) {      // container px of a lat/lon in the view (web Mercator, as map.project)
+    const v = curState.view, W = 256 * Math.pow(2, v.z), s = Math.sin(lat * Math.PI / 180);
+    return [(lon + 180) / 360 * W - v.o.x, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * W - v.o.y];
+  }
+  function curFrame() {
+    curState.raf = 0;
+    if (!curState.on || document.hidden || !curLayer._c) return;
+    const c = curLayer._c, ctx = c.getContext('2d'), v = curState.view, g = curState.grid, d = curState.data;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = 'rgba(0,0,0,0.92)'; ctx.fillRect(0, 0, c.width, c.height);   // fade the trails
+    ctx.restore(); ctx.globalCompositeOperation = 'source-over';
+    if (g && d && curState.water && curState.water.length) {
+      const G = curGeom(d), paths = CUR_BINS.map(() => new Path2D()), used = CUR_BINS.map(() => false);
+      for (const p of curState.parts) {
+        const uv = p.age < p.life ? bilinearUV(g, (p.lon - G.lon0) / G.sx - 0.5, (G.lat1 - p.lat) / G.sy - 0.5) : null;
+        if (!uv) { curSpawn(p); continue; }   // aged out or on land / nodata
+        if (p.x == null) [p.x, p.y] = curProject(p.lat, p.lon);
+        const dt = stepPx(v.z, p.lat) / 100;                      // cm/s -> metres this frame
+        p.lat += uv[1] * dt / 111320; p.lon += uv[0] * dt / (111320 * Math.cos(p.lat * Math.PI / 180)); p.age++;
+        const [x, y] = curProject(p.lat, p.lon);
+        if (x < 0 || y < 0 || x > v.size.x || y > v.size.y) { curSpawn(p); continue; }
+        const b = speedBin(Math.hypot(uv[0], uv[1]) * CUR_KT);
+        paths[b].moveTo(p.x, p.y); paths[b].lineTo(x, y); used[b] = true; p.x = x; p.y = y;
+      }
+      ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+      paths.forEach((pa, b) => { if (used[b]) { ctx.strokeStyle = CUR_BINS[b][1]; ctx.stroke(pa); } });
+    }
+    curState.raf = requestAnimationFrame(curFrame);
+  }
+  function curAnimate() { if (!curState.raf && curState.on && !document.hidden) curState.raf = requestAnimationFrame(curFrame); }
+  function curStop() { if (curState.raf) cancelAnimationFrame(curState.raf); curState.raf = 0; }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) curStop(); else curAnimate(); });
+  function curLabelText() {
+    const d = curState.data, h = d && (d.hours || [])[curState.idx];
+    $('curLabel').textContent = h ? curHourText(h.t) + ', ' + curModels(d.cycle) : '';
+  }
+  function curInfoHtml() {
+    const d = curState.data;
+    $('curInfo').innerHTML = '<div class="muted">' + (d.hours || []).length + ' hourly steps · ' + esc(curModels(d.cycle)) + ' · updated ' + esc(d.updated || '') + '</div>' +
+      legendHtml(CUR_BINS, x => x === 3 ? '3+' : String(x)) +
+      '<div class="note" style="margin-top:18px">kt · NOAA CO-OPS SSCOFS and WCOFS operational forecast models, surface layer; 1 km in the Sound and Columbia, 4 km on the shelf; speeds above 4.9 kt are capped. A model forecast; not for navigation.</div>';
+  }
+  function curShow(idx) {              // fetch and decode the hour, then animate on it
+    const d = curState.data; if (!d || !(d.hours || []).length) return;
+    curState.idx = Math.max(0, Math.min(d.hours.length - 1, idx));
+    $('curSlider').value = curState.idx; curLabelText();
+    const seq = ++curState.seq, h = d.hours[curState.idx];
+    curGrid(d, h.file).then(g => {
+      if (seq !== curState.seq || curState.data !== d || !curState.on) return;
+      if (!g) { $('curLabel').textContent = curHourText(h.t) + ': this hour did not load'; return; }
+      const fresh = !curState.grid; curState.grid = g;
+      if (fresh || !curState.parts.length) curNewView();    // otherwise the particles carry on in the new hour's field
+      curAnimate();
+      const nxt = d.hours[curState.idx + 1]; if (nxt) curGrid(d, nxt.file);   // prefetch the next hour for Play
+    });
+  }
+  function curSetData(d) {             // a new cycle swaps the hour list and keeps the slider's hour offset
+    const old = curState.data, n = (d.hours || []).length;
+    if (old && old.cycle === d.cycle) { curState.data = d; curInfoHtml(); return; }
+    curState.data = d; curState.grid = null; curCache.clear();
+    $('curSlider').max = Math.max(0, n - 1);
+    curInfoHtml();
+    const idx = old ? Math.min(curState.idx, n - 1) : curNearestNow(d);
+    if (curState.on) curShow(idx); else { curState.idx = idx; $('curSlider').value = idx; }
+  }
+  function loadCurrents() {
+    const none = () => { if (!curState.data) $('curInfo').innerHTML = '<div class="muted">surface currents not available yet</div>'; };
+    loadScript('data/currents.js', () => { if (window.CURRENTS && (window.CURRENTS.hours || []).length) curSetData(window.CURRENTS); else none(); }, none);
+  }
+  function curPause() { clearTimeout(curState.timer); curState.timer = null; $('curPlay').textContent = 'Play'; }
+  function curTick() {                 // Play: a step every 0.8 s; after the last hour, a 1.5 s pause and back to the first
+    const d = curState.data, end = !d || curState.idx >= d.hours.length - 1;
+    curState.timer = setTimeout(() => { curShow(end ? 0 : curState.idx + 1); curTick(); }, end ? 1500 : 800);
+  }
+  $('lyCurrents').onchange = e => {
+    curState.on = e.target.checked;
+    if (curState.on) { curLayer.addTo(map); if (!curState.data) loadCurrents(); else curShow(curState.idx); }
+    else { curPause(); curStop(); curState.seq++; map.removeLayer(curLayer); curState.parts = []; }
+  };
+  $('curSlider').oninput = () => { curPause(); curShow(+$('curSlider').value); };
+  $('curPrev').onclick = () => { curPause(); curShow(curState.idx - 1); };
+  $('curNext').onclick = () => { curPause(); curShow(curState.idx + 1); };
+  $('curPlay').onclick = () => { if (curState.timer) curPause(); else if (curState.data) { $('curPlay').textContent = 'Pause'; curTick(); } };
+  $('curOpacity').oninput = e => { if (curLayer._c) curLayer._c.style.opacity = e.target.value; };
+  setInterval(() => { if (curState.on) loadCurrents(); }, 15 * 60 * 1000);
+  // the click-anywhere row: the slider's hour while the layer is on, else the hour nearest now (once the index is loaded)
+  async function curReadout(ll) {
+    const d = curState.data; if (!d || !(d.hours || []).length) return '';
+    const k = curState.on ? curState.idx : curNearestNow(d), h = d.hours[k], g = await curGrid(d, h.file);
+    const uv = g && sampleUV(g, d, ll.lat, ll.lng); if (!uv) return '';
+    const s = curSpeedDir(uv[0], uv[1]), B = d.sscofs_bbox || CUR_SSCOFS_BOX;
+    const model = ll.lat >= B[0] && ll.lat <= B[1] && ll.lng >= B[2] && ll.lng <= B[3] ? 'SSCOFS' : 'WCOFS';
+    return '<div>Surface current: <b>' + s.kt.toFixed(1) + ' kt</b>' + (s.kt >= 0.05 ? ' toward ' + compass(s.deg) : '') + ' <span style="color:#666">(NOAA ' + model + ' model, ' + esc(curHourText(h.t)) + ')</span></div>';
+  }
 
   // ---------- webcams ----------
   const camLayer = L.featureGroup(), wedgeLayer = L.layerGroup();
@@ -2537,6 +2767,7 @@ void main() {
       const rows = [], nowS = Date.now() / 1000;
       await new Promise(res => sstData ? res() : loadScript('data/sst.js', () => { sstData = window.SST || sstData; res(); }, res));
       if (sstData) { const v = sample(await getGrid('sst'), ll); if (v != null) rows.push('<div>Sea surface temp: <b>' + Math.round(v) + '°F</b> <span style="color:#666">(satellite, ' + esc(sstData.date) + ')</span></div>'); }
+      if (curState.data) { const r = await curReadout(ll).catch(() => ''); if (r) rows.push(r); }
       await new Promise(res => buoyData ? res() : loadScript('data/buoys.js', () => { buoyData = window.BUOYS || buoyData; res(); }, res));
       if (buoyData) {
         const b = nearest(buoyData.stations, ll, s => !buoyStale(s, nowS) && (s.hs_ft != null || s.wspd_mph != null || s.wtmp_f != null));
@@ -2663,7 +2894,7 @@ void main() {
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun', 'lyBuoys', 'lyTides', 'lyMarine', 'lySst'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun', 'lyBuoys', 'lyTides', 'lyMarine', 'lySst', 'lyCurrents'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
