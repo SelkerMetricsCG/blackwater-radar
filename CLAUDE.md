@@ -207,6 +207,15 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   ledger: `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; sources and the deferred list (HF radar
   currents, GFS-Wave swell raster, NWPS, HRDPS, biotoxin layers, the spot table): `coastal_research/CATALOG.md`;
   checks: `coastal_research/CHECKS.md`. No name or email goes into a header these modules send.
+- Surface currents (`currents.py`, 2026-10-13, hourly slot after `sst`, `"coastal"` regions): reads NOAA SSCOFS (4 cycles a day,
+  03/09/15/21Z) and WCOFS (03Z, interpolated in time to SSCOFS's hours) as surface slices over the CO-OPS OPeNDAP server
+  (`opendap.co-ops.nos.noaa.gov/thredds/dodsC/NOAA/<MODEL>/MODELS/...regulargrid.fNNN.nc`), netCDF4, 3 worker processes per
+  model. Writes `frames/currents/<cycle>/hNN.png` (hours 1-24; RGB = u, v at 2 cm/s steps around 128; B = 255 valid),
+  `data/currents.js` and state `data/currents_cache.json`. r2sync uploads the PNGs immutable; `cloud.py` prunes cycles older
+  than 30 h by the hour in the cycle name. `site_worker.js` proxies `/<region>/currents/<cycle>/hNN.png` to R2 under `frames/`.
+  The page draws a canvas particle layer (`lyCurrents`, Coastal group): hour slider, Play, knots legend, "not for navigation"
+  note; credit "NOAA CO-OPS SSCOFS and WCOFS operational forecast models". Spec
+  `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -243,3 +252,5 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
 - 2026-10-13: Coastal group (pnw): buoys and shore stations (waves, wind, water temperature), tides and tidal currents,
   NWS marine and surf-zone forecasts, satellite SST; marine alerts; 23 ocean-facing webcams. Spec
   `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; research `coastal_research/`.
+- 2026-10-13: Surface currents flow layer (Coastal group): NOAA SSCOFS + WCOFS surface fields as animated particles; spec
+  `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.

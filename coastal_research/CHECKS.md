@@ -11,7 +11,9 @@ Each headline number from the modules' first local runs, against the source itse
 | SST at 46041's position | 53.7 °F (cell 47.325, -124.725; next cell north 53.0) | buoy water temperature 53.8 °F (NDBC) | Geo-Polar Blended 2026-10-12 vs the buoy on 10-13 | within 0.1 °F at the pixel; the analysis is a day older than the buoy |
 | 46211 Grays Harbor (CDIP relay) | 3.5 ft, 11.1 s, 292° (CDIP swell 2.6 ft 15.4 s 270°) | not re-checked by hand | CDIP ERDDAP | open: compare with cdip.ucsd.edu stn 036 at the live check |
 | Tofino (CHS) next high | not yet in the cache at the first run (predictions fill 60 stations per run) | | CHS IWLS | open: check at the live check |
+| SSCOFS h01 at Admiralty Inlet (48.15 N, -122.75 E) | u = -0.74, v = +0.40 m/s | native cell -0.745 / 0.399 m/s | OPeNDAP SSCOFS t15z f001 (valid 2026-10-13 16:00 UTC; cycle sscofs t15z + wcofs t03z) | match |
+| SSCOFS h01 at the Columbia bar (46.25 N, -124.05 E) | u = -1.40, v = +0.10 m/s | native cell -1.390 / 0.093 m/s | OPeNDAP SSCOFS t15z f001 (valid 2026-10-13 16:00 UTC; cycle sscofs t15z + wcofs t03z) | match |
 
 Still to do at the live check (after the first Actions runs and the deploy): the two open rows above; the page's
 tide curve against CO-OPS's plotted curve at Westport (the cosine between extremes is a judgment call); the marine
-zone colours against the CWF text; the SST legend against the overlay.
+zone colours against the CWF text; the SST legend against the overlay; the particle direction at Admiralty Inlet against the Tides & currents layer's flood/ebb at the same hour.
