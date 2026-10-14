@@ -80,6 +80,20 @@ def catalog_xml(model, cycle, keys):
             '  <dataset name="day/">\n%s  </dataset>\n</catalog>\n' % rows)
 
 
+class _SerialPool:
+    """an executor that runs each job in the calling thread (the two model pools must never read NetCDF at once)"""
+    def submit(self, fn, *a, **k):
+        f = cf.Future()
+        try:
+            f.set_result(fn(*a, **k))
+        except Exception as e:  # noqa: BLE001
+            f.set_exception(e)
+        return f
+
+    def shutdown(self, *a, **k):
+        pass
+
+
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     """three SSCOFS hours of t09z and WCOFS t03z f003..f024 on disk; netCDF4.Dataset(url) opens them, catalogs
@@ -108,7 +122,7 @@ def env(tmp_path, monkeypatch):
             "WCOFS": catalog_xml("wcofs", W_CYCLE, [("n", 24)] + [("f", h) for h in range(3, 73, 3)])}
     monkeypatch.setattr(netCDF4, "Dataset", fake)
     monkeypatch.setattr(currents, "fetch_text", lambda url: cats[url.split("/NOAA/")[1].split("/")[0]] if "/10/13/" in url else "")
-    monkeypatch.setattr(currents, "_pool", lambda n: cf.ThreadPoolExecutor(1))     # netcdf-c is not thread-safe
+    monkeypatch.setattr(currents, "_pool", lambda n: _SerialPool())     # netcdf-c is not thread-safe: two 1-thread pools still overlap
     monkeypatch.setattr(currents, "HOURS", (1, 2, 3))
     monkeypatch.setattr(currents, "RETRY_PAUSE", 0)
     monkeypatch.setattr(currents, "OUT", str(tmp_path / "data" / "currents.js"))

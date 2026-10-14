@@ -198,7 +198,9 @@ def read_retry(url, box, stride):
 
 
 def _pool(n):
-    return cf.ProcessPoolExecutor(n)
+    # spawned, not forked: netcdf-c/HDF5 state must not be inherited across a fork (Linux segfaults otherwise)
+    import multiprocessing
+    return cf.ProcessPoolExecutor(n, mp_context=multiprocessing.get_context("spawn"))
 
 
 def fetch_all(jobs):
