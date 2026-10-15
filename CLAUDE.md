@@ -213,6 +213,10 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   model. Writes `frames/currents/<cycle>/hNN.png` (hours 1-24; RGB = u, v at 2 cm/s steps around 128; B = 255 valid),
   `data/currents.js` and state `data/currents_cache.json`. r2sync uploads the PNGs immutable; `cloud.py` prunes cycles older
   than 30 h by the hour in the cycle name. `site_worker.js` proxies `/<region>/currents/<cycle>/hNN.png` to R2 under `frames/`.
+  A land mask on the output grid (`currents_landmask_<region>.png`, 1-bit, built once on a PC by
+  `coastal_research/make_landmask.py` from the GSHHG full-resolution shoreline; cell centre in a land polygon = land) blanks the
+  shelf model's 4 km cells where they reach over the shore (2026-10-15: Chris saw flow lines a mile inland); the page also kills
+  a particle as soon as the cell under it is land. Rebuild the mask for any new coastal region.
   The page draws a canvas particle layer (`lyCurrents`, Coastal group): hour slider, Play, knots legend, "not for navigation"
   note; credit "NOAA CO-OPS SSCOFS and WCOFS operational forecast models". Spec
   `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.

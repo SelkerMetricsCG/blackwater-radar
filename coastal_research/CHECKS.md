@@ -13,6 +13,7 @@ Each headline number from the modules' first local runs, against the source itse
 | Tofino (CHS) next high | not yet in the cache at the first run (predictions fill 60 stations per run) | | CHS IWLS | open: check at the live check |
 | SSCOFS h01 at Admiralty Inlet (48.15 N, -122.75 E) | u = -0.74, v = +0.40 m/s | native cell -0.745 / 0.399 m/s | OPeNDAP SSCOFS t15z f001 (valid 2026-10-13 16:00 UTC; cycle sscofs t15z + wcofs t03z) | match |
 | SSCOFS h01 at the Columbia bar (46.25 N, -124.05 E) | u = -1.40, v = +0.10 m/s | native cell -1.390 / 0.093 m/s | OPeNDAP SSCOFS t15z f001 (valid 2026-10-13 16:00 UTC; cycle sscofs t15z + wcofs t03z) | match |
+| Land mask (2026-10-15) | live h01 frame: 167,239 water cells, 8,561 (5.1 %) on GSHHG land; masked local frame: 158,678 water cells, 0 on land | GSHHG 2.3.7 full-resolution level 1 | `coastal_research/make_landmask.py` | match; visual check at Rockaway Beach, Grays Harbor and Elliott Bay: particles stop at the shore |
 
 Still to do at the live check (after the first Actions runs and the deploy): the two open rows above; the page's
 tide curve against CO-OPS's plotted curve at Westport (the cosine between extremes is a judgment call); the marine

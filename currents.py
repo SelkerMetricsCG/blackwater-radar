@@ -237,6 +237,24 @@ def nearest(axis, x):
     return np.where((x < axis[0] - d / 2) | (x > axis[-1] + d / 2), -1, k)
 
 
+ROOT = os.path.dirname(os.path.abspath(__file__))
+LANDMASK = os.path.join(ROOT, "currents_landmask_%s.png" % region.KEY)   # coastal_research/make_landmask.py (GSHHG)
+
+
+def land_mask(shape):
+    """-> bool [ny, nx], True where the cell centre is on land (GSHHG full-resolution shoreline), or None when the region
+    has no mask file or its size does not match the grid. Without it the shelf model's 4 km cells reach ~2 mi inland."""
+    try:
+        from PIL import Image
+        img = Image.open(LANDMASK).convert("L")
+    except OSError:
+        return None
+    a = np.asarray(img)
+    if a.shape != tuple(shape):
+        return None
+    return a < 128
+
+
 def composite(layers, lat_c, lon_c):
     """[(lat, lon, u, v), ...] in rising precedence -> (u, v) [len(lat_c), len(lon_c)] float32, NaN where no layer has
     a value; each layer is sampled at its nearest cell and overrides earlier ones where it is finite"""
@@ -338,6 +356,9 @@ def build(log=print, now=None):
         return "failed"
 
     lat_c, lon_c, bbox = out_grid()
+    land = land_mask((len(lat_c), len(lon_c)))
+    if land is None:
+        log("currents: no land mask for %s (%s); coarse model cells may overlap the shore" % (region.KEY, os.path.basename(LANDMASK)))
     tmp, final = os.path.join(FRAME_DIR, cycle + ".tmp"), os.path.join(FRAME_DIR, cycle)
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp)
@@ -360,6 +381,8 @@ def build(log=print, now=None):
                 if abs(got_t - want_t) > 60:
                     raise ValueError("%s valid time %d, expected %d" % (what, got_t, want_t))
             u, v = composite([(W["lat"], W["lon"], uw, vw), (S["lat"], S["lon"], S["u"], S["v"])], lat_c, lon_c)
+            if land is not None:
+                u[land], v[land] = np.nan, np.nan        # the shoreline, not the models' coarse cells, decides what is water
             rgb = encode(u, v)
             if h == HOURS[0]:
                 n_h1 = int((rgb[..., 2] == 255).sum())

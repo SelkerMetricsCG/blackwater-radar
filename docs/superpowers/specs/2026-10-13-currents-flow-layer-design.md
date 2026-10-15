@@ -77,6 +77,7 @@ The bucket sends no CORS header and the page reads the PNG pixels, so, as for th
 | 5 | Particle look | fade 0.92, 1.2 px, 2-6k particles, 1 m/s = 1.5 px/frame | reads like Windy at the site's zooms; tunable constants |
 | 6 | Knots legend | 0, 0.5, 1, 1.5, 2, 3+ kt | small-craft relevance: 1 kt matters to a paddler, 3 kt to a kiter's drift |
 | 7 | Cycle selection | newest with f024 listed; both models independent | a half-posted cycle is never shown |
+| 8 | Land mask (2026-10-15) | GSHHG full-resolution shoreline rasterised on the 0.01° grid, centre-in-polygon; particles die on a land cell | WCOFS's 4 km cells reached ~2 mi inland (Chris, 2026-10-15); 5.1 % of the live frame's water cells were on land; residual overlap is at most half a cell (~0.35 mi) |
 
 ## 6. Tests
 - `tests/test_currents.py`: cycle parsing from a catalog XML fixture; compositing with two small synthetic NetCDF files

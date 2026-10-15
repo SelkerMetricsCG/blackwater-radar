@@ -128,6 +128,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(currents, "OUT", str(tmp_path / "data" / "currents.js"))
     monkeypatch.setattr(currents, "STORE", str(tmp_path / "data" / "currents_cache.json"))
     monkeypatch.setattr(currents, "FRAME_DIR", str(tmp_path / "frames" / "currents"))
+    monkeypatch.setattr(currents, "LANDMASK", str(tmp_path / "no-mask.png"))     # the synthetic grids are not masked by the real shoreline
     return {"files": files, "opened": opened, "tmp": tmp_path}
 
 
@@ -253,3 +254,20 @@ def test_cloud_prunes_current_cycles_by_their_start_hour():
     assert cloud.currents_stamp("pnw/frames/currents/sscofs_t15z_20261013-wcofs_t03z_20261013/h07.png") == dt.datetime(2026, 10, 13, 15)
     assert cloud.currents_stamp("pnw/frames/radar/r20261013_1500.webp") is None
     assert cloud.currents_stamp("pnw/frames/currents/odd/h01.png") is None
+
+
+def test_land_mask_blanks_cells_on_land(tmp_path, monkeypatch):
+    """a GSHHG land mask on the output grid turns model values on land into nodata; a missing or mismatched mask is ignored"""
+    import numpy as np
+    from PIL import Image
+    lat_c, lon_c, _ = currents.out_grid()
+    shape = (len(lat_c), len(lon_c))
+    mask = np.full(shape, 255, np.uint8); mask[0, 0] = 0          # one land cell at the north-west corner
+    path = tmp_path / "mask.png"; Image.fromarray(mask).convert("1").save(path)
+    monkeypatch.setattr(currents, "LANDMASK", str(path))
+    land = currents.land_mask(shape)
+    assert land.shape == shape and land[0, 0] and not land[0, 1] and land.sum() == 1
+    monkeypatch.setattr(currents, "LANDMASK", str(tmp_path / "missing.png"))
+    assert currents.land_mask(shape) is None
+    Image.fromarray(mask[:10, :10]).save(path); monkeypatch.setattr(currents, "LANDMASK", str(path))
+    assert currents.land_mask(shape) is None

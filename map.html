@@ -1490,7 +1490,11 @@
     if (g && d && curState.water && curState.water.length) {
       const G = curGeom(d), paths = CUR_BINS.map(() => new Path2D()), used = CUR_BINS.map(() => false);
       for (const p of curState.parts) {
-        const uv = p.age < p.life ? bilinearUV(g, (p.lon - G.lon0) / G.sx - 0.5, (G.lat1 - p.lat) / G.sy - 0.5) : null;
+        // a particle lives only while the cell under it is water: bilinear sampling alone would carry it half a cell
+        // onto the shore (a 0.01 deg cell is ~0.7 mi), since nodata corners are dropped rather than treated as a wall
+        const ci = Math.floor((p.lon - G.lon0) / G.sx), cj = Math.floor((G.lat1 - p.lat) / G.sy);
+        const onWater = ci >= 0 && cj >= 0 && ci < d.nx && cj < d.ny && g.px[4 * (cj * d.nx + ci) + 2] >= 128;
+        const uv = p.age < p.life && onWater ? bilinearUV(g, (p.lon - G.lon0) / G.sx - 0.5, (G.lat1 - p.lat) / G.sy - 0.5) : null;
         if (!uv) { curSpawn(p); continue; }   // aged out or on land / nodata
         if (p.x == null) [p.x, p.y] = curProject(p.lat, p.lon);
         const dt = stepPx(v.z, p.lat) / 100;                      // cm/s -> metres this frame
