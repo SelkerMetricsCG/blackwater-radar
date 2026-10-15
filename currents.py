@@ -131,8 +131,12 @@ def wcofs_plan(s_cycle, w_cycles, hours=None):
     return None, None
 
 
+MASK_VERSION = "m1"           # bump when the land mask or compositing changes: a cycle already on R2 is then rebuilt
+
+
 def cycle_id(s_cycle, w_cycle):
-    return "sscofs_t%s-wcofs_t%s" % (s_cycle.strftime("%Hz_%Y%m%d"), w_cycle.strftime("%Hz_%Y%m%d"))
+    tag = "-" + MASK_VERSION if os.path.exists(LANDMASK) else ""
+    return "sscofs_t%s-wcofs_t%s%s" % (s_cycle.strftime("%Hz_%Y%m%d"), w_cycle.strftime("%Hz_%Y%m%d"), tag)
 
 
 def file_url(model, cycle, key):
