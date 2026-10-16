@@ -343,6 +343,26 @@
       <div class="sub"><span class="muted">opacity</span><input type="range" id="curOpacity" min="0" max="1" step="0.05" value="0.85"></div>
       <div class="sub" id="curInfo" style="display:block"></div>
     </div>
+    <label class="opt"><input type="checkbox" id="lySwell"> Swell forecast
+      <button type="button" class="help" aria-label="About the swell forecast layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">The primary swell's height from NOAA's wave models, 3-hourly for the next 7 days. Offshore from GFS-Wave (WAVEWATCH III); near the coast, for the first 72 h, from the Nearshore Wave Prediction System run by the Seattle, Portland and Medford forecast offices, drawn on top. Arrows point where the swell travels; longer arrows mean longer periods. Click a spot for all three swell trains there. A model forecast, not observations; not for navigation.</span></label>
+    <div class="subwrap" data-for="lySwell">
+      <div class="sub" id="swPlayer">
+        <button type="button" class="chip" id="swPlay">Play</button>
+        <button type="button" class="chip" id="swPrev" title="3 hours earlier">&lt;</button>
+        <button type="button" class="chip" id="swNext" title="3 hours later">&gt;</button>
+        <input type="range" id="swSlider" min="0" max="56" step="1" value="0" aria-label="Forecast hour">
+        <div id="swLabel"></div>
+      </div>
+      <div class="sub"><span class="muted">opacity</span><input type="range" id="swOpacity" min="0" max="1" step="0.05" value="0.75"></div>
+      <div class="sub" id="swInfo" style="display:block"></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="lyBeaches"> Surf beaches
+      <button type="button" class="help" aria-label="About the surf beaches layer" aria-expanded="false">?</button>
+      <span class="helptip" role="tooltip">Documented surf spots, coloured by the nearshore swell height forecast just seaward of each beach, after the swell has bent around headlands and over the shelf. From NOAA's Nearshore Wave Prediction System, 3-hourly for 72 h; the hour follows the swell forecast slider when that layer is on. Click a spot for its 72 h forecast and the offshore swell at the nearest buoy. Open-water height, not face height; not for navigation.</span></label>
+    <div class="subwrap" data-for="lyBeaches">
+      <div class="sub" id="beachInfo" style="display:block"></div>
+    </div>
     </div>
   </div>
 
@@ -1119,9 +1139,9 @@
   const coDayTime = t => new Date(t * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
   const coLink = (url, text) => url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + text + '</a>' : '';
   const CHS_NOTE = '<div style="font-size:11px;color:#b45309;margin-top:4px">Canadian Hydrographic Service data. Not for navigation: use the official CHS tide and current tables and charts.</div>';
-  // labels from zoom 8, only for markers in view, drawn like the weather-station labels
-  function coRelabel(lab, layer) {
-    const show = map.hasLayer(layer) && map.getZoom() >= 8, b = map.getBounds().pad(.1);
+  // labels from zoom 8 (or minZ), only for markers in view, drawn like the weather-station labels
+  function coRelabel(lab, layer, minZ) {
+    const show = map.hasLayer(layer) && map.getZoom() >= (minZ || 8), b = map.getBounds().pad(.1);
     for (const l of lab.items) {
       const on = show && b.contains(l[0]);
       if (on && !l[2]) lab.layer.addLayer(l[2] = L.marker(l[0], { interactive: false, keyboard: false, pane: 'tooltipPane', icon: L.divIcon({ className: '', html: '<div class="stlabel stlab">' + l[1] + '</div>', iconSize: null }) }));
@@ -1164,6 +1184,7 @@
       if (s.steep && s.steep !== 'N/A') html += '<div style="color:#666;font-size:12px">steepness: ' + esc(String(s.steep).toLowerCase().replace(/_/g, ' ')) + '</div>';
     }
     html += waveTrace(s);
+    html += '<div data-swfc="' + esc(s.id) + '"></div>';   // the GFS-Wave forecast chart, filled on popupopen (swellHelpers below)
     if (s.wspd_mph != null || s.gust_mph != null) html += '<div>Wind: <b>' + (s.wspd_mph != null ? Math.round(s.wspd_mph) + ' mph' : '–') + '</b>' + (s.gust_mph != null ? ', gusting ' + Math.round(s.gust_mph) : '') + (s.wdir_deg != null ? ', from ' + compass(s.wdir_deg) + ' (' + Math.round(s.wdir_deg) + '°)' : '') + '</div>';
     const env = [s.wtmp_f != null ? 'Water <b>' + s.wtmp_f.toFixed(1) + '°F</b>' : '', s.atmp_f != null ? 'Air ' + s.atmp_f.toFixed(1) + '°F' : '', s.pres_mb != null ? s.pres_mb.toFixed(1) + ' mb' : ''].filter(Boolean);
     if (env.length) html += '<div>' + env.join(' · ') + '</div>';
@@ -1574,6 +1595,352 @@
     const model = ll.lat >= B[0] && ll.lat <= B[1] && ll.lng >= B[2] && ll.lng <= B[3] ? 'SSCOFS' : 'WCOFS';
     return '<div>Surface current: <b>' + s.kt.toFixed(1) + ' kt</b>' + (s.kt >= 0.05 ? ' toward ' + compass(s.deg) : '') + ' <span style="color:#666">(NOAA ' + model + ' model, ' + esc(curHourText(h.t)) + ')</span></div>';
   }
+
+  // ---------- Coastal: swell forecast (NOAA GFS-Wave offshore + NWPS nearshore; a static canvas raster, no animation) ----------
+  // BEGIN swellHelpers (tests/test_map_swell.py runs this block under node, after coastalHelpers for compass)
+  // primary-swell height in feet (spec ledger 4): 0, 1, 2, 3, 4, 6, 8, 10, 13, 16, 20+; muted blue, teal, amber, red
+  const SWELL_BINS = [[0, '#b9c9d6'], [1, '#9db7cc'], [2, '#82a3c0'], [3, '#6c9aae'], [4, '#629b95'], [6, '#82a577'], [8, '#aea765'], [10, '#c7985a'], [13, '#c27c51'], [16, '#ae5e4a'], [20, '#8b4046']];
+  const SW_FT = 3.28084;               // m -> ft
+  const SW_MATCH_S = 5400;             // an NWPS frame or a series step counts for a valid time within 90 min of it
+  // one cell of a stacked-band PNG (spec ledger 3): px is the image as RGBA bytes (getImageData order, row 0 north),
+  // nx x (bands * ny), band b in rows b * ny .. b * ny + ny - 1 (partition 1 on top). R = height in 0.1 m,
+  // G = period in 0.5 s, B = direction / 2 (degrees the swell comes from); B = 255 is nodata.
+  function decodeSwell(px, nx, ny, band, i, j) {
+    if (!(i >= 0 && j >= 0 && i < nx && j < ny)) return null;
+    const k = 4 * ((band * ny + j) * nx + i);
+    if (px[k + 2] == null || px[k + 2] === 255) return null;
+    return { h_m: px[k] / 10, per_s: px[k + 1] / 2, dir: px[k + 2] * 2 };
+  }
+  // x, y fractional cell indices in one band (cell centres at integers, y from the north row). Bilinear height over the
+  // valid corners (weights renormalised); period and direction from the valid corner with the most weight (directions
+  // are not averaged across north). null where all four are nodata or the point is over half a cell outside the band.
+  function sampleSwell(px, nx, ny, band, x, y) {
+    if (!(x >= -0.5 && y >= -0.5 && x <= nx - 0.5 && y <= ny - 0.5)) return null;
+    x = Math.min(Math.max(x, 0), nx - 1); y = Math.min(Math.max(y, 0), ny - 1);
+    const i0 = Math.floor(x), j0 = Math.floor(y), i1 = Math.min(i0 + 1, nx - 1), j1 = Math.min(j0 + 1, ny - 1), fx = x - i0, fy = y - j0;
+    let sh = 0, sw = 0, best = null, bw = -1;
+    for (const [i, j, w] of [[i0, j0, (1 - fx) * (1 - fy)], [i1, j0, fx * (1 - fy)], [i0, j1, (1 - fx) * fy], [i1, j1, fx * fy]]) {
+      if (w <= 0) continue;
+      const c = decodeSwell(px, nx, ny, band, i, j); if (!c) continue;
+      sh += c.h_m * w; sw += w; if (w > bw) { bw = w; best = c; }
+    }
+    return sw > 0 ? { h_m: sh / sw, per_s: best.per_s, dir: best.dir } : null;
+  }
+  // the same bilinear height in metres without allocating (the fill calls it every few screen px); -1 where there is none
+  function heightAt(px, nx, ny, band, x, y) {
+    if (!(x >= -0.5 && y >= -0.5 && x <= nx - 0.5 && y <= ny - 0.5)) return -1;
+    x = Math.min(Math.max(x, 0), nx - 1); y = Math.min(Math.max(y, 0), ny - 1);
+    const i0 = Math.floor(x), j0 = Math.floor(y), i1 = Math.min(i0 + 1, nx - 1), j1 = Math.min(j0 + 1, ny - 1), fx = x - i0, fy = y - j0, o = band * ny;
+    let sh = 0, sw = 0, k, w;
+    k = 4 * ((o + j0) * nx + i0); w = (1 - fx) * (1 - fy); if (w > 0 && px[k + 2] !== 255) { sh += px[k] * w; sw += w; }
+    k = 4 * ((o + j0) * nx + i1); w = fx * (1 - fy); if (w > 0 && px[k + 2] !== 255) { sh += px[k] * w; sw += w; }
+    k = 4 * ((o + j1) * nx + i0); w = (1 - fx) * fy; if (w > 0 && px[k + 2] !== 255) { sh += px[k] * w; sw += w; }
+    k = 4 * ((o + j1) * nx + i1); w = fx * fy; if (w > 0 && px[k + 2] !== 255) { sh += px[k] * w; sw += w; }
+    return sw > 0 ? sh / sw / 10 : -1;
+  }
+  function swellBin(ft) { if (ft == null || isNaN(ft)) return -1; let i = 0; for (let k = 1; k < SWELL_BINS.length; k++) if (ft >= SWELL_BINS[k][0]) i = k; return i; }
+  // glyph length in screen px by period (spec ledger 7): 8 px at 6 s or less, 24 px at 20 s or more, linear between
+  function arrowLen(per) { if (per == null || isNaN(per)) return 8; return 8 + 16 * (Math.min(20, Math.max(6, per)) - 6) / 14; }
+  // the direction a swell travels toward, from the direction it comes from (both degrees clockwise from north)
+  function travelDir(deg) { return (((deg + 180) % 360) + 360) % 360; }
+  // index of the hour nearest t (unix s) in [{t}], or -1 when the nearest is more than maxDiff seconds away
+  function nearestHour(hours, t, maxDiff) {
+    const l = hours || []; let k = -1;
+    for (let i = 0; i < l.length; i++) if (k < 0 || Math.abs(l[i].t - t) < Math.abs(l[k].t - t)) k = i;
+    return k >= 0 && Math.abs(l[k].t - t) <= (maxDiff == null ? Infinity : maxDiff) ? k : -1;
+  }
+  // a point series {t0, dt, p: [[h_ft, per_s, dir_deg] | null]} at time t: the step within maxDiff s (default 90 min), else null
+  function seriesAt(s, t, maxDiff) {
+    if (!s || !s.p || !s.dt) return null;
+    const k = Math.round((t - s.t0) / s.dt);
+    if (k < 0 || k >= s.p.length || Math.abs(s.t0 + k * s.dt - t) > (maxDiff == null ? SW_MATCH_S : maxDiff)) return null;
+    return s.p[k] || null;
+  }
+  // "6.2 ft at 15 s from WNW"
+  function fmtSwell(h_ft, per, dir) {
+    if (h_ft == null || isNaN(h_ft)) return '';
+    return h_ft.toFixed(1) + ' ft' + (per != null ? ' at ' + Math.round(per) + ' s' : '') + (dir != null ? ' from ' + compass(dir) : '');
+  }
+  // [p1, p2, p3] as [h_ft, per, dir] or null -> "primary ... · secondary ... · third ...", absent partitions left out
+  function swPartsText(parts) {
+    return ['primary', 'secondary', 'third'].map((w, b) => { const e = (parts || [])[b]; return e && e[0] != null ? w + ' ' + fmtSwell(e[0], e[1], e[2]) : ''; }).filter(Boolean).join(' · ');
+  }
+  // the beach label: "6 ft 15 s" (one decimal under 1 ft)
+  function beachLabel(e) { return !e || e[0] == null ? '' : (e[0] < 1 ? e[0].toFixed(1) : String(Math.round(e[0]))) + ' ft' + (e[1] != null ? ' ' + Math.round(e[1]) + ' s' : ''); }
+  // "gfswave_t18z_20261015" -> "GFS-Wave 18Z 10/15"
+  function gfsRunText(cycle) { const m = String(cycle || '').match(/t(\d\d)z_(\d{4})(\d\d)(\d\d)/i); return m ? 'GFS-Wave ' + m[1] + 'Z ' + (+m[3]) + '/' + (+m[4]) : 'GFS-Wave'; }
+  // NWPS.runs {sew: {run, label: "12Z 2026-10-15"}, ...} -> "NWPS Seattle 12Z / Portland 18Z / Medford 12Z"
+  const NWPS_OFFICES = [['sew', 'Seattle'], ['pqr', 'Portland'], ['mfr', 'Medford']];
+  function nwpsRunText(runs) {
+    const r = runs || {}, l = NWPS_OFFICES.filter(([k]) => r[k]).map(([k, n]) => n + ' ' + (String(r[k].label || '').match(/^\d\dZ/) || [String(new Date(r[k].run * 1000).getUTCHours()).padStart(2, '0') + 'Z'])[0]);
+    return l.length ? 'NWPS ' + l.join(' / ') : '';
+  }
+  // the same-origin path the Worker serves: "frames/swell/<cycle>/s01.png" -> "/<region>/swell/<cycle>/s01.png" (also nwps)
+  function swUrl(region, file) { const m = String(file || '').match(/(swell|nwps)\/([^/]+)\/([^/]+\.png)$/); return m ? '/' + region + '/' + m[1] + '/' + m[2] + '/' + m[3] : null; }
+  // END swellHelpers
+  const SW_RGB = SWELL_BINS.map(([, c]) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)));
+  const SW_NEAR_LON = -122.0;           // NWPS grids end at Puget Sound's east shore (-122.21 in the 2026-10-15 run); no swell rows east of this
+  const SW_FILL_PX = 2, SW_GLYPH_PX = 28;   // fill cell and glyph spacing in screen px (spec ledger 7)
+  const swState = { on: false, data: null, nd: null, idx: 0, seq: 0, timer: null, gfs: null, near: null, nearD: null, off: null };
+  const swCache = new Map();           // kind:file -> Promise of {nx, ny, px}; the newest 8 (an NWPS frame decodes to 5 MB)
+  function swGrid(kind, d, file) {
+    const key = kind + ':' + file; let p = swCache.get(key);
+    if (p) return p;
+    const bands = kind === 'swell' ? (d.bands || 3) : 1, same = swUrl(window.REGION || 'pnw', file);
+    const get = u => (u ? fetch(u).then(r => (r.ok ? r.blob() : null)) : Promise.resolve(null));
+    p = get(same).catch(() => null).then(b => b || (/^[a-z]+:\/\//i.test(BASE) ? null : get(BASE + file)))
+      .then(b => b && createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then(bmp => {
+        if (!bmp) return null;
+        if (bmp.width !== d.nx || bmp.height !== d.ny * bands) { if (bmp.close) bmp.close(); return null; }
+        const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+        const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+        return { nx: d.nx, ny: d.ny, px: ctx.getImageData(0, 0, c.width, c.height).data };
+      }).catch(() => null);
+    swCache.set(key, p);
+    while (swCache.size > 8) swCache.delete(swCache.keys().next().value);
+    p.then(g => { if (!g && swCache.get(key) === p) swCache.delete(key); });
+    return p;
+  }
+  function swAt(g, d, band, lat, lon) {   // {h_m, per_s, dir} at a point, or null
+    const G = curGeom(d);
+    return sampleSwell(g.px, g.nx, g.ny, band, (lon - G.lon0) / G.sx - 0.5, (G.lat1 - lat) / G.sy - 0.5);
+  }
+  const SwellLayer = L.Layer.extend({
+    onAdd(m) {
+      this._c = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
+      this._c.style.pointerEvents = 'none'; this._c.style.opacity = $('swOpacity').value;
+      this.getPane().appendChild(this._c);
+      m.on('moveend zoomend resize', this._reset, this); this._reset();
+    },
+    onRemove(m) { m.off('moveend zoomend resize', this._reset, this); L.DomUtil.remove(this._c); this._c = null; },
+    _reset() {
+      const c = this._c; if (!c) return;
+      const s = map.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+      c.width = Math.round(s.x * dpr); c.height = Math.round(s.y * dpr); c.style.width = s.x + 'px'; c.style.height = s.y + 'px';
+      c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      swDraw();
+    },
+  });
+  const swLayer = new SwellLayer();
+  // one static picture of the hour: GFS-Wave partition-1 fill, NWPS on top where valid, then direction glyphs
+  function swDraw() {
+    const c = swLayer._c; if (!c) return;
+    const ctx = c.getContext('2d'), s = map.getSize();
+    ctx.clearRect(0, 0, s.x, s.y);
+    const d = swState.data, g = swState.gfs, n = swState.near, nd = swState.nearD;
+    if (!d || !g || !s.x || !s.y) return;   // a hidden map has no size
+    const G = curGeom(d), N = n && curGeom(nd), W = Math.ceil(s.x / SW_FILL_PX), H = Math.ceil(s.y / SW_FILL_PX);
+    const gx = new Float64Array(W), gy = new Float64Array(H), qx = new Float64Array(W), qy = new Float64Array(H);
+    for (let i = 0; i < W; i++) { const lon = map.containerPointToLatLng([(i + 0.5) * SW_FILL_PX, 0]).lng; gx[i] = (lon - G.lon0) / G.sx - 0.5; if (N) qx[i] = (lon - N.lon0) / N.sx - 0.5; }
+    for (let j = 0; j < H; j++) { const lat = map.containerPointToLatLng([0, (j + 0.5) * SW_FILL_PX]).lat; gy[j] = (G.lat1 - lat) / G.sy - 0.5; if (N) qy[j] = (N.lat1 - lat) / N.sy - 0.5; }
+    const off = swState.off || (swState.off = document.createElement('canvas')); off.width = W; off.height = H;
+    const octx = off.getContext('2d'), img = octx.createImageData(W, H), o = img.data;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      let h = n ? heightAt(n.px, n.nx, n.ny, 0, qx[i], qy[j]) : -1;
+      if (h < 0) h = heightAt(g.px, g.nx, g.ny, 0, gx[i], gy[j]);
+      if (h < 0) continue;
+      const rgb = SW_RGB[swellBin(h * SW_FT)], k = 4 * (j * W + i);
+      o[k] = rgb[0]; o[k + 1] = rgb[1]; o[k + 2] = rgb[2]; o[k + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, W * SW_FILL_PX, H * SW_FILL_PX);
+    // glyphs on a fixed screen spacing anchored to the world pixel grid, so they do not jump while panning
+    const po = map.getPixelBounds().min, sp = SW_GLYPH_PX, x0 = (((sp / 2 - po.x) % sp) + sp) % sp, y0 = (((sp / 2 - po.y) % sp) + sp) % sp;
+    const path = new Path2D(), ca = Math.cos(0.5), sa = Math.sin(0.5), a = 4.5;
+    for (let y = y0; y < s.y; y += sp) for (let x = x0; x < s.x; x += sp) {
+      const ll = map.containerPointToLatLng([x, y]), v = (n && swAt(n, nd, 0, ll.lat, ll.lng)) || swAt(g, d, 0, ll.lat, ll.lng);
+      if (!v || !(v.h_m > 0)) continue;
+      const L2 = arrowLen(v.per_s) / 2, th = travelDir(v.dir) * Math.PI / 180, ux = Math.sin(th), uy = -Math.cos(th), hx = x + ux * L2, hy = y + uy * L2;
+      path.moveTo(x - ux * L2, y - uy * L2); path.lineTo(hx, hy);
+      // the arrowhead: the back vector (-ux, -uy) turned 0.5 rad each way
+      path.moveTo(hx + a * (-ux * ca + uy * sa), hy + a * (-ux * sa - uy * ca)); path.lineTo(hx, hy);
+      path.lineTo(hx + a * (-ux * ca - uy * sa), hy + a * (ux * sa - uy * ca));
+    }
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke(path);
+    ctx.strokeStyle = 'rgba(17,24,39,.85)'; ctx.lineWidth = 1.3; ctx.stroke(path);
+  }
+  function swNearIdx(t) { const nd = swState.nd; return nd ? nearestHour(nd.hours, t, SW_MATCH_S) : -1; }
+  function swLabelText(h, withNear) {
+    const d = swState.data;
+    $('swLabel').textContent = h ? [curHourText(h.t), gfsRunText(d.cycle), withNear ? nwpsRunText(swState.nd.runs) : ''].filter(Boolean).join(' · ') : '';
+  }
+  function swInfoHtml() {
+    const d = swState.data, nd = swState.nd;
+    $('swInfo').innerHTML = '<div class="muted">' + (d.hours || []).length + ' three-hourly steps · ' + esc(gfsRunText(d.cycle)) + (nd ? ' · ' + esc(nwpsRunText(nd.runs)) + ' to +' + Math.round((nd.hours[nd.hours.length - 1].t - nd.hours[0].t) / 3600) + ' h' : '') + ' · updated ' + esc(d.updated || '') + '</div>' +
+      legendHtml(SWELL_BINS, x => x === 20 ? '20+' : String(x)) +
+      '<div class="note" style="margin-top:18px">feet, significant height of the primary swell (GFS-Wave partition 1; near the coast the NWPS total swell, drawn on top where a run covers the hour). Arrows point where the swell travels, 8 to 24 px for 6 to 20 s periods. Offshore from the 0.16° GFS-Wave grid; NWPS: Washington coast from the 4 km office grid, Oregon from 1-2 km nests. Sources: NOAA GFS-Wave (WAVEWATCH III) and NWPS (Seattle, Portland, Medford offices). A model forecast; not for navigation.</div>';
+  }
+  function swShow(idx) {               // fetch and decode the hour (GFS-Wave and, within 90 min, NWPS), then redraw once
+    const d = swState.data; if (!d || !(d.hours || []).length) return;
+    swState.idx = Math.max(0, Math.min(d.hours.length - 1, idx));
+    $('swSlider').value = swState.idx;
+    const seq = ++swState.seq, h = d.hours[swState.idx], nk = swNearIdx(h.t), nd = swState.nd;
+    swLabelText(h, nk >= 0);
+    if (map.hasLayer(beachLayer)) renderBeaches();
+    Promise.all([swGrid('swell', d, h.file), nk >= 0 ? swGrid('nwps', nd, nd.hours[nk].file) : null]).then(([g, n]) => {
+      if (seq !== swState.seq || swState.data !== d || !swState.on) return;
+      if (!g) { $('swLabel').textContent = curHourText(h.t) + ': this hour did not load'; return; }
+      swState.gfs = g; swState.near = n; swState.nearD = n ? nd : null;
+      swLabelText(h, !!n); swDraw();
+      const nxt = d.hours[swState.idx + 1];   // prefetch the next hour for Play
+      if (nxt) { swGrid('swell', d, nxt.file); const k = swNearIdx(nxt.t); if (k >= 0) swGrid('nwps', nd, nd.hours[k].file); }
+    });
+  }
+  function swSetData(d, nd) {          // a new cycle swaps the hour list and keeps the slider's hour offset
+    const old = swState.data, n = (d.hours || []).length, sameNear = (swState.nd && swState.nd.cycle) === (nd && nd.cycle);
+    swState.nd = nd;
+    if (old && old.cycle === d.cycle && sameNear) { swState.data = d; swInfoHtml(); return; }
+    swState.data = d; swState.gfs = null; swState.near = null; swCache.clear();
+    $('swSlider').max = Math.max(0, n - 1);
+    swInfoHtml();
+    const idx = old ? Math.min(swState.idx, n - 1) : curNearestNow(d);
+    if (swState.on) swShow(idx); else { swState.idx = idx; $('swSlider').value = idx; }
+  }
+  function loadSwell(then) {           // swell.js and nwps.js together; NWPS is optional
+    let left = 2;
+    const done = () => {
+      if (--left) return;
+      const d = window.SWELL, nd = window.NWPS;
+      if (d && (d.hours || []).length) swSetData(d, nd && (nd.hours || []).length ? nd : null);
+      else if (!swState.data) $('swInfo').innerHTML = '<div class="muted">swell forecast not available yet</div>';
+      if (then) then();
+    };
+    loadScript('data/swell.js', done, done); loadScript('data/nwps.js', done, done);
+  }
+  function swPause() { clearTimeout(swState.timer); swState.timer = null; $('swPlay').textContent = 'Play'; }
+  function swTick() {                  // Play: a step every second; after the last hour, a 1.5 s pause and back to the first
+    const d = swState.data, end = !d || swState.idx >= d.hours.length - 1;
+    swState.timer = setTimeout(() => { swShow(end ? 0 : swState.idx + 1); swTick(); }, end ? 1500 : 1000);
+  }
+  $('lySwell').onchange = e => {
+    swState.on = e.target.checked;
+    if (swState.on) { swLayer.addTo(map); if (!swState.data) loadSwell(); else swShow(swState.idx); }
+    else { swPause(); swState.seq++; map.removeLayer(swLayer); if (map.hasLayer(beachLayer)) renderBeaches(); }
+  };
+  $('swSlider').oninput = () => { swPause(); swShow(+$('swSlider').value); };
+  $('swPrev').onclick = () => { swPause(); swShow(swState.idx - 1); };
+  $('swNext').onclick = () => { swPause(); swShow(swState.idx + 1); };
+  $('swPlay').onclick = () => { if (swState.timer) swPause(); else if (swState.data) { $('swPlay').textContent = 'Pause'; swTick(); } };
+  $('swOpacity').oninput = e => { if (swLayer._c) swLayer._c.style.opacity = e.target.value; };
+  setInterval(() => { if (swState.on) loadSwell(); }, 15 * 60 * 1000);
+  // the click-anywhere rows: the slider's hour while the layer is on, else the hour nearest now
+  async function swReadout(ll) {
+    if (ll.lng > SW_NEAR_LON) return '';
+    if (!swState.data) await new Promise(res => loadSwell(res));
+    const d = swState.data; if (!d || !(d.hours || []).length) return '';
+    const h = d.hours[swState.on ? swState.idx : curNearestNow(d)], g = await swGrid('swell', d, h.file), rows = [];
+    const parts = g ? [0, 1, 2].map(b => { const v = swAt(g, d, b, ll.lat, ll.lng); return v ? [v.h_m * SW_FT, v.per_s, v.dir] : null; }) : [];
+    const p = swPartsText(parts);
+    if (p) rows.push('<div>Swell: ' + p + ' <span style="color:#666">(GFS-Wave, ' + esc(curHourText(h.t)) + ')</span></div>');
+    const nd = swState.nd, nk = swNearIdx(h.t), n = nk >= 0 ? await swGrid('nwps', nd, nd.hours[nk].file) : null, v = n && swAt(n, nd, 0, ll.lat, ll.lng);
+    if (v) rows.push('<div>At the beach: <b>' + fmtSwell(v.h_m * SW_FT, v.per_s, v.dir) + '</b> <span style="color:#666">(NWPS, ' + esc(curHourText(nd.hours[nk].t)) + ')</span></div>');
+    return rows.join('');
+  }
+
+  // swell forecast charts in popups: a buoy's 7-day GFS-Wave series, a beach's 72 h NWPS series (rivers chart idiom)
+  let swPts = null, swPtsAt = 0, swPtsP = null;
+  function swPoints() {                // Promise of window.SWELL_POINTS, loaded on demand and kept 15 min
+    if (swPts && Date.now() - swPtsAt < 15 * 60 * 1000) return Promise.resolve(swPts);
+    if (!swPtsP) swPtsP = new Promise(res => loadScript('data/swell_points.js', () => { swPts = window.SWELL_POINTS || swPts; swPtsAt = Date.now(); swPtsP = null; res(swPts); }, () => { swPtsP = null; res(swPts); }));
+    return swPtsP;
+  }
+  // height (ft) as the line, the period written at each local noon, hover "6.2 ft at 15 s from WNW · Sat 7 AM"
+  function swChart(t0, dt, rows, w, h) {
+    const pts = (rows || []).map((e, i) => e && e[0] != null ? [t0 + i * dt, e[0], e] : null).filter(Boolean);
+    if (pts.length < 2) return '';
+    const x0 = pts[0][0], x1 = pts[pts.length - 1][0], X = t => ((t - x0) / ((x1 - x0) || 1)) * (w - 4) + 2;
+    const svg = coChart([{ pts: pts, color: '#2f6f8f' }], pts.map(p => [p[0], p[1], fmtSwell(p[2][0], p[2][1], p[2][2]) + ' · ' + curHourText(p[0])]), Date.now() / 1000, w, h, 0, Math.max(2, ...pts.map(p => p[1])) * 1.3);
+    if (!svg) return '';
+    let ticks = '';
+    const day = new Date(x0 * 1000); day.setHours(12, 0, 0, 0); if (day / 1000 < x0) day.setDate(day.getDate() + 1);
+    for (; day / 1000 <= x1; day.setDate(day.getDate() + 1)) {
+      const t = day / 1000, x = X(t).toFixed(1); let near = null;
+      for (const p of pts) if (Math.abs(p[0] - t) <= SW_MATCH_S && (!near || Math.abs(p[0] - t) < Math.abs(near[0] - t))) near = p;
+      ticks += '<line x1="' + x + '" y1="' + (h - 4) + '" x2="' + x + '" y2="' + h + '" stroke="#999"/>' +
+        '<text x="' + x + '" y="' + (h + 10) + '" font-size="9" font-family="system-ui" fill="#666" text-anchor="middle">' + day.toLocaleDateString([], { weekday: 'short' }) + '</text>' +
+        (near && near[2][1] != null ? '<text x="' + x + '" y="9" font-size="9" font-family="system-ui" fill="#444" text-anchor="middle">' + Math.round(near[2][1]) + ' s</text>' : '');
+    }
+    return svg.replace('<g class="trk"', ticks + '<g class="trk"');
+  }
+  function swBuoyHtml(P, id) {
+    const s = P && P.points && P.points[id]; if (!s || !s.p1) return '';
+    const c = swChart(s.t0, s.dt, s.p1, 260, 64); if (!c) return '';
+    return '<div style="margin-top:8px">7-day swell forecast (GFS-Wave)</div>' + c +
+      '<div style="font-size:11px;color:#666;margin-top:12px">primary swell height, ft, 3-hourly from the ' + esc(gfsRunText(P.cycle)) + ' run; period at local noon · hover for values</div>';
+  }
+  async function swOffshoreHtml(lat, lon) {   // the nearest buoy with a GFS-Wave series within 80 km, at the hour nearest now
+    const P = await swPoints(); if (!P || !P.points) return '';
+    await new Promise(res => buoyData ? res() : loadScript('data/buoys.js', () => { buoyData = window.BUOYS || buoyData; res(); }, res));
+    const b = buoyData && nearest(buoyData.stations, { lat: lat, lng: lon }, s => P.points[s.id]);
+    if (!b || b.km > 80) return '';
+    const s = P.points[b.s.id], now = Date.now() / 1000, parts = ['p1', 'p2', 'p3'].map(k => seriesAt({ t0: s.t0, dt: s.dt, p: s[k] }, now));
+    const txt = swPartsText(parts); if (!txt) return '';
+    return '<div style="margin-top:6px">offshore (GFS-Wave): ' + txt + ' <span style="color:#666">at ' + esc(b.s.name) + ', ' + b.km.toFixed(0) + ' km</span></div>';
+  }
+  map.on('popupopen', e => {
+    const pop = e.popup, el = pop.getElement(); if (!el) return;
+    const a = el.querySelector('[data-swfc]'), b = el.querySelector('[data-swoff]');
+    // re-fit the popup around the new content; pop.update() would call the content function again and wipe the fill
+    const fill = (box, html) => {
+      if (!html || !box.isConnected) return;
+      box.innerHTML = html; box.querySelectorAll('svg.rvchart').forEach(attachTracker);
+      if (pop._updateLayout) { pop._updateLayout(); pop._updatePosition(); pop._adjustPan(); }
+    };
+    if (a && !a.childElementCount) swPoints().then(P => fill(a, swBuoyHtml(P, a.dataset.swfc))).catch(() => {});
+    if (b && !b.childElementCount) { const [la, lo] = b.dataset.swoff.split(',').map(Number); swOffshoreHtml(la, lo).then(html => fill(b, html)).catch(() => {}); }
+  });
+
+  // surf beaches: NWPS nearshore series at curated spots
+  const beachLayer = L.layerGroup(), beachLabels = { layer: L.layerGroup(), items: [] };
+  let beachData = null;
+  function beachT() { const d = swState.data, h = swState.on && d && d.hours[swState.idx]; return h ? h.t : Date.now() / 1000; }
+  function beachCard(s) {
+    const now = Date.now() / 1000, off = NWPS_OFFICES.find(([k]) => k === s.wfo);
+    let html = '<div style="font:13px system-ui;min-width:240px"><b>' + esc(s.name) + '</b>' + (s.facing != null ? ' <span style="color:#666">faces ' + compass(s.facing) + ' (' + Math.round(s.facing) + '°)</span>' : '');
+    if (s.series) {
+      const e = seriesAt(s.series, now);
+      html += '<div style="margin-top:4px">now: ' + (e ? '<b>' + fmtSwell(e[0], e[1], e[2]) + '</b>' : 'no value for this hour') + '</div>';
+      const c = swChart(s.series.t0, s.series.dt, s.series.p, 260, 64);
+      if (c) html += c + '<div style="font-size:11px;color:#666;margin-top:12px">nearshore swell height, ft, 3-hourly for 72 h; period at local noon · hover for values</div>';
+    } else html += '<div style="color:#666;margin-top:4px">No NWPS nearshore grid covers this spot.</div>';
+    html += '<div data-swoff="' + s.lat + ',' + s.lon + '"></div>';
+    for (const k of ['swell', 'tide', 'level', 'hazards']) if (s[k]) html += '<div style="font-size:12px"><span style="color:#666">' + k + ':</span> ' + esc(s[k]) + '</div>';
+    html += '<div style="font-size:11px;color:#666;margin-top:4px">NOAA NWPS' + (off ? ', ' + off[1] + ' office' : '') + (s.sample ? ', sampled at ' + s.sample[0].toFixed(3) + ', ' + s.sample[1].toFixed(3) : '') + '. Open-water height, not face height; not for navigation.</div></div>';
+    return html;
+  }
+  function renderBeaches() {
+    beachLayer.clearLayers(); beachLabels.layer.clearLayers(); beachLayer.addLayer(beachLabels.layer); beachLabels.items = [];
+    if (!beachData) return;
+    const t = beachT(), list = beachData.spots || [];
+    let n = 0;
+    for (const s of list) {
+      const e = s.series ? seriesAt(s.series, t) : null;
+      let m;
+      if (!e || e[0] == null) {
+        m = L.circleMarker([s.lat, s.lon], { radius: 5, color: '#6b7280', weight: 1.5, fillOpacity: 0 });
+        m.bindTooltip(esc(s.name) + (s.series ? ': no nearshore value for this hour' : ': no nearshore grid here'), { direction: 'top', offset: [0, -6], opacity: .95 });
+      } else {
+        n++;
+        m = L.circleMarker([s.lat, s.lon], { radius: 6, color: '#111', weight: 1, fillColor: SWELL_BINS[swellBin(e[0])][1], fillOpacity: .9 });
+        const lbl = beachLabel(e);
+        m.bindTooltip(esc(s.name) + ': ' + lbl, { direction: 'top', offset: [0, -10], opacity: .95 });
+        beachLabels.items.push([m.getLatLng(), lbl, null]);
+      }
+      m.bindPopup(() => beachCard(s), { maxWidth: 300 });
+      beachLayer.addLayer(m);
+    }
+    coRelabel(beachLabels, beachLayer, 9);
+    $('beachInfo').innerHTML = '<div class="muted">' + n + ' of ' + list.length + ' spots have a nearshore value for ' + esc(swState.on ? curHourText(t) : 'now') + ' · hollow: no value · updated ' + esc(beachData.updated || '') + '</div>' +
+      legendHtml(SWELL_BINS, x => x === 20 ? '20+' : String(x)) +
+      '<div class="note" style="margin-top:18px">feet, NWPS swell height just seaward of each beach; labels add the peak period. NWPS: Washington coast from the 4 km office grid, Oregon from 1-2 km nests; runs twice a day (Portland more often); heights are open-water significant height, not face height. Not for navigation. Source: NOAA NWPS (Seattle, Portland, Medford offices).</div>';
+  }
+  function loadBeaches() { loadScript('data/beaches.js', () => { beachData = window.BEACHES || beachData; renderBeaches(); }, () => { if (!beachData) $('beachInfo').innerHTML = '<div class="muted">surf beach forecast not available yet</div>'; }); }
+  $('lyBeaches').onchange = e => { if (e.target.checked) { beachLayer.addTo(map); if (!beachData) loadBeaches(); else renderBeaches(); } else map.removeLayer(beachLayer); };
+  map.on('moveend', () => coRelabel(beachLabels, beachLayer, 9));
+  setInterval(() => { if (map.hasLayer(beachLayer)) loadBeaches(); }, 15 * 60 * 1000);
 
   // ---------- webcams ----------
   const camLayer = L.featureGroup(), wedgeLayer = L.layerGroup();
@@ -2772,6 +3139,7 @@ void main() {
       await new Promise(res => sstData ? res() : loadScript('data/sst.js', () => { sstData = window.SST || sstData; res(); }, res));
       if (sstData) { const v = sample(await getGrid('sst'), ll); if (v != null) rows.push('<div>Sea surface temp: <b>' + Math.round(v) + '°F</b> <span style="color:#666">(satellite, ' + esc(sstData.date) + ')</span></div>'); }
       if (curState.data) { const r = await curReadout(ll).catch(() => ''); if (r) rows.push(r); }
+      { const r = await swReadout(ll).catch(() => ''); if (r) rows.push(r); }
       await new Promise(res => buoyData ? res() : loadScript('data/buoys.js', () => { buoyData = window.BUOYS || buoyData; res(); }, res));
       if (buoyData) {
         const b = nearest(buoyData.stations, ll, s => !buoyStale(s, nowS) && (s.hs_ft != null || s.wspd_mph != null || s.wtmp_f != null));
@@ -2898,7 +3266,7 @@ void main() {
   }
   // END migrateDefault
   const DEF_KEY = 'radar.default';
-  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun', 'lyBuoys', 'lyTides', 'lyMarine', 'lySst', 'lyCurrents'];
+  const DEF_CHECKS = ['lyRadar', 'lySat', 'lyStations', 'lyCams', 'lyFz', 'fzBands', 'lyFcst', 'lyAvy', 'lyAccum', 'lySki', 'lySnodas', 'lySnotel', 'lyRivers', 'lyStf', 'lyAqSt', 'lyAqGrid', 'lyFires', 'fireQuiet', 'lyHot', 'lySmoke', 'lyAlerts', 'lySlope', 'lySun', 'lyBuoys', 'lyTides', 'lyMarine', 'lySst', 'lyCurrents', 'lySwell', 'lyBeaches'];
   const DEF_SELECTS = ['accumSrc', 'snodasSel', 'rvModeSel', 'fcSel', 'speed', 'span'];
   const DEF_RANGES = ['radarOpacity', 'satOpacity', 'slopeOpacity', 'smokeOpacity'];
   function readDefault() { try { return JSON.parse(localStorage.getItem(DEF_KEY) || 'null'); } catch (e) { return null; } }
