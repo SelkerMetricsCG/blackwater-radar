@@ -44,7 +44,8 @@ SKIP_WITHIN_MIN = 30               # judgment call (2026-09-28): a queued second
 STATE_PREFIX = region.prefix() + "state/"
 STATE_FILES = ["dem_z7.npy", "huc6.geojson", "station_meta_cache.json", "snotel_meta_cache.json", "usgs_median_cache.json", "nwps_cache.json",
                "usgs_lid_cache.json", "nws_stations_cache.json", "zone_cache.json", "snodas.js", "youtube_cache.json", "aq_cache.json",
-               "fires_cache.json", "smoke_cache.json", "tides_cache.json", "currents_cache.json"]
+               "fires_cache.json", "smoke_cache.json", "tides_cache.json", "currents_cache.json",
+               "swell_cache.json", "nwps_wave_cache.json"]
 STAMP = re.compile(r"[rs](\d{8}_\d{4})\.")
 
 
@@ -62,18 +63,23 @@ def stamp_of(key):
         return None
 
 
-CYCLE = re.compile(r"t(\d{2})z_(\d{8})")      # currents.py cycle names: sscofs_t15z_20261013-wcofs_t03z_20261013
+CYCLE = re.compile(r"t(\d{2})z_(\d{8})")      # cycle names: sscofs_t15z_20261013-wcofs_t03z_20261013, gfswave_t18z_20261015
+CYCLE_DIRS = ("/frames/currents/", "/frames/swell/", "/frames/nwps/")
 
 
 def currents_stamp(key):
-    """Start time (naive UTC) of the current-field cycle a frames/currents/ key belongs to; None if it has none."""
-    m = CYCLE.search(key.split("/frames/currents/")[-1]) if "/frames/currents/" in key else None
-    if not m:
+    """Start time (naive UTC) of the model cycle a frames/currents/, frames/swell/ or frames/nwps/ key belongs to (the
+    newest stamp when the cycle name holds several); None if the key is elsewhere or has none."""
+    d = next((d for d in CYCLE_DIRS if d in key), None)
+    if not d:
         return None
-    try:
-        return dt.datetime.strptime(m.group(2) + m.group(1), "%Y%m%d%H")
-    except ValueError:
-        return None
+    stamps = []
+    for hh, ymd in CYCLE.findall(key.split(d)[-1]):
+        try:
+            stamps.append(dt.datetime.strptime(ymd + hh, "%Y%m%d%H"))
+        except ValueError:
+            pass
+    return max(stamps) if stamps else None
 
 
 def touch(path):
@@ -149,7 +155,7 @@ def main():
             return
     r2sync.REMOTE = remote
     old = [] if hourly else [k for k in keys if k.split("/")[2] in ("radar", "sat", "dbz") and (stamp_of(k) or now) < cutoff]
-    if not hourly:      # current-field cycles: pruned by their start hour (UTC), same retention as the scans
+    if not hourly:      # current/swell/nwps cycles: pruned by their start hour (UTC), same retention as the scans
         cut_utc = utcnow().replace(tzinfo=None) - dt.timedelta(hours=RETAIN_H)
         old += [k for k in keys if (currents_stamp(k) or cut_utc) < cut_utc]
     if old:

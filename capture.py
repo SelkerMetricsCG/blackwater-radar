@@ -312,6 +312,16 @@ def capture_all():
                 ok.append("currents %s" % currents.build(log))
             except Exception as e:  # noqa: BLE001
                 log("currents FAILED: %r" % e)
+            try:
+                import swell
+                ok.append("swell %s" % swell.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("swell FAILED: %r" % e)
+            try:
+                import nwps
+                ok.append("nwps %s" % nwps.build(log))
+            except Exception as e:  # noqa: BLE001
+                log("nwps FAILED: %r" % e)
         try:
             import webcams
             ok.append("webcams %d" % webcams.build(log))
