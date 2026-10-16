@@ -67,3 +67,4 @@ def test_coastal_switches_are_saved_with_the_default():
     for ident in ("lyBuoys", "lyTides", "lyMarine", "lySst", "lyCurrents", "lySwell", "lyBeaches"):
         assert "'" + ident + "'" in checks
     assert re.search(r"d\.buoyMode = buoyMode", html) and re.search(r"if \(d\.buoyMode\)", html)
+    assert re.search(r"d\.swLook = swLook", html) and re.search(r"if \(d\.swLook\) setSwLook\(d\.swLook\)", html)

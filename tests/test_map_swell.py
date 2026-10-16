@@ -70,6 +70,26 @@ def test_arrow_length_by_period():
     assert run("[arrowLen(3), arrowLen(25), arrowLen(null)]") == [8, 24, 8]
 
 
+def test_streak_speed_by_period_and_zoom():
+    assert run("streakSpeed(6, 9)") == pytest.approx(1.12)                  # 0.4 + 6 * 0.12 px per frame at zoom 9
+    assert run("streakSpeed(15, 9)") == pytest.approx(2.2)
+    assert run("streakSpeed(6, 10)") == pytest.approx(2.24)                 # doubles per zoom level
+    assert run("streakSpeed(6, 13)") == pytest.approx(1.12 * 3)             # 2^4 clamped to 3
+    assert run("streakSpeed(6, 5)") == pytest.approx(1.12 * 0.5)            # 2^-4 clamped to 0.5
+    assert run("[streakSpeed(null, 9), streakSpeed(NaN, 9)]") == pytest.approx([0.4, 0.4])
+
+
+def test_streak_count_bounds():
+    assert run("[streakCount(7), streakCount(9), streakCount(11)]") == [1200, 2100, 3000]
+    assert run("[streakCount(3), streakCount(6.5), streakCount(11.5), streakCount(18)]") == [1200, 1200, 3000, 3000]
+
+
+def test_crest_length_by_period():
+    assert run("crestLen(10)") == pytest.approx(12)
+    assert run("crestLen(20)") == pytest.approx(19)
+    assert run("[crestLen(0), crestLen(null)]") == [5, 5]
+
+
 def test_travel_direction():
     assert run("travelDir(292)") == 112
     assert run("[travelDir(0), travelDir(180), travelDir(90), travelDir(359)]") == [180, 0, 270, 179]
@@ -121,7 +141,10 @@ def test_worker_url_from_index_file():
 def test_layers_are_wired_into_the_page():
     with open(os.path.join(ROOT, "map.html"), encoding="utf-8") as f:
         html = f.read()
-    for ident in ("lySwell", "swSlider", "swPlay", "swPrev", "swNext", "swOpacity", "swLabel", "swInfo", "lyBeaches", "beachInfo"):
+    for ident in ("lySwell", "swLook", "swSlider", "swPlay", "swPrev", "swNext", "swOpacity", "swLabel", "swInfo", "lyBeaches", "beachInfo"):
         assert 'id="' + ident + '"' in html
     assert html.index('id="lyCurrents"') < html.index('id="lySwell"') < html.index('id="lyBeaches"')
     assert "data-swfc" in html and "swReadout(ll)" in html
+    for look in ("streaks", "crests", "arrows"):
+        assert 'data-look="' + look + '"' in html
+    assert 'class="chip on" data-look="streaks"' in html and "let swLook = 'streaks'" in html

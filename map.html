@@ -345,7 +345,7 @@
     </div>
     <label class="opt"><input type="checkbox" id="lySwell"> Swell forecast
       <button type="button" class="help" aria-label="About the swell forecast layer" aria-expanded="false">?</button>
-      <span class="helptip" role="tooltip">The primary swell's height from NOAA's wave models, 3-hourly for the next 7 days. Offshore from GFS-Wave (WAVEWATCH III); near the coast, for the first 72 h, from the Nearshore Wave Prediction System run by the Seattle, Portland and Medford forecast offices, drawn on top. Arrows point where the swell travels; longer arrows mean longer periods. Click a spot for all three swell trains there. A model forecast, not observations; not for navigation.</span></label>
+      <span class="helptip" role="tooltip">The primary swell's height from NOAA's wave models, 3-hourly for the next 7 days. Offshore from GFS-Wave (WAVEWATCH III); near the coast, for the first 72 h, from the Nearshore Wave Prediction System run by the Seattle, Portland and Medford forecast offices, drawn on top. Moving streaks (or rolling crest lines, or arrows; pick under the layer) show where the swell travels; faster streaks and longer marks mean longer periods. Click a spot for all three swell trains there. A model forecast, not observations; not for navigation.</span></label>
     <div class="subwrap" data-for="lySwell">
       <div class="sub" id="swPlayer">
         <button type="button" class="chip" id="swPlay">Play</button>
@@ -353,6 +353,11 @@
         <button type="button" class="chip" id="swNext" title="3 hours later">&gt;</button>
         <input type="range" id="swSlider" min="0" max="56" step="1" value="0" aria-label="Forecast hour">
         <div id="swLabel"></div>
+      </div>
+      <div class="sub" id="swLook">
+        <button type="button" class="chip on" data-look="streaks">Streaks</button>
+        <button type="button" class="chip" data-look="crests">Crests</button>
+        <button type="button" class="chip" data-look="arrows">Arrows</button>
       </div>
       <div class="sub"><span class="muted">opacity</span><input type="range" id="swOpacity" min="0" max="1" step="0.05" value="0.75"></div>
       <div class="sub" id="swInfo" style="display:block"></div>
@@ -1641,6 +1646,12 @@
   function swellBin(ft) { if (ft == null || isNaN(ft)) return -1; let i = 0; for (let k = 1; k < SWELL_BINS.length; k++) if (ft >= SWELL_BINS[k][0]) i = k; return i; }
   // glyph length in screen px by period (spec ledger 7): 8 px at 6 s or less, 24 px at 20 s or more, linear between
   function arrowLen(per) { if (per == null || isNaN(per)) return 8; return 8 + 16 * (Math.min(20, Math.max(6, per)) - 6) / 14; }
+  // animated looks (spec ledger 9). Streaks: px per frame, (0.4 + 0.12 * period) at zoom 9, times 2^(zoom - 9) clamped to
+  // [0.5, 3]; particle count 1,200 at zoom 7 to 3,000 at zoom 11, linear, clamped. Crests: half-span of the crest stroke
+  // each side of its centre (panel B's L), 5 + 0.7 * period px
+  function streakSpeed(per, zoom) { const p = per > 0 ? per : 0; return (0.4 + p * 0.12) * Math.min(3, Math.max(0.5, Math.pow(2, zoom - 9))); }
+  function streakCount(zoom) { return Math.round(Math.min(3000, Math.max(1200, 1200 + (zoom - 7) * 450))); }
+  function crestLen(per) { return 5 + (per > 0 ? per : 0) * 0.7; }
   // the direction a swell travels toward, from the direction it comes from (both degrees clockwise from north)
   function travelDir(deg) { return (((deg + 180) % 360) + 360) % 360; }
   // index of the hour nearest t (unix s) in [{t}], or -1 when the nearest is more than maxDiff seconds away
@@ -1681,7 +1692,11 @@
   const SW_RGB = SWELL_BINS.map(([, c]) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)));
   const SW_NEAR_LON = -122.0;           // NWPS grids end at Puget Sound's east shore (-122.21 in the 2026-10-15 run); no swell rows east of this
   const SW_FILL_PX = 2, SW_GLYPH_PX = 28;   // fill cell and glyph spacing in screen px (spec ledger 7)
-  const swState = { on: false, data: null, nd: null, idx: 0, seq: 0, timer: null, gfs: null, near: null, nearD: null, off: null };
+  const SW_FIELD_PX = 4, SW_CREST_PX = 22;  // the animated looks' field cell and crest lattice in screen px (spec ledger 9)
+  const SW_LOOKS = ['streaks', 'crests', 'arrows'];
+  let swLook = 'streaks';
+  const swState = { on: false, data: null, nd: null, idx: 0, seq: 0, timer: null, gfs: null, near: null, nearD: null, off: null,
+    field: null, raf: 0, parts: [], crests: null, t: 0 };
   const swCache = new Map();           // kind:file -> Promise of {nx, ny, px}; the newest 8 (an NWPS frame decodes to 5 MB)
   function swGrid(kind, d, file) {
     const key = kind + ':' + file; let p = swCache.get(key);
@@ -1711,21 +1726,32 @@
       this._c = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
       this._c.style.pointerEvents = 'none'; this._c.style.opacity = $('swOpacity').value;
       this.getPane().appendChild(this._c);
+      // the glyphs on a second canvas above the fill, so the animated looks never re-rasterise the fill
+      this._g = L.DomUtil.create('canvas', 'leaflet-zoom-hide');
+      this._g.style.pointerEvents = 'none'; this._g.style.opacity = $('swOpacity').value;
+      this.getPane().appendChild(this._g);
       m.on('moveend zoomend resize', this._reset, this); this._reset();
     },
-    onRemove(m) { m.off('moveend zoomend resize', this._reset, this); L.DomUtil.remove(this._c); this._c = null; },
+    onRemove(m) {
+      m.off('moveend zoomend resize', this._reset, this); swStopAnim();
+      L.DomUtil.remove(this._c); L.DomUtil.remove(this._g); this._c = null; this._g = null; swState.field = null;
+    },
     _reset() {
-      const c = this._c; if (!c) return;
+      if (!this._c) return;
       const s = map.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1);
-      L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
-      c.width = Math.round(s.x * dpr); c.height = Math.round(s.y * dpr); c.style.width = s.x + 'px'; c.style.height = s.y + 'px';
-      c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const c of [this._c, this._g]) {
+        L.DomUtil.setPosition(c, map.containerPointToLayerPoint([0, 0]));
+        c.width = Math.round(s.x * dpr); c.height = Math.round(s.y * dpr); c.style.width = s.x + 'px'; c.style.height = s.y + 'px';
+        c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
       swDraw();
     },
   });
   const swLayer = new SwellLayer();
-  // one static picture of the hour: GFS-Wave partition-1 fill, NWPS on top where valid, then direction glyphs
-  function swDraw() {
+  // the hour: the static fill (GFS-Wave partition 1, NWPS on top where valid) on the fill canvas, then the glyphs
+  function swDraw() { swDrawFill(); swGlyphs(false); }
+  function swDrawFill() {
+    swState.field = null;
     const c = swLayer._c; if (!c) return;
     const ctx = c.getContext('2d'), s = map.getSize();
     ctx.clearRect(0, 0, s.x, s.y);
@@ -1747,7 +1773,111 @@
     }
     octx.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, W * SW_FILL_PX, H * SW_FILL_PX);
-    // glyphs on a fixed screen spacing anchored to the world pixel grid, so they do not jump while panning
+    // the animated looks' field: the same NWPS-over-GFS sample every SW_FIELD_PX, -1 where nodata, plus the water cells
+    const S = SW_FIELD_PX, FW = Math.ceil(s.x / S), FH = Math.ceil(s.y / S), F = { S, w: FW, h: FH, hgt: new Float32Array(FW * FH).fill(-1),
+      per: new Float32Array(FW * FH), dir: new Float32Array(FW * FH), water: null, o: map.getPixelBounds().min, size: s, z: map.getZoom() };
+    const fx = [], fy = [], water = [];
+    for (let i = 0; i < FW; i++) { const lon = map.containerPointToLatLng([(i + 0.5) * S, 0]).lng; fx.push([(lon - G.lon0) / G.sx - 0.5, N ? (lon - N.lon0) / N.sx - 0.5 : 0]); }
+    for (let j = 0; j < FH; j++) { const lat = map.containerPointToLatLng([0, (j + 0.5) * S]).lat; fy.push([(G.lat1 - lat) / G.sy - 0.5, N ? (N.lat1 - lat) / N.sy - 0.5 : 0]); }
+    for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
+      const v = (n && sampleSwell(n.px, n.nx, n.ny, 0, fx[i][1], fy[j][1])) || sampleSwell(g.px, g.nx, g.ny, 0, fx[i][0], fy[j][0]);
+      if (!v || !(v.h_m > 0)) continue;
+      const k = j * FW + i; F.hgt[k] = v.h_m; F.per[k] = v.per_s; F.dir[k] = v.dir; water.push(k);
+    }
+    F.water = Int32Array.from(water); swState.field = F;
+  }
+  // field index under container px (x, y), or -1 off the field or where it is nodata
+  function swFieldAt(F, x, y) {
+    if (!(x >= 0 && y >= 0)) return -1;
+    const i = Math.floor(x / F.S), j = Math.floor(y / F.S);
+    return i < F.w && j < F.h && F.hgt[j * F.w + i] > 0 ? j * F.w + i : -1;
+  }
+  // the glyph canvas for the chosen look; an hour change in the same view keeps the streak particles and their trails
+  function swGlyphs(force) {
+    swStopAnim();
+    const c = swLayer._g; if (!c) return;
+    const ctx = c.getContext('2d'), F = swState.field, prev = swState.parts.view;
+    const same = !force && F && prev && prev.z === F.z && prev.o.x === F.o.x && prev.o.y === F.o.y && prev.size.x === F.size.x && prev.size.y === F.size.y;
+    if (!(same && swLook === 'streaks' && swState.parts.length)) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore();
+      swState.parts = [];
+      if (F && swLook === 'streaks' && F.water.length) for (let k = streakCount(F.z); k > 0; k--) swState.parts.push(swSpawn({}));
+    }
+    swState.parts.view = F ? { z: F.z, o: F.o, size: F.size } : null;
+    swState.crests = F && swLook === 'crests' ? swCrestLattice(F) : null;
+    if (!F) return;
+    if (swLook === 'arrows') swArrows(ctx, F.size); else swAnimate();
+  }
+  function swSpawn(p) {               // a random visible water cell, a random spot inside it, a life of 60-120 frames
+    const F = swState.field, k = F.water[Math.floor(Math.random() * F.water.length)];
+    p.x = (k % F.w + Math.random()) * F.S; p.y = (Math.floor(k / F.w) + Math.random()) * F.S;
+    p.age = 0; p.life = 60 + Math.floor(Math.random() * 61);
+    return p;
+  }
+  // crest lattice every SW_CREST_PX anchored to the world pixel grid, like the arrows; the static part of each crest
+  function swCrestLattice(F) {
+    const sp = SW_CREST_PX, po = F.o, x0 = (((sp / 2 - po.x) % sp) + sp) % sp, y0 = (((sp / 2 - po.y) % sp) + sp) % sp, l = [];
+    for (let y = y0; y < F.size.y; y += sp) for (let x = x0; x < F.size.x; x += sp) {
+      const k = swFieldAt(F, x, y); if (k < 0) continue;
+      const th = travelDir(F.dir[k]) * Math.PI / 180, h = F.hgt[k], per = F.per[k];
+      l.push({ x, y, ux: Math.sin(th), uy: -Math.cos(th), L: crestLen(per), v: 0.25 + per * 0.07,
+        ph0: ((((x + po.x) * 7 + (y + po.y) * 13) % sp) + sp) % sp, a: Math.min(0.95, 0.25 + h * 0.3), w: 1.3 + Math.min(1.2, h * 0.3) });
+    }
+    return l;
+  }
+  function swFrame() {
+    swState.raf = 0;
+    const c = swLayer._g, F = swState.field;
+    if (!swState.on || document.hidden || !c || !F || swLook === 'arrows') return;
+    const ctx = c.getContext('2d'), s = F.size;
+    if (swLook === 'streaks') {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = 'rgba(0,0,0,0.90)'; ctx.fillRect(0, 0, c.width, c.height);   // fade the trails
+      ctx.restore();
+      const paths = [0, 1, 2, 3, 4, 5, 6].map(() => new Path2D()), used = paths.map(() => false);   // alpha 0.3 .. 0.9
+      for (const p of swState.parts) {
+        const k = swFieldAt(F, p.x, p.y);
+        if (k < 0 || p.age++ > p.life) { swSpawn(p); continue; }
+        const th = travelDir(F.dir[k]) * Math.PI / 180, sp = streakSpeed(F.per[k], F.z), x1 = p.x + Math.sin(th) * sp, y1 = p.y - Math.cos(th) * sp;
+        if (x1 < 0 || y1 < 0 || x1 > s.x || y1 > s.y || swFieldAt(F, x1, y1) < 0) { swSpawn(p); continue; }   // nothing drawn into nodata
+        const b = Math.round((Math.min(0.9, 0.3 + F.hgt[k] * 0.25) - 0.3) * 10);
+        paths[b].moveTo(p.x, p.y); paths[b].lineTo(x1, y1); used[b] = true; p.x = x1; p.y = y1;
+      }
+      ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      paths.forEach((pa, b) => { if (used[b]) { ctx.strokeStyle = 'rgba(20,30,50,' + (0.3 + b / 10).toFixed(1) + ')'; ctx.stroke(pa); } });
+    } else if (swState.crests) {
+      const sp = SW_CREST_PX, t = ++swState.t, groups = new Map();
+      ctx.clearRect(0, 0, s.x, s.y);
+      for (const q of swState.crests) {
+        const ph = ((t * q.v + q.ph0) % sp) - sp / 2, cx = q.x + q.ux * ph, cy = q.y + q.uy * ph, nx = -q.uy, ny = q.ux;   // slide shoreward and wrap
+        const a = q.a * (1 - Math.abs(ph) / (sp / 2) * 0.6), key = Math.round(a * 20) * 100 + Math.round(q.w * 5);
+        let pa = groups.get(key); if (!pa) groups.set(key, pa = new Path2D());
+        pa.moveTo(cx - nx * q.L, cy - ny * q.L); pa.quadraticCurveTo(cx + q.ux * 2.5, cy + q.uy * 2.5, cx + nx * q.L, cy + ny * q.L);   // bow toward the shore
+      }
+      ctx.lineCap = 'round';
+      groups.forEach((pa, key) => { ctx.strokeStyle = 'rgba(25,35,55,' + (Math.floor(key / 100) / 20).toFixed(2) + ')'; ctx.lineWidth = (key % 100) / 5; ctx.stroke(pa); });
+      const off = swState.off;   // the fill's own nodata mask trims crest ends that reach past the water
+      if (off && off.width) {
+        ctx.save(); ctx.globalCompositeOperation = 'destination-in'; ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, off.width * SW_FILL_PX, off.height * SW_FILL_PX); ctx.restore();
+      }
+    }
+    swState.raf = requestAnimationFrame(swFrame);
+  }
+  function swAnimate() { if (!swState.raf && swState.on && !document.hidden && swLook !== 'arrows' && swLayer._g && swState.field) swState.raf = requestAnimationFrame(swFrame); }
+  function swStopAnim() { if (swState.raf) cancelAnimationFrame(swState.raf); swState.raf = 0; }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) swStopAnim(); else swAnimate(); });
+  function setSwLook(v) {
+    if (!SW_LOOKS.includes(v)) return;
+    swLook = v;
+    document.querySelectorAll('#swLook .chip').forEach(c => c.classList.toggle('on', c.dataset.look === swLook));
+    swGlyphs(true);
+  }
+  document.querySelectorAll('#swLook .chip').forEach(c => c.onclick = () => setSwLook(c.dataset.look));
+  // the arrows look (static): glyphs on a fixed screen spacing anchored to the world pixel grid, so they do not jump while panning
+  function swArrows(ctx, s) {
+    const d = swState.data, g = swState.gfs, n = swState.near, nd = swState.nearD;
+    if (!d || !g) return;
     const po = map.getPixelBounds().min, sp = SW_GLYPH_PX, x0 = (((sp / 2 - po.x) % sp) + sp) % sp, y0 = (((sp / 2 - po.y) % sp) + sp) % sp;
     const path = new Path2D(), ca = Math.cos(0.5), sa = Math.sin(0.5), a = 4.5;
     for (let y = y0; y < s.y; y += sp) for (let x = x0; x < s.x; x += sp) {
@@ -1772,7 +1902,8 @@
     const d = swState.data, nd = swState.nd;
     $('swInfo').innerHTML = '<div class="muted">' + (d.hours || []).length + ' three-hourly steps · ' + esc(gfsRunText(d.cycle)) + (nd ? ' · ' + esc(nwpsRunText(nd.runs)) + ' to +' + Math.round((nd.hours[nd.hours.length - 1].t - nd.hours[0].t) / 3600) + ' h' : '') + ' · updated ' + esc(d.updated || '') + '</div>' +
       legendHtml(SWELL_BINS, x => x === 20 ? '20+' : String(x)) +
-      '<div class="note" style="margin-top:18px">feet, significant height of the primary swell (GFS-Wave partition 1; near the coast the NWPS total swell, drawn on top where a run covers the hour). Arrows point where the swell travels, 8 to 24 px for 6 to 20 s periods. Offshore from the 0.16° GFS-Wave grid; NWPS: Washington coast from the 4 km office grid, Oregon from 1-2 km nests. Sources: NOAA GFS-Wave (WAVEWATCH III) and NWPS (Seattle, Portland, Medford offices). A model forecast; not for navigation.</div>';
+      '<div class="note" style="margin-top:18px">feet, significant height of the primary swell (GFS-Wave partition 1; near the coast the NWPS total swell, drawn on top where a run covers the hour). Arrows point where the swell travels, 8 to 24 px for 6 to 20 s periods. Offshore from the 0.16° GFS-Wave grid; NWPS: Washington coast from the 4 km office grid, Oregon from 1-2 km nests. Sources: NOAA GFS-Wave (WAVEWATCH III) and NWPS (Seattle, Portland, Medford offices). A model forecast; not for navigation.</div>' +
+      '<div class="note">streaks: dots run with the swell, faster for longer periods; crests: wave lines marching shoreward</div>';
   }
   function swShow(idx) {               // fetch and decode the hour (GFS-Wave and, within 90 min, NWPS), then redraw once
     const d = swState.data; if (!d || !(d.hours || []).length) return;
@@ -1825,7 +1956,7 @@
   $('swPrev').onclick = () => { swPause(); swShow(swState.idx - 1); };
   $('swNext').onclick = () => { swPause(); swShow(swState.idx + 1); };
   $('swPlay').onclick = () => { if (swState.timer) swPause(); else if (swState.data) { $('swPlay').textContent = 'Pause'; swTick(); } };
-  $('swOpacity').oninput = e => { if (swLayer._c) swLayer._c.style.opacity = e.target.value; };
+  $('swOpacity').oninput = e => { if (swLayer._c) { swLayer._c.style.opacity = e.target.value; swLayer._g.style.opacity = e.target.value; } };
   setInterval(() => { if (swState.on) loadSwell(); }, 15 * 60 * 1000);
   // the click-anywhere rows: the slider's hour while the layer is on, else the hour nearest now
   async function swReadout(ll) {
@@ -3283,7 +3414,7 @@ void main() {
     d.checks = {}; DEF_CHECKS.forEach(id => { if ($(id)) d.checks[id] = $(id).checked; });
     d.selects = {}; DEF_SELECTS.forEach(id => { if ($(id)) d.selects[id] = $(id).value; });
     d.ranges = {}; DEF_RANGES.forEach(id => { if ($(id)) d.ranges[id] = $(id).value; });
-    d.stWin = stWin; d.stMode = stMode; d.skiWin = skiWin; d.buoyMode = buoyMode;
+    d.stWin = stWin; d.stMode = stMode; d.skiWin = skiWin; d.buoyMode = buoyMode; d.swLook = swLook;
     d.snMode = snMode; d.snEl = snEl; d.snWin = snWin; d.snDepth = snDepth;
     d.views = d.views || {}; d.views[window.REGION] = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     try { localStorage.setItem(DEF_KEY, JSON.stringify(d)); } catch (e) {}
@@ -3300,6 +3431,7 @@ void main() {
     const sm = d.stMode || (d.selects || {}).stModeSel;     // older saves kept the mode in a dropdown
     if (sm && sm !== stMode) setStMode(sm);
     if (d.buoyMode) setBuoyMode(d.buoyMode);
+    if (d.swLook) setSwLook(d.swLook);
     if (d.snMode) snMode = d.snMode;
     if (d.snEl) setSnEl(d.snEl);
     if (d.snWin) snWin = String(d.snWin);
