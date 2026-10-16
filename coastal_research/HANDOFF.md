@@ -1,4 +1,4 @@
-# Handoff: Coastal section (2026-10-13 19:15)
+# Handoff: Coastal section (2026-10-15 17:30)
 
 ## State now
 **Live.** Pushed as `b95c603` (tests green), first data on R2 at 15:07-15:12, page deployed 15:2x (Worker version
@@ -7,6 +7,8 @@ rows, phone sheet, no console errors). Spec and ledger:
 `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; plan `docs/superpowers/plans/2026-10-13-coastal-section.md`;
 catalogue `CATALOG.md`; checks `CHECKS.md` (three headline numbers match their sources; two rows open for the live check).
 Surface currents flow layer **live** since 19:10 (pushed `aa3e2c0`, CI green, deploy version `30243ce8` with the Worker route; first cycle sscofs t21z + wcofs t03z on R2; live page identical to `web/index.html`). Spec `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.
+2026-10-15: GSHHG land mask (`currents_landmask_pnw.png`, `coastal_research/make_landmask.py`) and particles that die on land,
+pushed `706cb9a`, deployed; cycle names carry `-m1`; Chris confirmed the coast is clean at 17:28.
 
 ## Next steps, in order
 1. Tide predictions fill 60 stations per run; the tide layer is complete by about 18:00 on 2026-10-13.
