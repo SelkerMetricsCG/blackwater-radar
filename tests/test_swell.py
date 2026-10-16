@@ -148,7 +148,8 @@ def env(tmp_path, monkeypatch):
                     ("BUOYS", "data/buoys.js"), ("FRAME_DIR", "frames/swell")):
         monkeypatch.setattr(swell, name, str(tmp_path / p))
     os.makedirs(tmp_path / "data")
-    stations = [{"id": "46041", "lat": 47.353, "lon": -124.731}, {"id": "9447130", "lat": 47.603, "lon": -122.339}]
+    stations = [{"id": "46041", "lat": 47.353, "lon": -124.731, "hs_ft": 4.3},      # a wave buoy: gets a series
+                {"id": "9447130", "lat": 47.603, "lon": -122.339}]                 # a tide gauge, no waves: left out
     with open(swell.BUOYS, "w") as f:
         f.write("window.BUOYS = %s;\n" % json.dumps({"updated_t": 0, "stations": stations}))
     return {"tmp": tmp_path, "calls": calls}
