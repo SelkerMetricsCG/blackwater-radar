@@ -254,6 +254,9 @@ def test_cloud_prunes_current_cycles_by_their_start_hour():
     assert cloud.currents_stamp("pnw/frames/currents/sscofs_t15z_20261013-wcofs_t03z_20261013/h07.png") == dt.datetime(2026, 10, 13, 15)
     assert cloud.currents_stamp("pnw/frames/radar/r20261013_1500.webp") is None
     assert cloud.currents_stamp("pnw/frames/currents/odd/h01.png") is None
+    assert cloud.currents_stamp("pnw/frames/swell/gfswave_t18z_20261015/s07.png") == dt.datetime(2026, 10, 15, 18)
+    assert cloud.currents_stamp("pnw/frames/nwps/nwps_sew_t12z_20261015-pqr_t18z_20261015-mfr_t12z_20261015/h03.png") == dt.datetime(2026, 10, 15, 18)
+    assert cloud.currents_stamp("pnw/frames/waves/gfswave_t18z_20261015/s07.png") is None
 
 
 def test_land_mask_blanks_cells_on_land(tmp_path, monkeypatch):

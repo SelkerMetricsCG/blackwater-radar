@@ -6,7 +6,7 @@ Reads credentials from r2.env (next to this file):
 
 What gets uploaded, mirroring the local layout (all under the region's prefix):
   frames/{radar,sat,dbz,...}/*                                           (once each, immutable)
-  frames/currents/<cycle>/*.png                                          (once each, immutable; cloud.py prunes)
+  frames/{currents,swell,nwps}/<cycle>/*.png                             (once each, immutable; cloud.py prunes)
   frames/{accum,interp,forecast,mrms,freezing,snodas,aq,smoke}/*.webp,
   data/values/*.js, data/*.js, frames.js                                 (whenever the job rewrote them)
 A rewritten file goes up only if its bytes differ from R2's copy: cloud.py lists the region's frames/ and data/
@@ -163,14 +163,17 @@ def sync(log=print):
 
     # surface-current flow fields (currents.py): frames/currents/<cycle>/hNN.png, written once per cycle, never rewritten;
     # before the data files so data/currents.js never lists a PNG that is not up yet (cloud.py prunes old cycles)
-    cur = os.path.join(region.frames_dir(), "currents")
-    if os.path.isdir(cur):
+    # (swell.py and nwps.py write frames/swell/ and frames/nwps/ the same way)
+    for kind in ("currents", "swell", "nwps"):
+        cur = os.path.join(region.frames_dir(), kind)
+        if not os.path.isdir(cur):
+            continue
         for root, _, files in os.walk(cur):
             for fn in files:
                 if not fn.endswith(".png"):
                     continue
                 p = os.path.join(root, fn)
-                key = PREFIX + "frames/currents/" + os.path.relpath(p, cur).replace(os.sep, "/")
+                key = PREFIX + "frames/" + kind + "/" + os.path.relpath(p, cur).replace(os.sep, "/")
                 if key in done or key in REMOTE:
                     continue
                 put(s3, bucket, key, p, "public, max-age=31536000, immutable")
