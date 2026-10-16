@@ -1,4 +1,4 @@
-# Handoff: Coastal section (2026-10-15 18:00)
+# Handoff: Coastal section (2026-10-15 19:20)
 
 ## State now
 **Live.** Pushed as `b95c603` (tests green), first data on R2 at 15:07-15:12, page deployed 15:2x (Worker version
@@ -10,7 +10,7 @@ Surface currents flow layer **live** since 19:10 (pushed `aa3e2c0`, CI green, de
 2026-10-15: GSHHG land mask (`currents_landmask_pnw.png`, `coastal_research/make_landmask.py`) and particles that die on land,
 pushed `706cb9a`, deployed; cycle names carry `-m1`; Chris confirmed the coast is clean at 17:28.
 
-Swell forecast built on branch `swell` (spec `docs/superpowers/specs/2026-10-15-swell-forecast-design.md`), not yet merged to `main`; awaiting push and deploy (Worker route change included).
+Swell forecast **live** 2026-10-15 19:1x: pushed `8e34c09` + CI fix `66930da` (green), deploy version `5ba5b59f`; first data on R2 from the 19:04 hourly run (swell 57 steps, nwps 25 h, 26 of 29 beaches, 14 buoy forecasts).
 
 ## Next steps, in order
 1. Tide predictions fill 60 stations per run; the tide layer is complete by about 18:00 on 2026-10-13.
@@ -18,7 +18,6 @@ Swell forecast built on branch `swell` (spec `docs/superpowers/specs/2026-10-15-
    the Westport tide curve against CO-OPS's plot, and the marine zone colours against the CWF text.
 3. Chris's judgment calls to confirm: spec §6 rows 1-13 (bins, stale thresholds, the cosine curve, the 60-per-run refresh).
 4. Live check of the currents layer still to do: particle direction at Admiralty Inlet against the Tides & currents layer's flood/ebb for the same hour (`CHECKS.md`); the spec's judgment calls (§5) await Chris.
-5. After the push, the first hourly run writes swell (about 1 min) and nwps (about 1 min, 60-100 MB download) frames; then deploy; then the open CHECKS rows.
 
 ## Deferred (catalogued with endpoints in `CATALOG.md`)
 Spot table with per-spot checklist (needs Chris's review of `user_needs.md`), HF radar surface currents, HRDPS wind for the Strait, biotoxin and beach-closure layers, Canadian marine areas,
