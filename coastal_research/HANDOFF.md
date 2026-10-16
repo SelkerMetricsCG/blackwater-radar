@@ -1,4 +1,4 @@
-# Handoff: Coastal section (2026-10-15 19:20)
+# Handoff: Coastal section (2026-10-15 20:20)
 
 ## State now
 **Live.** Pushed as `b95c603` (tests green), first data on R2 at 15:07-15:12, page deployed 15:2x (Worker version
@@ -11,6 +11,10 @@ Surface currents flow layer **live** since 19:10 (pushed `aa3e2c0`, CI green, de
 pushed `706cb9a`, deployed; cycle names carry `-m1`; Chris confirmed the coast is clean at 17:28.
 
 Swell forecast **live** 2026-10-15 19:1x: pushed `8e34c09` + CI fix `66930da` (green), deploy version `5ba5b59f`; first data on R2 from the 19:04 hourly run (swell 57 steps, nwps 25 h, 26 of 29 beaches, 14 buoy forecasts).
+
+Swell look (2026-10-15 20:1x): Chris compared four glyph styles on `coastal_research/swell_look_test.html` and chose particle
+streaks (default), crests as an option, arrows kept; the corduroy shader was dropped (phase jumps where the direction changes).
+Built as the `swLook` chips on `lySwell` (spec ledger row 9); merged to `main`, awaiting push and deploy.
 
 ## Next steps, in order
 1. Tide predictions fill 60 stations per run; the tide layer is complete by about 18:00 on 2026-10-13.
