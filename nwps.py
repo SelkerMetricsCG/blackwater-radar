@@ -273,6 +273,9 @@ def beach_series(spots, grids, runs, t0):
     for sp in spots:
         lat0, lon0, fac = float(sp["lat"]), float(sp["lon"]), float(sp["facing"])
         row = {"name": sp["name"], "lat": lat0, "lon": lon0, "facing": fac, "sample": None, "wfo": None, "series": None}
+        for k in ("state", "swell", "tide", "level", "hazards", "source"):      # the spot's notes, shown in its popup
+            if sp.get(k):
+                row[k] = sp[k]
         cover = [(g["cell"], key) for key, g in grids.items()
                  if currents.nearest(g["lat"], [lat0])[0] >= 0 and currents.nearest(g["lon"], [lon0])[0] >= 0]
         if cover:

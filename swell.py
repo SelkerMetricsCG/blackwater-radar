@@ -298,8 +298,9 @@ def read_buoys(path=None):
         data = json.loads(text[text.index("{"):text.rindex("}") + 1])
     except (OSError, ValueError):
         return None
+    # wave-reporting stations only: a tide gauge 2 km from a beach must not become its "offshore" point
     return [(str(s["id"]), float(s["lat"]), float(s["lon"])) for s in data.get("stations", [])
-            if s.get("id") is not None and s.get("lat") is not None and s.get("lon") is not None]
+            if s.get("hs_ft") is not None and s.get("id") is not None and s.get("lat") is not None and s.get("lon") is not None]
 
 
 def sample_points(lat, lon, step_fields, plat, plon):
