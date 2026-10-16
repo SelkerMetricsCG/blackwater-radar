@@ -205,7 +205,7 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   two days behind). Marine (`PZ`) alerts are pulled with the state alerts and clipped to the window (`alerts.in_window`).
   Tide curves between predicted extremes are a cosine (judgment call; the extremes are exact). Spec and parameter
   ledger: `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; sources and the deferred list (HF radar
-  currents, GFS-Wave swell raster, NWPS, HRDPS, biotoxin layers, the spot table): `coastal_research/CATALOG.md`;
+  currents, HRDPS, biotoxin layers, the full spot table): `coastal_research/CATALOG.md`;
   checks: `coastal_research/CHECKS.md`. No name or email goes into a header these modules send.
 - Surface currents (`currents.py`, 2026-10-13, hourly slot after `sst`, `"coastal"` regions): reads NOAA SSCOFS (4 cycles a day,
   03/09/15/21Z) and WCOFS (03Z, interpolated in time to SSCOFS's hours) as surface slices over the CO-OPS OPeNDAP server
@@ -220,6 +220,18 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   The page draws a canvas particle layer (`lyCurrents`, Coastal group): hour slider, Play, knots legend, "not for navigation"
   note; credit "NOAA CO-OPS SSCOFS and WCOFS operational forecast models". Spec
   `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.
+- Swell forecast (`swell.py`, `nwps.py`, 2026-10-15, hourly slot after `currents`, `"coastal"` regions): GFS-Wave west-coast
+  0.16° grid from AWS `noaa-gfs-bdp-pds` by byte range (through each step's `.idx`), four runs a day, 3-hourly to +168 h, three
+  swell partitions. Writes `frames/swell/<cycle>/sNN.png` (three bands stacked, partition 1 on top; RGB = height 0.1 m, period
+  0.5 s, direction/2; B 255 = nodata), `data/swell.js`, `data/swell_points.js` (buoy point series), state `swell_cache.json`.
+  NWPS from NOMADS (offices sew, pqr, mfr): `filter_wrnwps.pl` subset of shts/perpw/dirpw, whole file as fallback. **No partitions,
+  so the band is total swell.** sew has only the ~4 km CG1; pqr and mfr have ~0.4-0.7 km nests CG2-CG4. The "CG2" of sew and
+  "CG5" of pqr/mfr are ~5 km copies with heights about a quarter of CG1's, so they are skipped.
+  3-hourly to +72 h on the 0.01° grid, with the currents land mask. Writes `frames/nwps/<cycle>/hNN.png`, `data/nwps.js`,
+  `data/beaches.js` from `surf_spots.json` (29 documented spots; sample point = nearest nest water cell within 3 km seaward along
+  the facing), state `nwps_wave_cache.json` (`nwps_cache.json` is the river forecast's).
+  Worker route `/<region>/(currents|swell|nwps)/...` serves the PNGs from R2. Page layers `lySwell`, `lyBeaches`; buoy popup charts.
+  Credits: "NOAA GFS-Wave (WAVEWATCH III)", "NOAA NWPS (Seattle, Portland, Medford offices)". Spec `docs/superpowers/specs/2026-10-15-swell-forecast-design.md`.
 - Ideas Chris has parked for this site: `BlackwaterLabs/NEXT_PROJECTS.md`, "Radar-site ideas parked for later".
 
 ## Gotchas
@@ -258,3 +270,4 @@ npx wrangler deploy      # Worker "radar": ./web plus site_worker.js; Node must 
   `docs/superpowers/specs/2026-10-13-coastal-section-design.md`; research `coastal_research/`.
 - 2026-10-13: Surface currents flow layer (Coastal group): NOAA SSCOFS + WCOFS surface fields as animated particles; spec
   `docs/superpowers/specs/2026-10-13-currents-flow-layer-design.md`.
+- 2026-10-15: Swell forecast (Coastal group): GFS-Wave offshore swell partitions to 7 days, NWPS nearshore swell, buoy forecast charts, 29 surf beaches; spec `docs/superpowers/specs/2026-10-15-swell-forecast-design.md`.
