@@ -1732,6 +1732,7 @@
     const d = swState.data, g = swState.gfs, n = swState.near, nd = swState.nearD;
     if (!d || !g || !s.x || !s.y) return;   // a hidden map has no size
     const G = curGeom(d), N = n && curGeom(nd), W = Math.ceil(s.x / SW_FILL_PX), H = Math.ceil(s.y / SW_FILL_PX);
+    if (!(W > 0 && H > 0)) { requestAnimationFrame(swDraw); return; }   // first draw while the map is still laying out: try again next frame
     const gx = new Float64Array(W), gy = new Float64Array(H), qx = new Float64Array(W), qy = new Float64Array(H);
     for (let i = 0; i < W; i++) { const lon = map.containerPointToLatLng([(i + 0.5) * SW_FILL_PX, 0]).lng; gx[i] = (lon - G.lon0) / G.sx - 0.5; if (N) qx[i] = (lon - N.lon0) / N.sx - 0.5; }
     for (let j = 0; j < H; j++) { const lat = map.containerPointToLatLng([0, (j + 0.5) * SW_FILL_PX]).lat; gy[j] = (G.lat1 - lat) / G.sy - 0.5; if (N) qy[j] = (N.lat1 - lat) / N.sy - 0.5; }
